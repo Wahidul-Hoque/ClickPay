@@ -1,0 +1,11 @@
+Project Name: ClickPay
+
+Project URL: https://pnzkaglrsovrbkmmhbnn.supabase.co
+
+Publishable key: sb_publishable_nr7c7sL_5BGHuFnIuwQd6Q_FK3sO1E6
+
+Direct connection string:    postgresql://postgres:[123FW_m6AK91]@db.pnzkaglrsovrbkmmhbnn.supabase.co:5432/postgres
+
+Database Password: 123FW_m6AK91
+
+Region: South Asia(Mumbai)
