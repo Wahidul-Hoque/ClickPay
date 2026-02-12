@@ -58,14 +58,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const navItems = [
-    { name: 'Overview', href: '/dashboard', icon: Wallet },
-    { name: 'Send Money', href: '/dashboard/send', icon: Send },
-    { name: 'Transactions', href: '/transactions', icon: FileText },
-    { name: 'QR Code', href: '/qr', icon: QrCode },
-    { name: 'Bills', href: '/bills', icon: CreditCard },
-    { name: 'Loans', href: '/loans', icon: Download },
-    { name: 'Savings', href: '/savings', icon: TrendingUp },
-  ];
+  { name: 'Overview', href: '/dashboard', icon: Wallet },
+  { name: 'Send Money', href: '/dashboard/send', icon: Send },
+  { name: 'Transactions', href: '/dashboard/transactions', icon: FileText },
+  { name: 'QR Code', href: '/dashboard/qr', icon: QrCode },
+  { name: 'Bills', href: '/dashboard/bills', icon: CreditCard },
+  { name: 'Loans', href: '/dashboard/loans', icon: Download },
+  { name: 'Savings', href: '/dashboard/savings', icon: TrendingUp },
+];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -117,7 +117,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Bottom actions */}
           <div className="p-4 border-t space-y-1">
             <Link
-              href="/settings"
+              href="/dashboard/settings"
               className="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
             >
               <Settings className="w-5 h-5" />
