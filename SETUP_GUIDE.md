@@ -1,396 +1,527 @@
-# ClickPay Setup Guide
+# ClickPay - Complete Setup Guide
 
-## Step-by-Step Setup Instructions
+## 🎯 Project Overview
 
-### 1. Prerequisites Check
+**ClickPay** is a comprehensive digital wallet system similar to bKash, built as a DBMS sessional project.
 
-Before starting, ensure you have:
-- ✅ Node.js version 18 or higher installed
-- ✅ npm or yarn package manager
-- ✅ A Supabase account
-- ✅ Your database schema already applied in Supabase
+**Team:**
+- Wahidul Haque (2305054)
+- Abu Bakar Siddique (2305059)
 
-Check Node.js version:
-```bash
-node --version
-# Should show v18.0.0 or higher
+**Tech Stack:**
+- Frontend: Next.js 14 (App Router) + Tailwind CSS
+- Backend: Node.js 22+ + Express
+- Database: PostgreSQL (Supabase)
+
+---
+
+## 📁 Project Structure
+
+```
+clickpay-project/
+├── frontend/                 # Next.js 14 application
+│   ├── src/
+│   │   ├── app/             # App Router pages
+│   │   │   ├── auth/        # Login & Register
+│   │   │   ├── dashboard/   # Main dashboard
+│   │   │   └── ...          # Other feature pages (placeholders)
+│   │   ├── components/      # Reusable components
+│   │   ├── lib/             # API client, store, utilities
+│   │   └── ...
+│   └── package.json
+│
+└── backend/                  # Node.js Express API
+    ├── src/
+    │   ├── config/          # Database connection
+    │   ├── controllers/     # Route handlers
+    │   ├── services/        # Business logic (raw SQL)
+    │   ├── middlewares/     # Auth, validation, errors
+    │   ├── routes/          # API routes
+    │   ├── validators/      # Input validation
+    │   ├── utils/           # Helper functions
+    │   └── server.js        # Entry point
+    └── package.json
 ```
 
-### 2. Database Setup in Supabase
+---
 
-1. **Go to Supabase Dashboard:**
-   - Visit https://supabase.com
-   - Log in to your account
-   - Select your project (pnzkaglrsovrbkmmhbnn)
+## 🚀 Quick Start
 
-2. **Verify Tables:**
-   - Click on "Table Editor" in the left sidebar
-   - You should see all 17 tables from your schema:
-     - users
-     - wallets
-     - transactions
-     - transaction_events
-     - compliance_checks
-     - agent_fees
-     - external_topups
-     - billers
-     - bill_payments
-     - qr_codes
-     - money_requests
-     - fixed_savings_accounts
-     - loan_applications
-     - loans
-     - subscriptions
-     - merchant_profiles
-     - notifications
-
-3. **Add Sample Data:**
-   - Go to SQL Editor
-   - Run this query to add sample billers:
-
-```sql
--- Add sample billers for bill payments
-INSERT INTO billers (name, category, status) VALUES
-('DESCO', 'electricity', 'active'),
-('DPDC', 'electricity', 'active'),
-('Dhaka WASA', 'water', 'active'),
-('Chittagong WASA', 'water', 'active'),
-('Grameenphone', 'mobile', 'active'),
-('Robi', 'mobile', 'active'),
-('Banglalink', 'mobile', 'active'),
-('Link3', 'internet', 'active'),
-('Carnival Internet', 'internet', 'active');
-
--- Create a test user (optional)
-INSERT INTO users (name, phone, nid, epin_hash, role, status) VALUES
-('Test User', '01700000000', '1234567890', '1234', 'user', 'active');
-
--- Create wallet for test user
-INSERT INTO wallets (user_id, wallet_type, balance, status)
-SELECT user_id, 'user', 5000.00, 'active'
-FROM users WHERE phone = '01700000000';
-```
-
-### 3. Project Installation
-
-1. **Navigate to project directory:**
-```bash
-cd clickpay-frontend
-```
-
-2. **Install all dependencies:**
-```bash
-npm install
-```
-
-This will install:
-- Next.js 14
-- React 18
-- Tailwind CSS
-- Supabase Client
-- Recharts (for analytics)
-- QRCode libraries
-- Date utilities
-- Lucide icons
-
-3. **Wait for installation to complete:**
-   - This may take 2-5 minutes
-   - You should see a success message when done
-
-### 4. Environment Configuration
-
-The `.env.local` file is already configured with your Supabase credentials:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://pnzkaglrsovrbkmmhbnn.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-**Verify the file exists:**
-```bash
-ls -la .env.local
-```
-
-If it doesn't exist, create it with the above content.
-
-### 5. Run the Application
-
-1. **Start development server:**
-```bash
-npm run dev
-```
-
-2. **You should see:**
-```
-▲ Next.js 14.1.0
-- Local:        http://localhost:3000
-- Ready in 2.3s
-```
-
-3. **Open your browser:**
-   - Navigate to `http://localhost:3000`
-   - You should see the login page
-
-### 6. Test the Application
-
-#### Register a New Account:
-
-1. Click "Register" on the login page
-2. Fill in the form:
-   - **Name:** Your Name
-   - **Phone:** 01712345678 (any valid format)
-   - **NID:** 1234567890123 (any number)
-   - **ePin:** 1234 (at least 4 digits)
-   - **Confirm ePin:** 1234
-
-3. Click "Create Account"
-4. You should be redirected to the dashboard
-
-#### Test Login:
-
-1. Use the test user credentials:
-   - **Phone:** 01700000000
-   - **ePin:** 1234
-
-2. Click "Sign In"
-3. You should see the dashboard with balance: ৳5,000.00
-
-#### Test Send Money:
-
-1. First, create two test users (User A and User B)
-2. Log in as User A
-3. Click "Send Money"
-4. Enter:
-   - **Recipient Phone:** User B's phone
-   - **Amount:** 100
-   - **Reference:** Test transfer
-
-5. Click "Send Money"
-6. You should see success message
-7. Balance should update automatically
-
-#### Test Bill Payment:
-
-1. Click "Pay Bills"
-2. Select a biller (e.g., DESCO)
-3. Enter:
-   - **Account Number:** 123456
-   - **Amount:** 500
-
-4. Click "Pay Bill"
-5. Payment should complete successfully
-
-#### Test QR Code:
-
-1. Click "QR Pay"
-2. Click "Create QR"
-3. Select:
-   - **Type:** Static
-   - **Amount:** 50 (optional)
-   - **Note:** Test QR
-
-4. Click "Create QR Code"
-5. QR code image should be generated
-
-### 7. Troubleshooting
-
-#### Issue: "Module not found" errors
-**Solution:**
-```bash
-rm -rf node_modules package-lock.json
-npm install
-```
-
-#### Issue: "Cannot connect to database"
-**Solution:**
-1. Check your internet connection
-2. Verify Supabase project is active
-3. Check `.env.local` has correct credentials
-4. Go to Supabase Dashboard > Settings > API to verify URL and key
-
-#### Issue: "User not found" on login
-**Solution:**
-1. Make sure you've created a user account via registration
-2. Or insert test user using the SQL query above
-3. Verify user exists in Supabase Table Editor
-
-#### Issue: Port 3000 already in use
-**Solution:**
-```bash
-# Kill the process using port 3000
-npx kill-port 3000
-
-# Or run on a different port
-npm run dev -- -p 3001
-```
-
-#### Issue: "Balance not updating"
-**Solution:**
-1. Check browser console for errors (F12)
-2. Verify wallet was created for the user
-3. Check Supabase Table Editor > wallets table
-
-### 8. Next Steps
-
-After basic setup works:
-
-1. **Explore all features:**
-   - Dashboard overview
-   - Send money
-   - QR payments
-   - Bill payments
-   - Transaction history
-   - Profile settings
-
-2. **Customize the app:**
-   - Change colors in `tailwind.config.js`
-   - Add your logo
-   - Modify page layouts
-
-3. **Add more features:**
-   - Complete the placeholder pages
-   - Add analytics charts
-   - Implement notifications
-   - Add merchant features
-
-4. **Prepare for production:**
-   - Implement proper password hashing
-   - Add JWT authentication
-   - Set up Row Level Security in Supabase
-   - Add error tracking (e.g., Sentry)
-   - Implement logging
-
-### 9. Development Workflow
-
-**Making changes:**
-1. Edit files in your code editor
-2. Save the file
-3. Next.js will auto-reload the browser
-4. Check for errors in terminal or browser console
-
-**Adding new pages:**
-1. Create a new folder in `app/dashboard/`
-2. Add a `page.tsx` file
-3. Follow the pattern from existing pages
-
-**Testing:**
-```bash
-# Build for production (checks for errors)
-npm run build
-
-# Run production build
-npm start
-```
-
-### 10. Common Commands
+### 1. Backend Setup
 
 ```bash
+cd backend
+
 # Install dependencies
 npm install
 
-# Run development server
+# Create .env file
+cp .env.example .env
+
+# Update .env with your Supabase credentials
+# DATABASE_URL=postgresql://postgres.pnzkaglrsovrbkmmhbnn:123FW_m6AK91@aws-1-ap-south-1.pooler.supabase.com:6543/postgres
+# JWT_SECRET=your-secret-key-here
+
+# Start development server
 npm run dev
 
-# Build for production
-npm run build
-
-# Start production server
-npm start
-
-# Check for linting errors
-npm run lint
-
-# Update dependencies
-npm update
+# Server will run on http://localhost:5000
 ```
 
-### 11. File Structure Overview
-
-```
-clickpay-frontend/
-├── app/                    # Next.js App Router pages
-│   ├── dashboard/         # Protected dashboard pages
-│   ├── login/            # Login page
-│   ├── register/         # Registration page
-│   ├── layout.tsx        # Root layout
-│   ├── page.tsx          # Home page
-│   └── globals.css       # Global styles
-├── components/            # Reusable React components
-├── lib/                   # Utility functions & helpers
-│   ├── supabase.ts       # Database client
-│   ├── auth.ts           # Authentication
-│   └── database.ts       # Database queries
-├── public/               # Static files
-├── .env.local            # Environment variables
-├── package.json          # Dependencies
-├── tailwind.config.js    # Tailwind configuration
-└── tsconfig.json         # TypeScript configuration
-```
-
-### 12. Getting Help
-
-If you encounter issues:
-
-1. **Check the console:**
-   - Browser console (F12 > Console tab)
-   - Terminal where npm run dev is running
-
-2. **Check Supabase logs:**
-   - Supabase Dashboard > Logs
-
-3. **Common fixes:**
-   - Restart the development server
-   - Clear browser cache
-   - Delete node_modules and reinstall
-   - Check database schema is correct
-
-4. **Resources:**
-   - Next.js Docs: https://nextjs.org/docs
-   - Supabase Docs: https://supabase.com/docs
-   - Tailwind Docs: https://tailwindcss.com/docs
-
-### 13. Production Deployment
-
-When ready to deploy:
-
-1. **Vercel (Recommended):**
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy
-vercel
-```
-
-2. **Other platforms:**
-   - Netlify
-   - Railway
-   - Render
-   - AWS
-   - DigitalOcean
-
-**Important:** Set environment variables in your deployment platform!
-
----
-
-## Quick Start Summary
+### 2. Frontend Setup
 
 ```bash
-# 1. Install dependencies
+cd frontend
+
+# Install dependencies
 npm install
 
-# 2. Run development server
+# Create .env.local file
+cp .env.example .env.local
+
+# Update .env.local
+# NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
+
+# Start development server
 npm run dev
 
-# 3. Open browser
-# http://localhost:3000
-
-# 4. Register or login
-# Use phone + ePin authentication
-
-# 5. Start building!
+# Application will run on http://localhost:3000
 ```
 
 ---
 
-**Need help? Check the README.md for more detailed information!**
+## ✅ Implemented Features
+
+### Backend (Fully Functional)
+- ✅ User Registration with automatic wallet creation
+- ✅ User Login with JWT authentication
+- ✅ User Profile retrieval
+- ✅ Role-based access control (user, agent, admin)
+- ✅ Input validation with detailed error messages
+- ✅ PostgreSQL connection with raw SQL queries
+- ✅ Global error handling
+- ✅ CORS configuration
+- ✅ Security headers (Helmet)
+
+### Frontend (Fully Functional)
+- ✅ Beautiful landing page
+- ✅ User registration form with role selection
+- ✅ User login form
+- ✅ Protected dashboard with sidebar navigation
+- ✅ Responsive design (mobile-friendly)
+- ✅ JWT token management
+- ✅ Toast notifications
+- ✅ Global state management (Zustand)
+- ✅ Auto-redirect for unauthenticated users
+
+---
+
+## 📋 Placeholder Features (Routes Created, Implementation Pending)
+
+### Backend Routes Ready
+- Transactions (send, request, cash-in, cash-out, history)
+- Wallet Management (balance, payment methods, top-up)
+- QR Code (generate, scan, pay)
+- Bill Payments (billers, pay, history)
+- Loans (apply, repay, history)
+- Savings (create, break, interest calculation)
+- Subscriptions (create, pause, cancel)
+
+### Frontend Pages Structured
+- Transaction Management
+- Wallet Management
+- QR Code Features
+- Bill Payments
+- Loan Management
+- Fixed Savings
+- Subscriptions
+- Settings
+
+---
+
+## 🔐 Authentication Flow
+
+### Registration
+1. User fills: name, phone (BD format), NID, 5-digit ePin, role
+2. Backend validates input
+3. ePin is hashed with bcrypt
+4. User record created in `users` table
+5. Wallet automatically created in `wallets` table
+6. JWT token generated and returned
+7. Frontend stores token and user data
+8. User redirected to dashboard
+
+### Login
+1. User enters phone and 5-digit ePin
+2. Backend finds user by phone
+3. ePin verified using bcrypt
+4. JWT token generated
+5. User data and token returned
+6. Frontend stores and redirects to dashboard
+
+---
+
+## 🗄️ Database Schema (18 Tables)
+
+Your database already has these tables created:
+
+1. **users** - User accounts with ePin
+2. **wallets** - Digital wallets (user, agent, system)
+3. **payment_methods** - Linked bank/card accounts
+4. **transactions** - All financial transactions
+5. **transaction_events** - Transaction audit trail
+6. **compliance_checks** - KYC/AML verification
+7. **agent_fees** - Agent commission tracking
+8. **external_topups** - External money additions
+9. **billers** - Utility bill providers
+10. **bill_payments** - Bill payment records
+11. **qr_codes** - QR code payments
+12. **money_requests** - P2P fund requests
+13. **fixed_savings_accounts** - Savings accounts
+14. **loan_applications** - Loan applications
+15. **loans** - Active loans
+16. **subscriptions** - Recurring payments
+17. **merchant_profiles** - Merchant accounts
+18. **notifications** - User notifications
+
+---
+
+## 🛠️ How to Implement Remaining Features
+
+### Example: Implementing Send Money
+
+#### 1. Backend Service (`backend/src/services/transactionService.js`)
+
+```javascript
+import { query, getClient } from '../config/database.js';
+
+class TransactionService {
+  async sendMoney(fromUserId, toPhone, amount, epin) {
+    const client = await getClient();
+    
+    try {
+      await client.query('BEGIN');
+      
+      // 1. Verify sender's ePin
+      // 2. Get sender's wallet
+      // 3. Check sufficient balance
+      // 4. Get receiver's wallet by phone
+      // 5. Create transaction record
+      // 6. Deduct from sender
+      // 7. Add to receiver
+      // 8. Create transaction events
+      // 9. Create compliance check
+      
+      await client.query('COMMIT');
+      return { success: true };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+}
+```
+
+#### 2. Backend Controller (`backend/src/controllers/transactionController.js`)
+
+```javascript
+import transactionService from '../services/transactionService.js';
+
+class TransactionController {
+  async send(req, res, next) {
+    try {
+      const { toPhone, amount, epin } = req.body;
+      const fromUserId = req.user.userId;
+      
+      const result = await transactionService.sendMoney(
+        fromUserId, toPhone, amount, epin
+      );
+      
+      return successResponse(res, result, 'Money sent successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+}
+```
+
+#### 3. Update Backend Route (already exists as placeholder)
+
+Just replace the placeholder in `backend/src/routes/transactionRoutes.js` with:
+```javascript
+router.post('/send', protect, transactionController.send);
+```
+
+#### 4. Frontend Page (`frontend/src/app/dashboard/send/page.tsx`)
+
+```tsx
+'use client';
+
+import { useState } from 'react';
+import { transactionAPI } from '@/lib/api';
+import toast from 'react-hot-toast';
+
+export default function SendMoneyPage() {
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    toPhone: '',
+    amount: '',
+    epin: '',
+  });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    try {
+      await transactionAPI.send(formData);
+      toast.success('Money sent successfully!');
+      // Reset form or redirect
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to send money');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl">
+      <h1 className="text-3xl font-bold mb-6">Send Money</h1>
+      <form onSubmit={handleSubmit} className="card space-y-4">
+        {/* Form fields */}
+      </form>
+    </div>
+  );
+}
+```
+
+---
+
+## 🔑 Key Implementation Patterns
+
+### 1. Raw SQL Queries (Backend)
+All database operations use raw SQL with parameterized queries:
+
+```javascript
+const result = await query(
+  'SELECT * FROM users WHERE phone = $1',
+  [phone]
+);
+```
+
+### 2. Transaction Management
+Use PostgreSQL transactions for multi-step operations:
+
+```javascript
+const client = await getClient();
+try {
+  await client.query('BEGIN');
+  // Multiple queries here
+  await client.query('COMMIT');
+} catch (error) {
+  await client.query('ROLLBACK');
+  throw error;
+} finally {
+  client.release();
+}
+```
+
+### 3. JWT Protection
+Protect routes with middleware:
+
+```javascript
+router.post('/send', protect, controller.send);
+router.get('/admin', protect, authorize('admin'), controller.adminOnly);
+```
+
+### 4. Frontend API Calls
+Use the configured API client:
+
+```typescript
+import { authAPI, transactionAPI } from '@/lib/api';
+
+// Token automatically added
+const response = await transactionAPI.send(data);
+```
+
+---
+
+## 📱 API Endpoints
+
+### Authentication
+- `POST /api/v1/auth/register` - Register new user
+- `POST /api/v1/auth/login` - Login user
+- `GET /api/v1/auth/profile` - Get user profile (protected)
+- `POST /api/v1/auth/logout` - Logout (protected)
+
+### Health Check
+- `GET /health` - Server health status
+
+### Placeholder Routes (Created but not implemented)
+- All transaction, wallet, QR, bill, loan, savings, subscription routes
+
+See `backend/README.md` for complete API documentation.
+
+---
+
+## 🎨 UI Components
+
+### Pre-built CSS Classes
+
+**Buttons:**
+```html
+<button class="btn btn-primary">Primary</button>
+<button class="btn btn-secondary">Secondary</button>
+<button class="btn btn-outline">Outline</button>
+```
+
+**Inputs:**
+```html
+<input class="input" placeholder="Enter value" />
+```
+
+**Cards:**
+```html
+<div class="card">Content here</div>
+```
+
+**Badges:**
+```html
+<span class="badge badge-success">Active</span>
+<span class="badge badge-warning">Pending</span>
+<span class="badge badge-error">Failed</span>
+```
+
+---
+
+## 🧪 Testing the Application
+
+### 1. Test Registration
+
+**Request:**
+```bash
+curl -X POST http://localhost:5000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Test User",
+    "phone": "01712345678",
+    "nid": "1234567890123",
+    "epin": "12345",
+    "role": "user"
+  }'
+```
+
+### 2. Test Login
+
+**Request:**
+```bash
+curl -X POST http://localhost:5000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone": "01712345678",
+    "epin": "12345"
+  }'
+```
+
+### 3. Test Protected Route
+
+```bash
+curl http://localhost:5000/api/v1/auth/profile \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### Backend Issues
+
+**Database Connection Failed:**
+```bash
+# Check your .env file
+# Ensure DATABASE_URL is correct
+# Test connection: psql "your-connection-string"
+```
+
+**Port 5000 Already in Use:**
+```bash
+# Change PORT in .env file
+PORT=5001
+```
+
+### Frontend Issues
+
+**API Connection Error:**
+```bash
+# Ensure backend is running
+# Check NEXT_PUBLIC_API_URL in .env.local
+# Should be http://localhost:5000/api/v1
+```
+
+**Authentication Not Working:**
+```javascript
+// Clear browser storage
+localStorage.clear();
+// Try logging in again
+```
+
+---
+
+## 📊 Project Statistics
+
+- **Total Files Created:** 33+ files
+- **Backend Routes:** 8 route files (1 fully implemented)
+- **Frontend Pages:** 10+ pages (4 fully implemented)
+- **Database Tables:** 18 tables (pre-existing in Supabase)
+- **Lines of Code:** ~3000+ lines
+
+---
+
+## 🎯 Next Steps for Development
+
+### Priority 1: Core Transactions
+1. Implement send money service
+2. Add transaction history display
+3. Create request money feature
+4. Build cash-in/cash-out for agents
+
+### Priority 2: Additional Features
+1. QR code generation and scanning
+2. Bill payment integration
+3. Savings account creation
+4. Loan application system
+
+### Priority 3: Enhancements
+1. Transaction receipts (PDF/email)
+2. Push notifications
+3. Profile management
+4. Transaction limits and fees
+5. Admin dashboard
+
+---
+
+## 📚 Resources
+
+- **Next.js Docs:** https://nextjs.org/docs
+- **Tailwind CSS:** https://tailwindcss.com/docs
+- **PostgreSQL:** https://www.postgresql.org/docs/
+- **Supabase:** https://supabase.com/docs
+
+---
+
+## 👥 Team Contacts
+
+- **Wahidul Haque** (2305054)
+- **Abu Bakar Siddique** (2305059)
+
+---
+
+## 📄 License
+
+MIT License - This is an educational project for DBMS coursework.
+
+---
+
+**🎉 Your ClickPay project is ready! Start the backend and frontend servers, then open http://localhost:3000 to begin testing!**
