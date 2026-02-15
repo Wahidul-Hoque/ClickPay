@@ -15,34 +15,28 @@
 
 ---
 
-## 📁 Project Structure
-
+## Project Structure
 ```
 clickpay-project/
-├── frontend/                 # Next.js 14 application
+├── frontend/              # Next.js 14 App Router application
 │   ├── src/
-│   │   ├── app/             # App Router pages
-│   │   │   ├── auth/        # Login & Register
-│   │   │   ├── dashboard/   # Main dashboard
-│   │   │   └── ...          # Other feature pages (placeholders)
-│   │   ├── components/      # Reusable components
-│   │   ├── lib/             # API client, store, utilities
-│   │   └── ...
+│   │   ├── app/          # Pages and layouts
+│   │   ├── components/   # Reusable UI components
+│   │   └── lib/          # API client and state management
 │   └── package.json
 │
-└── backend/                  # Node.js Express API
-    ├── src/
-    │   ├── config/          # Database connection
-    │   ├── controllers/     # Route handlers
-    │   ├── services/        # Business logic (raw SQL)
-    │   ├── middlewares/     # Auth, validation, errors
-    │   ├── routes/          # API routes
-    │   ├── validators/      # Input validation
-    │   ├── utils/           # Helper functions
-    │   └── server.js        # Entry point
-    └── package.json
+└── backend/              # Node.js Express API (FLAT STRUCTURE)
+    ├── config/           # Database connection (db.js)
+    ├── routes/           # API routes (4 files total)
+    │   ├── auth.js              # Authentication endpoints
+    │   ├── transactions.js      # Transaction endpoints
+    │   ├── wallet.js            # Wallet management endpoints
+    │   └── other.js             # QR, Bills, Loans, Savings
+    ├── utils/            # Helper functions (auth.js)
+    ├── server.js         # Main application entry point
+    ├── package.json
+    └── .env.example
 ```
-
 ---
 
 ## 🚀 Quick Start
