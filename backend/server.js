@@ -17,6 +17,7 @@ import qrRoutes from './routes/qr.js';
 import billRoutes from './routes/bills.js';
 import loanRoutes from './routes/loans.js';
 import savingsRoutes from './routes/savings.js';
+import notificationRoutes from './routes/notifications.js';
 
 // ==============================================
 // LOAD ENVIRONMENT VARIABLES
@@ -130,6 +131,14 @@ app.use(`${API_PREFIX}/loans`, loanRoutes);
 // GET  /api/v1/savings/:savings_id
 // POST /api/v1/savings/break/:savings_id
 app.use(`${API_PREFIX}/savings`, savingsRoutes);
+
+// Notification routes
+// 1. GET /api/v1/notifications - Get user's notifications
+// 2. GET /api/v1/notifications/unread-count - Get count of unread notifications
+// 3. POST /api/v1/notifications/mark-read/:notification_id - Mark as read
+// 4. POST /api/v1/notifications/mark-all-read - Mark all as read
+// 5. DELETE /api/v1/notifications/:notification_id - Delete notification
+app.use(`${API_PREFIX}/notifications`, notificationRoutes);
 
 // ==============================================
 // 404 HANDLER - Route Not Found

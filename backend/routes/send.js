@@ -7,6 +7,7 @@
 import express from 'express';
 import { query, db } from '../config/db.js';
 import { protect, comparePassword } from '../utils/auth.js';
+import { createNotification } from './notifications.js';
 
 const router = express.Router();
 
@@ -240,14 +241,22 @@ router.post('/', protect, async (req, res) => {
         ]
       );
     }
+
+    // STEP 14: CREATE NOTIFICATION
+
+    // Notification for sender
+    await createNotification(senderId, `You sent ৳${amount} to ${receiverName} (${toPhone})`, client);
+    
+    // Notification for receiver
+    await createNotification(receiverId, `You received ৳${amount} from ${senderResult.rows[0].name}`, client);
     
     // ==========================================
-    // STEP 14: COMMIT TRANSACTION
+    // STEP 15: COMMIT TRANSACTION
     // ==========================================
     await client.query('COMMIT');
     
     // ==========================================
-    // STEP 15: SEND SUCCESS RESPONSE
+    // STEP 16: SEND SUCCESS RESPONSE
     // ==========================================
     res.json({
       success: true,

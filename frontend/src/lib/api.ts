@@ -104,3 +104,21 @@ export const subscriptionAPI = {
   resume: (id: string) => apiClient.patch(`/subscriptions/${id}/resume`),
   cancel: (id: string) => apiClient.delete(`/subscriptions/${id}`),
 };
+
+export const notificationAPI = {
+  // Get all notifications with pagination
+  getNotifications: (page = 1, limit = 20) => 
+    apiClient.get('/notifications', { params: { page, limit } }),
+  
+  // Get recent notifications (last 10)
+  getRecent: () => 
+    apiClient.get('/notifications/recent'),
+  
+  // Delete specific notification
+  deleteNotification: (notificationId: string) => 
+    apiClient.delete(`/notifications/${notificationId}`),
+  
+  // Clear all notifications
+  clearAll: () => 
+    apiClient.delete('/notifications'),
+};

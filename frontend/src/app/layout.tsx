@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { Toaster } from 'react-hot-toast';
+import { ToastProvider } from '@/contexts/toastcontext';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'ClickPay - Digital Wallet System',
-  description: 'Secure and convenient digital wallet for Bangladesh',
+  title: 'ClickPay - Digital Wallet',
+  description: 'Send money, pay bills, and manage your wallet',
 };
 
 export default function RootLayout({
@@ -18,8 +18,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {children}
-        <Toaster position="top-right" />
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );
