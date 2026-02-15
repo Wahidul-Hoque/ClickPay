@@ -1,7 +1,6 @@
 // ==============================================
 // MAIN ENTRY POINT (app.js)
 // ==============================================
-// This is where everything comes together
 
 import express from 'express';
 import cors from 'cors';
@@ -13,13 +12,13 @@ import { errorHandler, notFound } from './middleware/errorHandler.js';
 // Import routes
 import authRoutes from './routes/authRoutes.js';
 import transactionRoutes from './routes/transactionRoutes.js';
-import { 
-  walletRouter, 
-  qrRouter, 
-  billRouter, 
-  loanRouter, 
-  savingsRouter 
-} from './routes/otherRoutes.js';
+import walletRoutes from './routes/walletRoutes.js';
+import qrRoutes from './routes/qrRoutes.js';
+import billRoutes from './routes/billRoutes.js';
+import loanRoutes from './routes/loanRoutes.js';
+import savingsRoutes from './routes/savingsRoutes.js';
+
+
 
 // ==============================================
 // LOAD ENVIRONMENT VARIABLES
@@ -77,19 +76,19 @@ app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/transactions`, transactionRoutes);
 
 // Wallet routes
-app.use(`${API_PREFIX}/wallet`, walletRouter);
+app.use(`${API_PREFIX}/wallets`, walletRoutes);
 
 // QR code routes
-app.use(`${API_PREFIX}/qr`, qrRouter);
+app.use(`${API_PREFIX}/qr`, qrRoutes);
 
 // Bill payment routes
-app.use(`${API_PREFIX}/bills`, billRouter);
+app.use(`${API_PREFIX}/bills`, billRoutes);
 
-// Loan routes
-app.use(`${API_PREFIX}/loans`, loanRouter);
+// Loan management routes
+app.use(`${API_PREFIX}/loans`, loanRoutes);
 
-// Savings routes
-app.use(`${API_PREFIX}/savings`, savingsRouter);
+// Savings account routes
+app.use(`${API_PREFIX}/savings`, savingsRoutes);
 
 // ==============================================
 // ERROR HANDLING
