@@ -10,9 +10,13 @@ import dotenv from 'dotenv';
 
 // Import route files
 import authRoutes from './routes/auth.js';
+import sendRoute from './routes/send.js';
 import transactionRoutes from './routes/transactions.js';
 import walletRoutes from './routes/wallet.js';
-import { qr, bills, loans, savings } from './routes/other.js';
+import qrRoutes from './routes/qr.js';
+import billRoutes from './routes/bills.js';
+import loanRoutes from './routes/loans.js';
+import savingsRoutes from './routes/savings.js';
 
 // ==============================================
 // LOAD ENVIRONMENT VARIABLES
@@ -79,9 +83,13 @@ const API_PREFIX = '/api/v1';
 // POST /api/v1/auth/logout
 app.use(`${API_PREFIX}/auth`, authRoutes);
 
-// Transaction routes
-// POST /api/v1/transactions/send
+// Send money route (single endpoint)
+// POST /api/v1/send
+app.use(`${API_PREFIX}/send`, sendRoute);
+
+// Transaction routes (history, details, request, cash-in, cash-out)
 // GET  /api/v1/transactions/history
+// GET  /api/v1/transactions/:transaction_id
 // POST /api/v1/transactions/request
 // POST /api/v1/transactions/cash-in
 // POST /api/v1/transactions/cash-out
@@ -94,11 +102,34 @@ app.use(`${API_PREFIX}/transactions`, transactionRoutes);
 // POST /api/v1/wallet/payment-methods
 app.use(`${API_PREFIX}/wallet`, walletRoutes);
 
-// Other feature routes (placeholders)
-app.use(`${API_PREFIX}/qr`, qr);
-app.use(`${API_PREFIX}/bills`, bills);
-app.use(`${API_PREFIX}/loans`, loans);
-app.use(`${API_PREFIX}/savings`, savings);
+// QR Code routes
+// POST /api/v1/qr/generate
+// POST /api/v1/qr/scan
+// POST /api/v1/qr/pay
+app.use(`${API_PREFIX}/qr`, qrRoutes);
+
+// Bill Payment routes
+// GET  /api/v1/bills/billers
+// GET  /api/v1/bills/billers/category/:category
+// POST /api/v1/bills/pay
+// GET  /api/v1/bills/history
+app.use(`${API_PREFIX}/bills`, billRoutes);
+
+// Loan routes
+// GET  /api/v1/loans/eligibility
+// POST /api/v1/loans/apply
+// GET  /api/v1/loans/my-loans
+// GET  /api/v1/loans/:loan_id
+// POST /api/v1/loans/repay/:loan_id
+app.use(`${API_PREFIX}/loans`, loanRoutes);
+
+// Savings routes
+// GET  /api/v1/savings/interest-rates
+// POST /api/v1/savings/create
+// GET  /api/v1/savings/my-savings
+// GET  /api/v1/savings/:savings_id
+// POST /api/v1/savings/break/:savings_id
+app.use(`${API_PREFIX}/savings`, savingsRoutes);
 
 // ==============================================
 // 404 HANDLER - Route Not Found
@@ -144,6 +175,9 @@ const server = app.listen(PORT, () => {
 ║   🔗 Server:  http://localhost:${PORT}              ║
 ║   📊 Health:  http://localhost:${PORT}/health       ║
 ║   📚 API:     http://localhost:${PORT}/api/v1       ║
+║                                                ║
+║   Routes: Auth, Send, Transactions, Wallet,    ║
+║           QR, Bills, Loans, Savings            ║
 ║                                                ║
 ║   Team: Wahidul Haque (2305054)                ║
 ║         Abu Bakar Siddique (2305059)           ║
