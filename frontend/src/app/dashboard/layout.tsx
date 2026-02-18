@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import NotificationBell from '@/components/NotificationBell';
@@ -18,24 +18,22 @@ import {
   ChevronLeft,
   ChevronRight,
   Bell,
+  Sparkles,
 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isAuthenticated, logout } = useAuthStore();
-  
-  // Sidebar is expanded by default on desktop
+
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(false);
-      if (!isAuthenticated) {
-        router.push('/auth/login');
-      }
+      if (!isAuthenticated) router.push('/auth/login');
     }, 100);
-
     return () => clearTimeout(timer);
   }, [isAuthenticated, router]);
 
@@ -44,24 +42,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/auth/login');
   };
 
-  const toggleSidebar = () => {
-    setSidebarExpanded(!sidebarExpanded);
-  };
-
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Wallet className="w-12 h-12 text-primary-600 mx-auto mb-4 animate-pulse" />
-          <p className="text-gray-600">Loading...</p>
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-center animate-fadeIn">
+          <div className="w-16 h-16 rounded-2xl gradient-indigo flex items-center justify-center mx-auto mb-4 shadow-glow-indigo">
+            <Wallet className="w-8 h-8 text-white animate-pulse" />
+          </div>
+          <p className="text-slate-400 text-sm font-medium">Loading ClickPay…</p>
         </div>
       </div>
     );
   }
 
-  if (!isAuthenticated || !user) {
-    return null;
-  }
+  if (!isAuthenticated || !user) return null;
 
   const navItems = [
     { name: 'Overview', href: '/dashboard', icon: Wallet },
@@ -74,144 +68,148 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'Savings', href: '/dashboard/savings', icon: TrendingUp },
   ];
 
+  const isActive = (href: string) =>
+    href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Sidebar */}
+    <div className="min-h-screen" style={{ background: 'var(--page-bg)' }}>
+
+      {/* ── Sidebar ─────────────────────────────────────────── */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 bg-white shadow-lg transition-all duration-300 ${
-          sidebarExpanded ? 'w-64' : 'w-20'
-        }`}
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col transition-all duration-300 ease-in-out ${sidebarExpanded ? 'w-64' : 'w-[72px]'
+          }`}
+        style={{ background: 'var(--sidebar-bg)', borderRight: '1px solid var(--sidebar-border)' }}
       >
-        <div className="flex flex-col h-full">
-          {/* Logo & Toggle */}
-          <div className="flex items-center justify-between p-4 border-b h-16">
-            <div className={`flex items-center space-x-2 overflow-hidden transition-all duration-300 ${
-              sidebarExpanded ? 'w-auto' : 'w-0'
+        {/* Logo */}
+        <div className="flex items-center justify-between px-4 h-16 flex-shrink-0"
+          style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
+          <div className={`flex items-center gap-2.5 overflow-hidden transition-all duration-300 ${sidebarExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0'
             }`}>
-              <Wallet className="w-8 h-8 text-primary-600 flex-shrink-0" />
-              <span className="text-xl font-bold text-primary-600 whitespace-nowrap">
-                ClickPay
-              </span>
+            <div className="w-8 h-8 rounded-xl gradient-indigo flex items-center justify-center shadow-glow-indigo flex-shrink-0">
+              <Sparkles className="w-4 h-4 text-white" />
             </div>
-            
-            {!sidebarExpanded && (
-              <Wallet className="w-8 h-8 text-primary-600 mx-auto" />
-            )}
-            
-            <button
-              onClick={toggleSidebar}
-              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
-              aria-label="Toggle Sidebar"
-            >
-              {sidebarExpanded ? (
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
-              ) : (
-                <ChevronRight className="w-5 h-5 text-gray-600" />
-              )}
-            </button>
+            <span className="text-white font-bold text-lg whitespace-nowrap tracking-tight">
+              Click<span className="text-primary-400">Pay</span>
+            </span>
           </div>
 
-          {/* User info */}
-          <div className={`p-4 border-b transition-all duration-300 ${
-            sidebarExpanded ? 'opacity-100' : 'opacity-0 h-0 p-0 border-0'
-          }`}>
-            {sidebarExpanded && (
-              <>
-                <h3 className="font-semibold text-gray-900 truncate">{user.name}</h3>
-                <p className="text-sm text-gray-600 truncate">{user.phone}</p>
-                <span className="inline-block mt-2 px-3 py-1 text-xs font-medium rounded-full bg-primary-100 text-primary-800">
-                  {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+          {!sidebarExpanded && (
+            <div className="w-8 h-8 rounded-xl gradient-indigo flex items-center justify-center mx-auto shadow-glow-indigo">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+          )}
+
+          <button
+            onClick={() => setSidebarExpanded(!sidebarExpanded)}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0 ml-1"
+            aria-label="Toggle Sidebar"
+          >
+            {sidebarExpanded
+              ? <ChevronLeft className="w-4 h-4" />
+              : <ChevronRight className="w-4 h-4" />}
+          </button>
+        </div>
+
+        {/* User info */}
+        {sidebarExpanded && (
+          <div className="px-4 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl gradient-violet flex items-center justify-center shadow-glow-violet flex-shrink-0">
+                <span className="text-white font-bold text-sm">
+                  {user.name.charAt(0).toUpperCase()}
                 </span>
-              </>
-            )}
+              </div>
+              <div className="overflow-hidden">
+                <p className="text-white font-semibold text-sm truncate">{user.name}</p>
+                <p className="text-slate-500 text-xs truncate">{user.phone}</p>
+              </div>
+            </div>
+            <span className="mt-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-900/60 text-primary-300 border border-primary-700/50">
+              {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+            </span>
           </div>
+        )}
 
-          {/* Navigation */}
-          <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-            {navItems.map((item) => (
+        {/* Navigation */}
+        <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
+          {navItems.map((item) => {
+            const active = isActive(item.href);
+            return (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center space-x-3 px-3 py-3 rounded-lg text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-colors group ${
-                  !sidebarExpanded && 'justify-center'
-                }`}
                 title={!sidebarExpanded ? item.name : ''}
+                className={`nav-link ${active ? 'active' : ''} ${!sidebarExpanded ? 'justify-center' : ''}`}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
-                <span className={`whitespace-nowrap transition-all duration-300 ${
-                  sidebarExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'
-                }`}>
+                <span className={`whitespace-nowrap transition-all duration-300 ${sidebarExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'
+                  }`}>
                   {item.name}
                 </span>
+                {active && sidebarExpanded && (
+                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-400" />
+                )}
               </Link>
-            ))}
-          </nav>
+            );
+          })}
+        </nav>
 
-          {/* Bottom actions */}
-          <div className="p-2 border-t space-y-1">
-            <Link
-              href="/dashboard/settings"
-              className={`flex items-center space-x-3 px-3 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors ${
-                !sidebarExpanded && 'justify-center'
+        {/* Bottom actions */}
+        <div className="px-2 py-3 space-y-0.5 flex-shrink-0" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
+          <Link
+            href="/dashboard/settings"
+            title={!sidebarExpanded ? 'Settings' : ''}
+            className={`nav-link ${!sidebarExpanded ? 'justify-center' : ''}`}
+          >
+            <Settings className="w-5 h-5 flex-shrink-0" />
+            <span className={`whitespace-nowrap transition-all duration-300 ${sidebarExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'
+              }`}>Settings</span>
+          </Link>
+
+          <button
+            onClick={handleLogout}
+            title={!sidebarExpanded ? 'Logout' : ''}
+            className={`nav-link w-full text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 ${!sidebarExpanded ? 'justify-center' : ''
               }`}
-              title={!sidebarExpanded ? 'Settings' : ''}
-            >
-              <Settings className="w-5 h-5 flex-shrink-0" />
-              <span className={`whitespace-nowrap transition-all duration-300 ${
-                sidebarExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'
-              }`}>
-                Settings
-              </span>
-            </Link>
-            <button
-              onClick={handleLogout}
-              className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-colors ${
-                !sidebarExpanded && 'justify-center'
-              }`}
-              title={!sidebarExpanded ? 'Logout' : ''}
-            >
-              <LogOut className="w-5 h-5 flex-shrink-0" />
-              <span className={`whitespace-nowrap transition-all duration-300 ${
-                sidebarExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'
-              }`}>
-                Logout
-              </span>
-            </button>
-          </div>
+          >
+            <LogOut className="w-5 h-5 flex-shrink-0" />
+            <span className={`whitespace-nowrap transition-all duration-300 ${sidebarExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'
+              }`}>Logout</span>
+          </button>
         </div>
       </aside>
 
-      {/* Main content with top bar */}
-      <main
-        className={`min-h-screen transition-all duration-300 ${
-          sidebarExpanded ? 'ml-64' : 'ml-20'
-        }`}
-      >
-        {/* Top Bar with Notification Bell */}
-        <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              {/* You can add breadcrumbs or page title here */}
-            </div>
-            
-            {/* Notification Bell */}
-            <div className="flex items-center space-x-4">
-              <NotificationBell />
-              
-              {/* User Avatar/Menu (Optional) */}
-              <div className="flex items-center space-x-3 pl-4 border-l">
-                <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                  <span className="text-primary-600 font-semibold">
-                    {user.name.charAt(0).toUpperCase()}
-                  </span>
-                </div>
+      {/* ── Main ────────────────────────────────────────────── */}
+      <main className={`min-h-screen flex flex-col transition-all duration-300 ${sidebarExpanded ? 'ml-64' : 'ml-[72px]'
+        }`}>
+
+        {/* Top Bar */}
+        <header className="sticky top-0 z-30 px-6 lg:px-8 py-3 flex items-center justify-between"
+          style={{ background: 'var(--topbar-bg)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #e2e8f0' }}>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs text-slate-500 font-medium">Live</span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <NotificationBell />
+
+            <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-semibold text-slate-800 leading-none">{user.name}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{user.phone}</p>
+              </div>
+              <div className="w-9 h-9 rounded-xl gradient-indigo flex items-center justify-center shadow-glow-indigo">
+                <span className="text-white font-bold text-sm">
+                  {user.name.charAt(0).toUpperCase()}
+                </span>
               </div>
             </div>
           </div>
-        </div>
+        </header>
 
         {/* Page Content */}
-        <div className="p-4 lg:p-8">
+        <div className="flex-1 p-4 lg:p-8">
           {children}
         </div>
       </main>
