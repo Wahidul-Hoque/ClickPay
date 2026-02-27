@@ -1,10 +1,9 @@
 // ==============================================
 // MAIN ENTRY POINT (app.js)
 // ==============================================
-
+import './config/env.js';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 
 // Import middleware
 import { errorHandler, notFound } from './middleware/errorHandler.js';
@@ -20,10 +19,7 @@ import savingsRoutes from './routes/savingsRoutes.js';
 
 
 
-// ==============================================
-// LOAD ENVIRONMENT VARIABLES
-// ==============================================
-dotenv.config();
+
 
 // ==============================================
 // CREATE EXPRESS APP

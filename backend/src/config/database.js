@@ -21,7 +21,7 @@ const pool = new Pool({
   },
   max: 20,                      // Maximum connections in pool
   idleTimeoutMillis: 30000,     // Close idle connections after 30s
-  connectionTimeoutMillis: 2000 // Timeout if connection takes more than 2s
+  connectionTimeoutMillis: 10000 // Timeout if connection takes more than 10s
 });
 
 // Connection event handlers
@@ -60,25 +60,25 @@ export const getClient = async () => {
   const client = await pool.connect();
   const query = client.query.bind(client);
   const release = client.release.bind(client);
-  
+
   // Set a timeout
   const timeout = setTimeout(() => {
     console.error('A client has been checked out for more than 5 seconds!');
   }, 5000);
-  
+
   // Monkey patch the query method
   client.query = (...args) => {
     client.lastQuery = args;
     return query(...args);
   };
-  
+
   client.release = () => {
     clearTimeout(timeout);
     client.query = query;
     client.release = release;
     return release();
   };
-  
+
   return client;
 };
 

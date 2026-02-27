@@ -5,11 +5,7 @@
 
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import pg from 'pg';
-const { Pool } = pg;
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+import pool from '../config/database.js';
 
 // ==============================================
 // PROTECT MIDDLEWARE - Verify JWT Token
@@ -38,7 +34,7 @@ export const protect = async (req, res, next) => {
 
     //Database check.
     //This ensures the user hasn't been deleted or banned since the token was issued.
-    const query = 'SELECT id, name, role, is_suspended FROM users WHERE id = $1';
+    const query = 'SELECT user_id, name, role, status FROM users WHERE user_id = $1';
     const result = await pool.query(query, [decoded.userId]);
 
     const currentUser = result.rows[0];
@@ -50,16 +46,16 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    if (currentUser.is_suspended) {
+    if (currentUser.status !== 'active') {
       return res.status(403).json({
         success: false,
         message: 'Your account has been suspended. Please contact support.'
       });
-    } 
+    }
     // STEP 3: Add user info to request
     // Now you can access req.user.userId and req.user.role in controllers
     req.user = {
-      userId: currentUser.id,
+      userId: currentUser.user_id,
       role: currentUser.role,
       name: currentUser.name
     };

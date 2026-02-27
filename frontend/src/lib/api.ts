@@ -58,11 +58,11 @@ export const transactionAPI = {
 };
 
 export const walletAPI = {
-  getBalance: () => apiClient.get('/wallet/balance'),
-  getTransactions: (params?: any) => apiClient.get('/wallet/transactions', { params }),
-  addPaymentMethod: (data: any) => apiClient.post('/wallet/payment-methods', data),
-  getPaymentMethods: () => apiClient.get('/wallet/payment-methods'),
-  topup: (data: any) => apiClient.post('/wallet/topup', data),
+  getBalance: () => apiClient.get('/wallets/balance'),
+  getTransactions: (params?: any) => apiClient.get('/wallets/transactions', { params }),
+  addPaymentMethod: (data: any) => apiClient.post('/wallets/payment-methods', data),
+  getPaymentMethods: () => apiClient.get('/wallets/payment-methods'),
+  topup: (data: any) => apiClient.post('/wallets/topup', data),
 };
 
 export const qrAPI = {
@@ -107,18 +107,18 @@ export const subscriptionAPI = {
 
 export const notificationAPI = {
   // Get all notifications with pagination
-  getNotifications: (page = 1, limit = 20) => 
+  getNotifications: (page = 1, limit = 20) =>
     apiClient.get('/notifications', { params: { page, limit } }),
-  
+
   // Get recent notifications (last 10)
-  getRecent: () => 
+  getRecent: () =>
     apiClient.get('/notifications/recent'),
-  
+
   // Delete specific notification
-  deleteNotification: (notificationId: string) => 
+  deleteNotification: (notificationId: string) =>
     apiClient.delete(`/notifications/${notificationId}`),
-  
+
   // Clear all notifications
-  clearAll: () => 
+  clearAll: () =>
     apiClient.delete('/notifications'),
 };
