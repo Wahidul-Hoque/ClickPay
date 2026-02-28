@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { transactionAPI } from '@/lib/api';
-import { HandCoins, Check, X, Loader2, AlertCircle, Inbox } from 'lucide-react';
+import { HandCoins, Check, X, Loader2, AlertCircle, Inbox, Lock } from 'lucide-react';
 
 interface MoneyRequest {
   request_id: string;
@@ -18,6 +18,14 @@ export default function IncomingRequests() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+  // ── NEW: ePin modal state ──────────────────────────
+  const [epinModal, setEpinModal] = useState<{ open: boolean; requestId: string | null }>({
+    open: false,
+    requestId: null,
+  });
+  const [epin, setEpin] = useState('');
+  const [epinError, setEpinError] = useState('');
+
   useEffect(() => {
     fetchIncoming();
   }, []);
@@ -26,7 +34,6 @@ export default function IncomingRequests() {
     try {
       setLoading(true);
       const response = await transactionAPI.getIncomingRequests();
-      // Ensure we handle different possible API response structures
       const data = response.data?.data || response.data || [];
       setRequests(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -37,17 +44,45 @@ export default function IncomingRequests() {
     }
   };
 
-  const handleResponse = async (id: string, status: 'paid' | 'declined') => {
+  // ── NEW: Open ePin modal when Approve is clicked ───
+  const handleApproveClick = (requestId: string) => {
+    setEpin('');
+    setEpinError('');
+    setEpinModal({ open: true, requestId });
+  };
+
+  // ── NEW: Submit approval with ePin ─────────────────
+  const handleApproveSubmit = async () => {
+    if (!epinModal.requestId) return;
+
+    if (epin.length !== 5 || !/^\d+$/.test(epin)) {
+      setEpinError('ePin must be exactly 5 digits');
+      return;
+    }
+
+    setActionLoading(epinModal.requestId);
+    setEpinError('');
+
+    try {
+      await transactionAPI.approveRequest(epinModal.requestId, epin); // ✅ Now passes ePin!
+      setRequests(requests.filter(r => r.request_id !== epinModal.requestId));
+      setEpinModal({ open: false, requestId: null });
+      setEpin('');
+    } catch (error: any) {
+      setEpinError(error.response?.data?.message || 'Transaction failed');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // ── Decline handler (unchanged) ────────────────────
+  const handleDecline = async (id: string) => {
     setActionLoading(id);
     try {
-      if (status === 'paid') {
-        await transactionAPI.approveRequest(id);
-      } else {
-        await transactionAPI.updateRequestStatus(id, 'declined');
-      }
+      await transactionAPI.updateRequestStatus(id, 'declined');
       setRequests(requests.filter(r => r.request_id !== id));
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Transaction failed');
+      alert(error.response?.data?.message || 'Failed to decline');
     } finally {
       setActionLoading(null);
     }
@@ -67,9 +102,8 @@ export default function IncomingRequests() {
         <AlertCircle className="w-5 h-5 text-amber-500" />
         Requests Received
       </h2>
-      
+
       {requests.length === 0 ? (
-        /* --- THIS SECTION WILL SHOW IF NO REQUESTS ARE FOUND --- */
         <div className="flex flex-col items-center justify-center p-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
           <Inbox className="w-8 h-8 text-slate-300 mb-2" />
           <p className="text-sm text-slate-500 font-medium">No pending requests for you</p>
@@ -90,14 +124,14 @@ export default function IncomingRequests() {
 
               {req.message && (
                 <p className="text-xs text-slate-600 italic bg-slate-50 p-2 rounded-lg mb-4 border border-slate-100">
-                  "{req.message}"
+                  &quot;{req.message}&quot;
                 </p>
               )}
 
               <div className="flex gap-2">
                 <button
                   disabled={!!actionLoading}
-                  onClick={() => handleResponse(req.request_id, 'paid')}
+                  onClick={() => handleApproveClick(req.request_id)}
                   className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-all"
                 >
                   {actionLoading === req.request_id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
@@ -105,7 +139,7 @@ export default function IncomingRequests() {
                 </button>
                 <button
                   disabled={!!actionLoading}
-                  onClick={() => handleResponse(req.request_id, 'declined')}
+                  onClick={() => handleDecline(req.request_id)}
                   className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-all"
                 >
                   <X className="w-4 h-4" />
@@ -114,6 +148,64 @@ export default function IncomingRequests() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── ePin Confirmation Modal ─────────────────────── */}
+      {epinModal.open && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                <Lock className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900">Confirm Payment</h3>
+                <p className="text-xs text-slate-500">Enter your 5-digit ePin to approve</p>
+              </div>
+            </div>
+
+            <input
+              type="password"
+              maxLength={5}
+              value={epin}
+              onChange={(e) => {
+                setEpin(e.target.value.replace(/\D/g, ''));
+                setEpinError('');
+              }}
+              placeholder="•••••"
+              className="w-full text-center text-2xl tracking-[0.5em] font-mono py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none mb-2"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleApproveSubmit();
+              }}
+            />
+
+            {epinError && (
+              <p className="text-xs text-rose-500 text-center mb-3">{epinError}</p>
+            )}
+
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => {
+                  setEpinModal({ open: false, requestId: null });
+                  setEpin('');
+                  setEpinError('');
+                }}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 py-2.5 rounded-xl text-sm font-bold transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApproveSubmit}
+                disabled={!!actionLoading || epin.length !== 5}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1 transition-all"
+              >
+                {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                Pay Now
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

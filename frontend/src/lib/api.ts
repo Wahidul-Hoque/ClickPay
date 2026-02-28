@@ -56,8 +56,8 @@ export const transactionAPI = {
     apiClient.get('/transactions/requests/incoming'),
   getSentRequests: () => 
     apiClient.get('/transactions/requests/sent'),
-  approveRequest: (requestId: string) => 
-    apiClient.post(`/transactions/requests/${requestId}/pay`),
+  approveRequest: (requestId: string , epin: string) => 
+    apiClient.post(`/transactions/requests/${requestId}/pay`, { epin }),
   updateRequestStatus: (requestId: string, status: 'declined' | 'cancelled') => 
     apiClient.patch(`/transactions/requests/${requestId}/status`, { status }),
   cashIn: (data: any) => apiClient.post('/transactions/cash-in', data),
