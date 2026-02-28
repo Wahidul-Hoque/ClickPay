@@ -20,6 +20,7 @@ import {
   Bell,
   Sparkles,
   HandCoins,
+  RefreshCw,
 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -69,6 +70,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'Savings', href: '/dashboard/savings', icon: TrendingUp },
     { name: 'Payment Methods', href: '/dashboard/payment_methods', icon: CreditCard },
     { name: 'Request Money', href: '/dashboard/request', icon: HandCoins },
+    { name: 'Subscriptions', href: '/dashboard/subscriptions', icon: RefreshCw },
   ];
 
   const isActive = (href: string) =>
