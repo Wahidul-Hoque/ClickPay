@@ -21,7 +21,7 @@ export default function SettingsPage() {
       icon: Lock,
       items: [
         { label: 'Change PIN', value: 'Update your security PIN' },
-        { label: 'Change Password', value: 'Update your password' },
+        //{ label: 'Change Password', value: 'Update your password' },
         { label: 'Two-Factor Authentication', value: 'Not enabled' },
       ],
     },

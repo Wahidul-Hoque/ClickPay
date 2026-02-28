@@ -35,7 +35,18 @@ export default function LoginPage() {
       setAuth(user, token);
       
       toast.success('Login successful!');
-      router.push('/dashboard');
+
+      // ── Route by role ──────────────────────────────
+      switch (user.role) {
+        case 'agent':
+          router.push('/agent');
+          break;
+        case 'admin':
+          router.push('/admin');
+          break;
+        default:
+          router.push('/dashboard');
+      }
     } catch (error: any) {
       const message = error.response?.data?.message || 'Login failed';
       toast.error(message);
@@ -105,7 +116,7 @@ export default function LoginPage() {
           </form>
 
           <p className="text-center mt-6 text-sm text-gray-600">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <Link href="/auth/register" className="text-primary-600 hover:text-primary-700 font-medium">
               Register now
             </Link>
