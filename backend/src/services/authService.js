@@ -1,74 +1,69 @@
 // ==============================================
 // AUTH SERVICE (The Kitchen - Business Logic)
 // ==============================================
-// This file contains all authentication-related database operations
-// All SQL queries for auth are written here
 
 import { query, getClient } from '../config/database.js';
 import { hashPassword, comparePassword, generateToken } from '../middleware/auth.js';
 
 class AuthService {
-  // ==============================================
-  // REGISTER NEW USER
-  // ==============================================
-  // Creates a new user and their wallet
+  // REGISTERS NEW USER and Creates a new user and their wallet
   async register(userData) {
     const { name, phone, nid, epin, role } = userData;
     const client = await getClient();
 
     try {
-      // START TRANSACTION
       await client.query('BEGIN');
 
-      // STEP 1: Hash the ePin
       const epinHash = await hashPassword(epin);
-
-      // STEP 2: Insert user into database
+      //inserting user
       const userQuery = `
         INSERT INTO users (name, phone, nid, epin_hash, role, status)
         VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING user_id, name, phone, nid, role, status, created_at
       `;
       
-      const userResult = await client.query(userQuery, [
-        name,
-        phone,
-        nid,
-        epinHash,
-        role,
-        'active'
-      ]);
+      await client.query(userQuery, [name, phone, nid, epinHash, role, 'active']);
 
+      const userIdResult = await client.query('SELECT LASTVAL() as id');
+      const userId = userIdResult.rows[0].id;
+
+      const userResult = await client.query(
+        'SELECT user_id, name, phone, nid, role, status, created_at FROM users WHERE user_id = $1',
+        [userId]
+      );
       const user = userResult.rows[0];
 
-      // STEP 3: Create wallet for the user
+      //Create wallet for the user
       const walletType = role === 'agent' ? 'agent' : 'user';
-      const walletQuery = `
+      const walletInsertQuery = `
         INSERT INTO wallets (user_id, wallet_type, balance, status)
         VALUES ($1, $2, $3, $4)
-        RETURNING wallet_id, wallet_type, balance, status
       `;
       
-      const walletResult = await client.query(walletQuery, [
-        user.user_id,
-        walletType,
-        0.00,
-        'active'
-      ]);
+      await client.query(walletInsertQuery, [userId, walletType, 0.00, 'active']);
 
+      // Manual Fetch Wallet ID using LASTVAL()
+      const walletIdResult = await client.query('SELECT LASTVAL() as id');
+      const walletId = walletIdResult.rows[0].id;
+
+      const walletResult = await client.query(
+        'SELECT wallet_id, wallet_type, balance, status FROM wallets WHERE wallet_id = $1',
+        [walletId]
+      );
       const wallet = walletResult.rows[0];
 
-      // COMMIT TRANSACTION
       await client.query('COMMIT');
 
-      // STEP 4: Generate JWT token
+      //Generate JWT token
       const token = generateToken(user.user_id, user.role);
 
       // Return user data with wallet and token
       return {
         user: {
           ...user,
-          wallet
+          wallet: {
+            ...wallet,
+            balance: parseFloat(wallet.balance)
+          }
         },
         token
       };
@@ -83,44 +78,39 @@ class AuthService {
     }
   }
 
-  // ==============================================
   // LOGIN USER
-  // ==============================================
   // Authenticates user and returns JWT token
   async login(phone, epin) {
     try {
-      // STEP 1: Find user by phone with wallet
+      //Find user by phone with wallet
       const userQuery = `
         SELECT 
           u.user_id, u.name, u.phone, u.nid, u.epin_hash, u.role, u.status, u.created_at,
           w.wallet_id, w.wallet_type, w.balance, w.status as wallet_status
         FROM users u
-        LEFT JOIN wallets w ON u.user_id = w.user_id 
+        JOIN wallets w ON u.user_id = w.user_id 
         WHERE u.phone = $1 AND w.wallet_type IN ('user', 'agent')
       `;
       
       const result = await query(userQuery, [phone]);
 
-      // Check if user exists
       if (result.rows.length === 0) {
         throw new Error('Invalid phone number or ePin');
       }
 
       const user = result.rows[0];
 
-      // STEP 2: Check if account is active
       if (user.status !== 'active') {
         throw new Error('Account is not active. Please contact support.');
       }
 
-      // STEP 3: Verify ePin
       const isValidEpin = await comparePassword(epin, user.epin_hash);
       
       if (!isValidEpin) {
         throw new Error('Invalid phone number or ePin');
       }
 
-      // STEP 4: Remove epin_hash from response
+      // Remove epin_hash from response
       const { epin_hash, ...userData } = user;
 
       // STEP 5: Generate JWT token
@@ -162,7 +152,7 @@ class AuthService {
           u.user_id, u.name, u.phone, u.nid, u.role, u.status, u.created_at,
           w.wallet_id, w.wallet_type, w.balance, w.status as wallet_status
         FROM users u
-        LEFT JOIN wallets w ON u.user_id = w.user_id 
+        JOIN wallets w ON u.user_id = w.user_id 
         WHERE u.user_id = $1 AND w.wallet_type IN ('user', 'agent')
       `;
       
