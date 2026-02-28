@@ -9,8 +9,8 @@ import transactionService from '../services/transactionService.js';
 class TransactionController {
 
   // ──────────────────────────────────────────
+  // MONEY TRANSFER (User to User)
   // POST /api/v1/transactions/send
-  // Body: { toPhone, amount, epin }
   // ──────────────────────────────────────────
   async send(req, res, next) {
     try {
@@ -18,10 +18,7 @@ class TransactionController {
       const fromUserId = req.user.userId;
 
       if (!toPhone || !amount || !epin) {
-        return res.status(400).json({
-          success: false,
-          message: 'Phone number, amount, and ePin are required'
-        });
+        return res.status(400).json({ success: false, message: 'Phone, amount, and ePin are required' });
       }
 
       const transferAmount = parseFloat(amount);
@@ -34,14 +31,10 @@ class TransactionController {
       }
 
       const result = await transactionService.sendMoney(fromUserId, toPhone, transferAmount, epin);
-
       return res.json({ success: true, message: 'Money sent successfully', data: result });
 
     } catch (error) {
-      const clientErrors = [
-        'Invalid', 'Insufficient', 'not found', 'not active',
-        'Cannot send', 'expired', 'already'
-      ];
+      const clientErrors = ['not found', 'Invalid', 'Insufficient', 'not active', 'yourself'];
       if (clientErrors.some(msg => error.message.includes(msg))) {
         return res.status(400).json({ success: false, message: error.message });
       }
@@ -50,69 +43,16 @@ class TransactionController {
   }
 
   // ──────────────────────────────────────────
-  // GET /api/v1/transactions/history?page=1&limit=10
-  // ──────────────────────────────────────────
-  async getHistory(req, res, next) {
-    try {
-      const userId = req.user.userId;
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
-
-      if (page < 1 || limit < 1 || limit > 100) {
-        return res.status(400).json({ success: false, message: 'Invalid pagination parameters' });
-      }
-
-      const result = await transactionService.getHistory(userId, page, limit);
-
-      return res.json({
-        success: true,
-        message: 'Transaction history retrieved',
-        data: result.transactions,
-        pagination: result.pagination
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  // ──────────────────────────────────────────
-  // GET /api/v1/transactions/:id
-  // ──────────────────────────────────────────
-  async getDetails(req, res, next) {
-    try {
-      const userId = req.user.userId;
-      const transactionId = parseInt(req.params.id);
-
-      if (!transactionId || isNaN(transactionId)) {
-        return res.status(400).json({ success: false, message: 'Invalid transaction ID' });
-      }
-
-      const result = await transactionService.getTransactionDetails(transactionId, userId);
-
-      return res.json({ success: true, message: 'Transaction details retrieved', data: result });
-
-    } catch (error) {
-      if (error.message.includes('not found') || error.message.includes('access denied')) {
-        return res.status(404).json({ success: false, message: error.message });
-      }
-      next(error);
-    }
-  }
-
-  // ──────────────────────────────────────────
+  // CREATE MONEY REQUEST (Asking someone for money)
   // POST /api/v1/transactions/request
-  // Body: { recipientPhone, amount, message? }
   // ──────────────────────────────────────────
   async request(req, res, next) {
     try {
+      const requesterUserId = req.user.userId;
       const { recipientPhone, amount, message } = req.body;
-      const fromUserId = req.user.userId;
 
       if (!recipientPhone || !amount) {
-        return res.status(400).json({
-          success: false,
-          message: 'Recipient phone number and amount are required'
-        });
+        return res.status(400).json({ success: false, message: 'Recipient phone and amount are required' });
       }
 
       const requestAmount = parseFloat(amount);
@@ -120,18 +60,11 @@ class TransactionController {
         return res.status(400).json({ success: false, message: 'Amount must be a positive number' });
       }
 
-      const result = await transactionService.requestMoney(
-        fromUserId, recipientPhone, requestAmount, message
-      );
-
-      return res.status(201).json({
-        success: true,
-        message: 'Money request sent successfully',
-        data: result
-      });
+      const result = await transactionService.requestMoney(requesterUserId, recipientPhone, requestAmount, message);
+      return res.status(201).json({ success: true, message: 'Money request sent successfully', data: result });
 
     } catch (error) {
-      const clientErrors = ['not found', 'yourself', 'access denied'];
+      const clientErrors = ['not found', 'yourself'];
       if (clientErrors.some(msg => error.message.includes(msg))) {
         return res.status(400).json({ success: false, message: error.message });
       }
@@ -140,44 +73,8 @@ class TransactionController {
   }
 
   // ──────────────────────────────────────────
-  // GET /api/v1/transactions/requests/incoming
-  // ──────────────────────────────────────────
-  async getIncomingRequests(req, res, next) {
-    try {
-      const userId = req.user.userId;
-      const result = await transactionService.getIncomingRequests(userId);
-
-      return res.json({
-        success: true,
-        message: 'Incoming money requests retrieved',
-        data: result
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  // ──────────────────────────────────────────
-  // GET /api/v1/transactions/requests/sent
-  // ──────────────────────────────────────────
-  async getSentRequests(req, res, next) {
-    try {
-      const userId = req.user.userId;
-      const result = await transactionService.getSentRequests(userId);
-
-      return res.json({
-        success: true,
-        message: 'Sent money requests retrieved',
-        data: result
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  // ──────────────────────────────────────────
+  // APPROVE / PAY A REQUEST (The Payer pays the requester)
   // POST /api/v1/transactions/requests/:requestId/pay
-  // Body: { epin }
   // ──────────────────────────────────────────
   async approveRequest(req, res, next) {
     try {
@@ -188,21 +85,15 @@ class TransactionController {
       if (!requestId || isNaN(requestId)) {
         return res.status(400).json({ success: false, message: 'Invalid request ID' });
       }
-      if (!epin) {
-        return res.status(400).json({ success: false, message: 'ePin is required to approve a payment' });
-      }
-      if (epin.length !== 5 || !/^\d+$/.test(epin)) {
-        return res.status(400).json({ success: false, message: 'ePin must be exactly 5 digits' });
+      if (!epin || epin.length !== 5) {
+        return res.status(400).json({ success: false, message: 'Valid 5-digit ePin is required' });
       }
 
       const result = await transactionService.approveRequest(requestId, payerUserId, epin);
-
       return res.json({ success: true, message: 'Money request paid successfully', data: result });
 
     } catch (error) {
-      const clientErrors = [
-        'not found', 'authorised', 'already', 'expired', 'Invalid', 'Insufficient', 'not active'
-      ];
+      const clientErrors = ['not found', 'authorised', 'already', 'expired', 'Invalid', 'Insufficient'];
       if (clientErrors.some(msg => error.message.includes(msg))) {
         return res.status(400).json({ success: false, message: error.message });
       }
@@ -211,8 +102,8 @@ class TransactionController {
   }
 
   // ──────────────────────────────────────────
+  // UPDATE REQUEST STATUS (Decline or Cancel)
   // PATCH /api/v1/transactions/requests/:requestId/status
-  // Body: { status: 'declined' | 'cancelled' }
   // ──────────────────────────────────────────
   async updateRequestStatus(req, res, next) {
     try {
@@ -220,28 +111,16 @@ class TransactionController {
       const requestId = parseInt(req.params.requestId);
       const { status } = req.body;
 
-      if (!requestId || isNaN(requestId)) {
-        return res.status(400).json({ success: false, message: 'Invalid request ID' });
-      }
-
       const allowedStatuses = ['declined', 'cancelled'];
       if (!status || !allowedStatuses.includes(status)) {
-        return res.status(400).json({
-          success: false,
-          message: `Status must be one of: ${allowedStatuses.join(', ')}`
-        });
+        return res.status(400).json({ success: false, message: 'Status must be declined or cancelled' });
       }
 
       const result = await transactionService.updateRequestStatus(requestId, userId, status);
-
-      return res.json({
-        success: true,
-        message: `Money request ${status} successfully`,
-        data: result
-      });
+      return res.json({ success: true, message: `Request ${status} successfully`, data: result });
 
     } catch (error) {
-      const clientErrors = ['not found', 'Only', 'already', 'access denied'];
+      const clientErrors = ['not found', 'Only', 'already'];
       if (clientErrors.some(msg => error.message.includes(msg))) {
         return res.status(400).json({ success: false, message: error.message });
       }
@@ -250,8 +129,8 @@ class TransactionController {
   }
 
   // ──────────────────────────────────────────
-  // POST /api/v1/transactions/cash-in  (agents only)
-  // Body: { userPhone, amount, epin }
+  // CASH IN (Agent deposits into User account)
+  // POST /api/v1/transactions/cash-in
   // ──────────────────────────────────────────
   async cashIn(req, res, next) {
     try {
@@ -259,29 +138,14 @@ class TransactionController {
       const { userPhone, amount, epin } = req.body;
 
       if (!userPhone || !amount || !epin) {
-        return res.status(400).json({
-          success: false,
-          message: 'User phone, amount, and ePin are required'
-        });
+        return res.status(400).json({ success: false, message: 'User phone, amount, and ePin are required' });
       }
 
-      const cashInAmount = parseFloat(amount);
-      if (isNaN(cashInAmount) || cashInAmount <= 0) {
-        return res.status(400).json({ success: false, message: 'Amount must be a positive number' });
-      }
-
-      if (epin.length !== 5 || !/^\d+$/.test(epin)) {
-        return res.status(400).json({ success: false, message: 'ePin must be exactly 5 digits' });
-      }
-
-      const result = await transactionService.cashIn(agentUserId, userPhone, cashInAmount, epin);
-
+      const result = await transactionService.cashIn(agentUserId, userPhone, parseFloat(amount), epin);
       return res.json({ success: true, message: 'Cash in successful', data: result });
 
     } catch (error) {
-      const clientErrors = [
-        'not found', 'Invalid', 'Insufficient', 'not active', 'yourself'
-      ];
+      const clientErrors = ['not found', 'Invalid', 'Insufficient', 'agent', 'yourself'];
       if (clientErrors.some(msg => error.message.includes(msg))) {
         return res.status(400).json({ success: false, message: error.message });
       }
@@ -290,8 +154,8 @@ class TransactionController {
   }
 
   // ──────────────────────────────────────────
+  // CASH OUT (User withdraws via Agent)
   // POST /api/v1/transactions/cash-out
-  // Body: { agentPhone, amount, epin }
   // ──────────────────────────────────────────
   async cashOut(req, res, next) {
     try {
@@ -299,36 +163,68 @@ class TransactionController {
       const { agentPhone, amount, epin } = req.body;
 
       if (!agentPhone || !amount || !epin) {
-        return res.status(400).json({
-          success: false,
-          message: 'Agent phone, amount, and ePin are required'
-        });
+        return res.status(400).json({ success: false, message: 'Agent phone, amount, and ePin are required' });
       }
 
-      const cashOutAmount = parseFloat(amount);
-      if (isNaN(cashOutAmount) || cashOutAmount <= 0) {
-        return res.status(400).json({ success: false, message: 'Amount must be a positive number' });
-      }
-
-      if (epin.length !== 5 || !/^\d+$/.test(epin)) {
-        return res.status(400).json({ success: false, message: 'ePin must be exactly 5 digits' });
-      }
-
-      const result = await transactionService.cashOut(userId, agentPhone, cashOutAmount, epin);
-
+      const result = await transactionService.cashOut(userId, agentPhone, parseFloat(amount), epin);
       return res.json({ success: true, message: 'Cash out successful', data: result });
 
     } catch (error) {
-      const clientErrors = [
-        'not found', 'Invalid', 'Insufficient', 'not active', 'yourself'
-      ];
+      const clientErrors = ['not found', 'Invalid', 'Insufficient', 'not active'];
       if (clientErrors.some(msg => error.message.includes(msg))) {
         return res.status(400).json({ success: false, message: error.message });
       }
       next(error);
     }
   }
+
+  // ──────────────────────────────────────────
+  // HISTORY & FETCHING (Select Only)
+  // ──────────────────────────────────────────
+
+  async getHistory(req, res, next) {
+    try {
+      const userId = req.user.userId;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const result = await transactionService.getHistory(userId, page, limit);
+      return res.json({ success: true, data: result.transactions, pagination: result.pagination });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getDetails(req, res, next) {
+    try {
+      const userId = req.user.userId;
+      const transactionId = parseInt(req.params.id);
+      const result = await transactionService.getTransactionDetails(transactionId, userId);
+      return res.json({ success: true, data: result });
+    } catch (error) {
+      if (error.message.includes('not found') || error.message.includes('denied')) {
+        return res.status(404).json({ success: false, message: error.message });
+      }
+      next(error);
+    }
+  }
+
+  async getIncomingRequests(req, res, next) {
+    try {
+      const result = await transactionService.getIncomingRequests(req.user.userId);
+      return res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getSentRequests(req, res, next) {
+    try {
+      const result = await transactionService.getSentRequests(req.user.userId);
+      return res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
-// Export a single instance
 export default new TransactionController();
