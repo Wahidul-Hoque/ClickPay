@@ -62,6 +62,7 @@ export const walletAPI = {
   getTransactions: (params?: any) => apiClient.get('/wallets/transactions', { params }),
   addPaymentMethod: (data: any) => apiClient.post('/wallets/payment-methods', data),
   getPaymentMethods: () => apiClient.get('/wallets/payment-methods'),
+  removePaymentMethod: (id: string) => apiClient.delete(`/wallets/payment-methods/${id}`),
   topup: (data: any) => apiClient.post('/wallets/topup', data),
 };
 

@@ -66,6 +66,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'Bills', href: '/dashboard/bills', icon: CreditCard },
     { name: 'Loans', href: '/dashboard/loans', icon: Download },
     { name: 'Savings', href: '/dashboard/savings', icon: TrendingUp },
+    { name: 'Payment Methods', href: '/dashboard/payment_methods', icon: CreditCard },
   ];
 
   const isActive = (href: string) =>
