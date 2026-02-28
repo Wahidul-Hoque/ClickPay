@@ -50,7 +50,16 @@ export const authAPI = {
 
 export const transactionAPI = {
   send: (data: any) => apiClient.post('/transactions/send', data),
-  request: (data: any) => apiClient.post('/transactions/request', data),
+  request: (data: { recipientPhone: string; amount: number; message?: string }) => 
+    apiClient.post('/transactions/request', data),
+  getIncomingRequests: () => 
+    apiClient.get('/transactions/requests/incoming'),
+  getSentRequests: () => 
+    apiClient.get('/transactions/requests/sent'),
+  approveRequest: (requestId: string) => 
+    apiClient.post(`/transactions/requests/${requestId}/pay`),
+  updateRequestStatus: (requestId: string, status: 'declined' | 'cancelled') => 
+    apiClient.patch(`/transactions/requests/${requestId}/status`, { status }),
   cashIn: (data: any) => apiClient.post('/transactions/cash-in', data),
   cashOut: (data: any) => apiClient.post('/transactions/cash-out', data),
   getHistory: (params?: any) => apiClient.get('/transactions/history', { params }),

@@ -101,6 +101,8 @@ export default function DashboardPage() {
   ];
 
   return (
+
+    
     <div className="space-y-8 animate-fadeIn">
 
       {/* ── Welcome ─────────────────────────────────────────── */}
@@ -122,6 +124,8 @@ export default function DashboardPage() {
           All systems normal
         </div>
       </div>
+
+      
 
       {/* ── Stat Cards ──────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 stagger">
