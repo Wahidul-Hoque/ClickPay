@@ -82,10 +82,15 @@ CREATE TABLE agent_fees (
 );
 
 -- EXTERNAL_TOPUPS
+-- NOTE: payment_method_id is nullable to support agent cash-ins
+-- (which have no bank/card payment method).
+-- For bank/card top-ups, payment_method_id should always be set.
+-- Migration (if table already exists): 
+--   ALTER TABLE external_topups ALTER COLUMN payment_method_id DROP NOT NULL;
 CREATE TABLE external_topups (
   topup_id            BIGSERIAL PRIMARY KEY,
   wallet_id           BIGINT NOT NULL REFERENCES wallets(wallet_id),
-  payment_method_id   BIGINT NOT NULL REFERENCES payment_methods(payment_method_id),
+  payment_method_id   BIGINT REFERENCES payment_methods(payment_method_id), -- nullable for agent cash-ins
   transaction_id      BIGINT REFERENCES transactions(transaction_id),
   amount              NUMERIC(18,2) NOT NULL CHECK (amount > 0),
   provider_reference  VARCHAR(150),

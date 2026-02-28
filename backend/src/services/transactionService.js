@@ -1,97 +1,167 @@
 // ==============================================
-// TRANSACTION SERVICE (The Kitchen - Business Logic)
+// TRANSACTION SERVICE
 // ==============================================
-// This file contains all transaction-related database operations
-// All SQL queries for transactions are written here
+// Design principles applied here:
+//  1. Every transaction is first INSERTed as 'initiated', then updated
+//     to 'completed' or 'failed' — so every attempt is recorded.
+//  2. Every step of the payment lifecycle is logged in transaction_events.
+//  3. Wallet rows are locked with FOR UPDATE to prevent race conditions.
+//  4. A 30-second duplicate guard rejects identical reattempts.
+//  5. getHistory returns ONLY 'completed' transactions.
+//  6. cashIn is additionally recorded in external_topups.
 
 import { query, getClient } from '../config/database.js';
 import { comparePassword } from '../middleware/auth.js';
 
+// ──────────────────────────────────────────────────────────────
+// INTERNAL HELPERS
+// ──────────────────────────────────────────────────────────────
+
+// Log a single lifecycle event for a transaction (uses a client mid-transaction)
+async function logEvent(client, transactionId, eventType, eventStatus, details) {
+  await client.query(
+    `INSERT INTO transaction_events (transaction_id, event_type, event_status, details)
+     VALUES ($1, $2, $3, $4)`,
+    [transactionId, eventType, eventStatus, details]
+  );
+}
+
+// After a ROLLBACK, record the failure in a fresh connection so the log is persisted
+async function recordFailure(transactionId, errorMessage) {
+  if (!transactionId) return;
+  try {
+    const failClient = await getClient();
+    try {
+      await failClient.query(
+        `UPDATE transactions SET status = 'failed' WHERE transaction_id = $1`,
+        [transactionId]
+      );
+      await failClient.query(
+        `INSERT INTO transaction_events (transaction_id, event_type, event_status, details)
+         VALUES ($1, 'failed', 'failure', $2)`,
+        [transactionId, `Failed: ${errorMessage}`]
+      );
+    } finally {
+      failClient.release();
+    }
+  } catch (logErr) {
+    console.error('Could not persist transaction failure log:', logErr.message);
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 class TransactionService {
-  // ==============================================
-  // SEND MONEY
-  // ==============================================
-  // Transfers money from one wallet to another
+
+  // ============================================================
+  // SEND MONEY  (User/Agent → User/Agent)
+  // POST /api/v1/transactions/send
+  // ============================================================
   async sendMoney(fromUserId, toPhone, amount, epin) {
     const client = await getClient();
+    let transactionId = null;
 
     try {
       await client.query('BEGIN');
 
-      // STEP 1: Verify sender's ePin
-      const epinResult = await client.query(
+      // ── Step 1: Verify sender ePin ──────────────────────────
+      const epinRow = await client.query(
         'SELECT epin_hash FROM users WHERE user_id = $1',
         [fromUserId]
       );
-      if (epinResult.rows.length === 0) throw new Error('User not found');
+      if (epinRow.rows.length === 0) throw new Error('User not found');
+      if (!(await comparePassword(epin, epinRow.rows[0].epin_hash))) {
+        throw new Error('Invalid ePin');
+      }
 
-      const isValidEpin = await comparePassword(epin, epinResult.rows[0].epin_hash);
-      if (!isValidEpin) throw new Error('Invalid ePin');
-
-      // STEP 2: Get sender's wallet
-      const senderWalletResult = await client.query(
-        `SELECT wallet_id, balance, status, user_id
+      // ── Step 2: Lock sender wallet ──────────────────────────
+      const senderRes = await client.query(
+        `SELECT wallet_id, balance, status
          FROM wallets
-         WHERE user_id = $1 AND wallet_type IN ('user', 'agent')`,
+         WHERE user_id = $1 AND wallet_type IN ('user','agent')
+         FOR UPDATE`,
         [fromUserId]
       );
-      if (senderWalletResult.rows.length === 0) throw new Error('Sender wallet not found');
-
-      const senderWallet = senderWalletResult.rows[0];
+      if (senderRes.rows.length === 0) throw new Error('Sender wallet not found');
+      const senderWallet = senderRes.rows[0];
       if (senderWallet.status !== 'active') throw new Error('Your wallet is not active');
 
-      const currentBalance = parseFloat(senderWallet.balance);
-      if (currentBalance < parseFloat(amount)) {
-        throw new Error(`Insufficient balance. You have ৳${currentBalance.toFixed(2)}`);
-      }
-
-      // STEP 3: Get receiver's wallet
-      const receiverWalletResult = await client.query(
-        `SELECT w.wallet_id, w.status, u.name, u.user_id FROM wallets w
+      // ── Step 3: Lock receiver wallet ────────────────────────
+      const receiverRes = await client.query(
+        `SELECT w.wallet_id, w.status, w.user_id, u.name
+         FROM wallets w
          JOIN users u ON w.user_id = u.user_id
-         WHERE u.phone = $1 AND w.wallet_type IN ('user', 'agent')`,
+         WHERE u.phone = $1 AND w.wallet_type IN ('user','agent')
+         FOR UPDATE`,
         [toPhone]
       );
-      if (receiverWalletResult.rows.length === 0) {
-        throw new Error('Receiver not found with this phone number');
-      }
-
-      const receiverWallet = receiverWalletResult.rows[0];
+      if (receiverRes.rows.length === 0) throw new Error('Receiver not found with this phone number');
+      const receiverWallet = receiverRes.rows[0];
       if (receiverWallet.user_id === fromUserId) throw new Error('Cannot send money to yourself');
       if (receiverWallet.status !== 'active') throw new Error('Receiver wallet is not active');
 
-      // STEP 4: Create transaction record
+      // ── Step 4: Duplicate guard (same wallets + amount, last 30s) ──
+      const dup = await client.query(
+        `SELECT 1 FROM transactions
+         WHERE from_wallet_id = $1 AND to_wallet_id = $2
+           AND amount = $3
+           AND status = 'completed'
+           AND created_at > NOW() - INTERVAL '30 seconds'`,
+        [senderWallet.wallet_id, receiverWallet.wallet_id, amount]
+      );
+      if (dup.rows.length > 0) {
+        throw new Error('Duplicate transaction detected — please wait before retrying');
+      }
+
+      // ── Step 5: Balance check ───────────────────────────────
+      const currentBalance = parseFloat(senderWallet.balance);
+      if (currentBalance < parseFloat(amount)) {
+        throw new Error(`Insufficient balance. Available: ৳${currentBalance.toFixed(2)}`);
+      }
+
+      // ── Step 6: Create transaction record (status = 'initiated') ──
       const reference = `TXN-${Date.now()}`;
-      const transactionResult = await client.query(
+      const txnRes = await client.query(
         `INSERT INTO transactions
            (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [senderWallet.wallet_id, receiverWallet.wallet_id, amount, 'transfer', 'completed', reference]
+         VALUES ($1, $2, $3, 'transfer', 'initiated', $4)
+         RETURNING transaction_id, created_at`,
+        [senderWallet.wallet_id, receiverWallet.wallet_id, amount, reference]
       );
-      const txnIdResult = await client.query('SELECT LASTVAL() as id');
-      const transactionId = txnIdResult.rows[0].id;
-      const transactionData = await client.query('SELECT created_at FROM transactions WHERE transaction_id = $1', [transactionId]);
+      transactionId = txnRes.rows[0].transaction_id;
+      const createdAt = txnRes.rows[0].created_at;
 
-      // STEP 5: Deduct from sender
+      await logEvent(client, transactionId, 'initiated', 'info', `Transfer of ৳${amount} to ${receiverWallet.name} initiated`);
+      await logEvent(client, transactionId, 'epin_verified', 'info', 'Sender ePin verified');
+
+      // ── Step 7: Deduct from sender ──────────────────────────
       await client.query(
-        `UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2`,
+        'UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2',
         [amount, senderWallet.wallet_id]
       );
-      const balanceFetch = await client.query('SELECT balance FROM wallets WHERE wallet_id = $1', [senderWallet.wallet_id]);
-      const newSenderBalance = parseFloat(balanceFetch.rows[0].balance);
+      const newBalanceRow = await client.query(
+        'SELECT balance FROM wallets WHERE wallet_id = $1',
+        [senderWallet.wallet_id]
+      );
+      const newSenderBalance = parseFloat(newBalanceRow.rows[0].balance);
+      await logEvent(client, transactionId, 'amount_deducted', 'info',
+        `৳${amount} deducted from sender. Remaining: ৳${newSenderBalance}`);
 
-      // STEP 6: Add to receiver
+      // ── Step 8: Credit receiver ─────────────────────────────
       await client.query(
-        `UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2`,
+        'UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2',
         [amount, receiverWallet.wallet_id]
       );
+      await logEvent(client, transactionId, 'amount_credited', 'info',
+        `৳${amount} credited to ${receiverWallet.name}`);
 
-      // STEP 7: Log event
+      // ── Step 9: Mark completed ──────────────────────────────
       await client.query(
-        `INSERT INTO transaction_events (transaction_id, event_type, event_status, details)
-         VALUES ($1, $2, $3, $4)`,
-        [transactionId, 'transfer_completed', 'success', `Money sent to ${receiverWallet.name}`]
+        `UPDATE transactions SET status = 'completed' WHERE transaction_id = $1`,
+        [transactionId]
       );
+      await logEvent(client, transactionId, 'completed', 'success',
+        `Transfer to ${receiverWallet.name} completed`);
 
       await client.query('COMMIT');
 
@@ -102,157 +172,529 @@ class TransactionService {
         to: receiverWallet.name,
         to_phone: toPhone,
         new_balance: newSenderBalance,
-        date: transactionData.rows[0].created_at
+        date: createdAt,
       };
 
     } catch (error) {
       await client.query('ROLLBACK');
+      await recordFailure(transactionId, error.message);
       throw error;
     } finally {
       client.release();
     }
   }
 
-  // ==============================================
-  // GET TRANSACTION HISTORY
-  // ==============================================
-  async getHistory(userId, page = 1, limit = 10) {
-    // Get paginated transaction history where the user is either sender or receiver
-  }
-
-  // ==============================================
-  // GET TRANSACTION DETAILS
-  // ==============================================
-  // Get full details of a single transaction (must be a party to it)
-  async getTransactionDetails(transactionId, userId) {
-    // Fetch transaction details, including from/to wallet info, and ensure the user is either sender or receiver
-  }
-
-  // ==============================================
-  // REQUEST MONEY
-  // ==============================================
-  // Requester asks a recipient (by phone) to pay them
-  async requestMoney(requesterUserId, recipientPhone, amount, message) {
-    try {
-      // Get requester wallet
-      const requesterWalletResult = await query(
-        `SELECT wallet_id FROM wallets
-         WHERE user_id = $1 AND wallet_type IN ('user', 'agent')`,
-        [requesterUserId]
-      );
-      if (requesterWalletResult.rows.length === 0) throw new Error('Your wallet not found');
-
-      const requesterWalletId = requesterWalletResult.rows[0].wallet_id;
-
-      // Get requestee (recipient) by phone
-      const requesteeResult = await query(
-        `SELECT u.user_id, u.name, w.wallet_id
-         FROM users u
-         JOIN wallets w ON u.user_id = w.user_id
-         WHERE u.phone = $1 AND w.wallet_type IN ('user', 'agent')`,
-        [recipientPhone]
-      );
-      if (requesteeResult.rows.length === 0) {
-        throw new Error('Recipient not found with this phone number');
-      }
-
-      const requestee = requesteeResult.rows[0];
-      if (requestee.user_id === requesterUserId) {
-        throw new Error('Cannot request money from yourself');
-      }
-
-      // Set expiry 7 days from now
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-
-      await query(
-        `INSERT INTO money_requests (requester_user_id, requester_wallet_id, requestee_user_id, requestee_wallet_id, amount, message, expires_at, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'requested')`,
-        [requesterUserId, requesterWalletId, requestee.user_id, requestee.wallet_id, amount, message || null, expiresAt]
-      );
-
-      // Manual Fetch
-      const reqIdRes = await query('SELECT LASTVAL() as id');
-      const requestId = reqIdRes.rows[0].id;
-      const finalRequestResult = await query('SELECT * FROM money_requests WHERE request_id = $1', [requestId]);
-
-      return {
-        ...finalRequestResult.rows[0],
-        requestee_name: requestee.name,
-        requestee_phone: recipientPhone
-      };
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  // ==============================================
-  // GET INCOMING REQUESTS
-  // ==============================================
-  // Requests where the current user is the PAYER (requestee_user_id = userId)
-  async getIncomingRequests(userId) {
-    try {
-      const result = await query(
-        `SELECT
-           mr.*,
-           u.name  AS requester_name,
-           u.phone AS requester_phone
-         FROM money_requests mr
-         JOIN users u ON mr.requester_user_id = u.user_id
-         WHERE mr.requestee_user_id = $1
-           AND mr.status = 'requested'
-         ORDER BY mr.created_at DESC`,
-        [userId]
-      );
-      return result.rows;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  // ==============================================
-  // GET SENT REQUESTS
-  // ==============================================
-  // Requests the current user created (requester_user_id = userId)
-  async getSentRequests(userId) {
-    try {
-      const result = await query(
-        `SELECT
-           mr.*,
-           u.name  AS requestee_name,
-           u.phone AS requestee_phone
-         FROM money_requests mr
-         JOIN users u ON mr.requestee_user_id = u.user_id
-         WHERE mr.requester_user_id = $1
-         ORDER BY mr.created_at DESC`,
-        [userId]
-      );
-      return result.rows;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  // ==============================================
-  // APPROVE / PAY A REQUEST
-  // ==============================================
-  // The requestee (payer) pays the pending request
-  async approveRequest(requestId, payerUserId, epin) {
+  // ============================================================
+  // CASH IN  (Agent → User wallet)
+  // Also recorded in external_topups (payment_method_id = NULL for agent cash-ins)
+  // If your DB was already created, run:
+  //   ALTER TABLE external_topups ALTER COLUMN payment_method_id DROP NOT NULL;
+  // POST /api/v1/transactions/cash-in
+  // ============================================================
+  async cashIn(agentUserId, userPhone, amount, agentEpin) {
     const client = await getClient();
+    let transactionId = null;
 
     try {
       await client.query('BEGIN');
 
-      // STEP 1: Fetch the request
-      const reqResult = await client.query(
-        `SELECT * FROM money_requests WHERE request_id = $1 FOR UPDATE`,
+      // ── Step 1: Verify agent ePin ───────────────────────────
+      const epinRow = await client.query(
+        'SELECT epin_hash FROM users WHERE user_id = $1',
+        [agentUserId]
+      );
+      if (epinRow.rows.length === 0) throw new Error('Agent not found');
+      if (!(await comparePassword(agentEpin, epinRow.rows[0].epin_hash))) {
+        throw new Error('Invalid ePin');
+      }
+
+      // ── Step 2: Lock agent wallet (must be agent type) ──────
+      const agentRes = await client.query(
+        `SELECT wallet_id, balance, status
+         FROM wallets
+         WHERE user_id = $1 AND wallet_type = 'agent'
+         FOR UPDATE`,
+        [agentUserId]
+      );
+      if (agentRes.rows.length === 0) throw new Error('Agent wallet not found. Only agents can perform cash-in');
+      const agentWallet = agentRes.rows[0];
+      if (agentWallet.status !== 'active') throw new Error('Agent wallet is not active');
+
+      // ── Step 3: Lock user wallet ────────────────────────────
+      const userRes = await client.query(
+        `SELECT w.wallet_id, w.status, w.user_id, u.name
+         FROM wallets w
+         JOIN users u ON w.user_id = u.user_id
+         WHERE u.phone = $1 AND w.wallet_type = 'user'
+         FOR UPDATE`,
+        [userPhone]
+      );
+      if (userRes.rows.length === 0) throw new Error('User not found with this phone number');
+      const userWallet = userRes.rows[0];
+      if (userWallet.status !== 'active') throw new Error('User wallet is not active');
+      if (userWallet.user_id === agentUserId) throw new Error('Cannot cash in to yourself');
+
+      // ── Step 4: Duplicate guard ─────────────────────────────
+      const dup = await client.query(
+        `SELECT 1 FROM transactions
+         WHERE from_wallet_id = $1 AND to_wallet_id = $2
+           AND amount = $3
+           AND status = 'completed'
+           AND created_at > NOW() - INTERVAL '30 seconds'`,
+        [agentWallet.wallet_id, userWallet.wallet_id, amount]
+      );
+      if (dup.rows.length > 0) {
+        throw new Error('Duplicate cash-in detected — please wait before retrying');
+      }
+
+      // ── Step 5: Agent balance check ─────────────────────────
+      const agentBalance = parseFloat(agentWallet.balance);
+      if (agentBalance < parseFloat(amount)) {
+        throw new Error(`Insufficient agent balance. Available: ৳${agentBalance.toFixed(2)}`);
+      }
+
+      // ── Step 6: Create transaction record (initiated) ───────
+      const reference = `CIN-${Date.now()}`;
+      const txnRes = await client.query(
+        `INSERT INTO transactions
+           (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
+         VALUES ($1, $2, $3, 'cash_in', 'initiated', $4)
+         RETURNING transaction_id, created_at`,
+        [agentWallet.wallet_id, userWallet.wallet_id, amount, reference]
+      );
+      transactionId = txnRes.rows[0].transaction_id;
+      const createdAt = txnRes.rows[0].created_at;
+
+      await logEvent(client, transactionId, 'initiated', 'info', `Cash-in of ৳${amount} for ${userWallet.name} initiated by agent`);
+      await logEvent(client, transactionId, 'epin_verified', 'info', 'Agent ePin verified');
+
+      // ── Step 7: Deduct from agent ───────────────────────────
+      await client.query(
+        'UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2',
+        [amount, agentWallet.wallet_id]
+      );
+      await logEvent(client, transactionId, 'amount_deducted', 'info',
+        `৳${amount} deducted from agent wallet`);
+
+      // ── Step 8: Credit user ─────────────────────────────────
+      await client.query(
+        'UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2',
+        [amount, userWallet.wallet_id]
+      );
+      await logEvent(client, transactionId, 'amount_credited', 'info',
+        `৳${amount} credited to ${userWallet.name}`);
+
+      // ── Step 9: Mark completed ──────────────────────────────
+      await client.query(
+        `UPDATE transactions SET status = 'completed' WHERE transaction_id = $1`,
+        [transactionId]
+      );
+
+      // ── Step 10: Record in external_topups ──────────────────
+      // payment_method_id is NULL for agent cash-ins (no bank/card involved).
+      // Requires: ALTER TABLE external_topups ALTER COLUMN payment_method_id DROP NOT NULL;
+      await client.query(
+        `INSERT INTO external_topups
+           (wallet_id, payment_method_id, transaction_id, amount, provider_reference, status)
+         VALUES ($1, NULL, $2, $3, $4, 'completed')`,
+        [userWallet.wallet_id, transactionId, amount, reference]
+      );
+      await logEvent(client, transactionId, 'external_topup_recorded', 'info',
+        `Logged in external_topups. Reference: ${reference}`);
+
+      await logEvent(client, transactionId, 'completed', 'success',
+        `Cash-in of ৳${amount} completed for ${userWallet.name}`);
+
+      await client.query('COMMIT');
+
+      return {
+        transaction_id: transactionId,
+        reference,
+        amount: parseFloat(amount),
+        to: userWallet.name,
+        to_phone: userPhone,
+        date: createdAt,
+      };
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      await recordFailure(transactionId, error.message);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ============================================================
+  // CASH OUT  (User → Agent, agent earns 1.5% fee)
+  // Agent fee is stored in agent_fees table.
+  // POST /api/v1/transactions/cash-out
+  // ============================================================
+  async cashOut(userId, agentPhone, amount, userEpin) {
+    const client = await getClient();
+    let transactionId = null;
+
+    try {
+      await client.query('BEGIN');
+
+      // ── Step 1: Verify user ePin ────────────────────────────
+      const epinRow = await client.query(
+        'SELECT epin_hash FROM users WHERE user_id = $1',
+        [userId]
+      );
+      if (epinRow.rows.length === 0) throw new Error('User not found');
+      if (!(await comparePassword(userEpin, epinRow.rows[0].epin_hash))) {
+        throw new Error('Invalid ePin');
+      }
+
+      // ── Step 2: Lock user wallet ────────────────────────────
+      const userRes = await client.query(
+        `SELECT wallet_id, balance, status
+         FROM wallets
+         WHERE user_id = $1 AND wallet_type IN ('user','agent')
+         FOR UPDATE`,
+        [userId]
+      );
+      if (userRes.rows.length === 0) throw new Error('User wallet not found');
+      const userWallet = userRes.rows[0];
+      if (userWallet.status !== 'active') throw new Error('Your wallet is not active');
+
+      // ── Step 3: Lock agent wallet ───────────────────────────
+      const agentRes = await client.query(
+        `SELECT w.wallet_id, w.status, w.user_id, u.name
+         FROM wallets w
+         JOIN users u ON w.user_id = u.user_id
+         WHERE u.phone = $1 AND w.wallet_type = 'agent'
+         FOR UPDATE`,
+        [agentPhone]
+      );
+      if (agentRes.rows.length === 0) throw new Error('Agent not found with this phone number');
+      const agentWallet = agentRes.rows[0];
+      if (agentWallet.status !== 'active') throw new Error('Agent wallet is not active');
+      if (agentWallet.user_id === userId) throw new Error('Cannot cash out to yourself');
+
+      // ── Step 4: Duplicate guard ─────────────────────────────
+      const dup = await client.query(
+        `SELECT 1 FROM transactions
+         WHERE from_wallet_id = $1 AND to_wallet_id = $2
+           AND amount = $3
+           AND status = 'completed'
+           AND created_at > NOW() - INTERVAL '30 seconds'`,
+        [userWallet.wallet_id, agentWallet.wallet_id, amount]
+      );
+      if (dup.rows.length > 0) {
+        throw new Error('Duplicate cash-out detected — please wait before retrying');
+      }
+
+      // ── Step 5: Calculate fee & total deduction ─────────────
+      const fee = parseFloat((amount * 0.015).toFixed(2));
+      const totalDeduction = parseFloat((parseFloat(amount) + fee).toFixed(2));
+
+      const currentBalance = parseFloat(userWallet.balance);
+      if (currentBalance < totalDeduction) {
+        throw new Error(
+          `Insufficient balance. You need ৳${totalDeduction} (৳${amount} + ৳${fee} fee) but have ৳${currentBalance.toFixed(2)}`
+        );
+      }
+
+      // ── Step 6: Create main transaction record (initiated) ──
+      const reference = `COUT-${Date.now()}`;
+      const txnRes = await client.query(
+        `INSERT INTO transactions
+           (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
+         VALUES ($1, $2, $3, 'cash_out', 'initiated', $4)
+         RETURNING transaction_id, created_at`,
+        [userWallet.wallet_id, agentWallet.wallet_id, amount, reference]
+      );
+      transactionId = txnRes.rows[0].transaction_id;
+      const createdAt = txnRes.rows[0].created_at;
+
+      await logEvent(client, transactionId, 'initiated', 'info',
+        `Cash-out of ৳${amount} (fee ৳${fee}) via agent ${agentWallet.name} initiated`);
+      await logEvent(client, transactionId, 'epin_verified', 'info', 'User ePin verified');
+
+      // ── Step 7: Deduct total (amount + fee) from user ───────
+      await client.query(
+        'UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2',
+        [totalDeduction, userWallet.wallet_id]
+      );
+      const newBalanceRow = await client.query(
+        'SELECT balance FROM wallets WHERE wallet_id = $1',
+        [userWallet.wallet_id]
+      );
+      const newUserBalance = parseFloat(newBalanceRow.rows[0].balance);
+      await logEvent(client, transactionId, 'amount_deducted', 'info',
+        `৳${totalDeduction} deducted from user (৳${amount} cash + ৳${fee} fee). Remaining: ৳${newUserBalance}`);
+
+      // ── Step 8: Credit agent with cash amount ───────────────
+      await client.query(
+        'UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2',
+        [amount, agentWallet.wallet_id]
+      );
+      await logEvent(client, transactionId, 'amount_credited', 'info',
+        `৳${amount} credited to agent ${agentWallet.name}`);
+
+      // ── Step 9: Credit agent with fee ──────────────────────
+      await client.query(
+        'UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2',
+        [fee, agentWallet.wallet_id]
+      );
+
+      // ── Step 10: Record fee transaction & agent_fees entry ──
+      const feeRef = `FEE-${Date.now()}`;
+      const feeTxnRes = await client.query(
+        `INSERT INTO transactions
+           (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
+         VALUES ($1, $2, $3, 'agent_fee', 'completed', $4)
+         RETURNING transaction_id`,
+        [userWallet.wallet_id, agentWallet.wallet_id, fee, feeRef]
+      );
+      const feeTransactionId = feeTxnRes.rows[0].transaction_id;
+
+      await client.query(
+        `INSERT INTO agent_fees (cashout_transaction_id, agent_wallet_id, fee_amount, payout_transaction_id)
+         VALUES ($1, $2, $3, $4)`,
+        [transactionId, agentWallet.wallet_id, fee, feeTransactionId]
+      );
+      await logEvent(client, transactionId, 'fee_paid', 'info',
+        `Agent fee of ৳${fee} paid to ${agentWallet.name}`);
+
+      // ── Step 11: Mark main transaction completed ─────────────
+      await client.query(
+        `UPDATE transactions SET status = 'completed' WHERE transaction_id = $1`,
+        [transactionId]
+      );
+      await logEvent(client, transactionId, 'completed', 'success',
+        `Cash-out of ৳${amount} via agent ${agentWallet.name} completed`);
+
+      await client.query('COMMIT');
+
+      return {
+        transaction_id: transactionId,
+        reference,
+        amount: parseFloat(amount),
+        fee,
+        total_deducted: totalDeduction,
+        agent: agentWallet.name,
+        new_balance: newUserBalance,
+        date: createdAt,
+      };
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      await recordFailure(transactionId, error.message);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ============================================================
+  // GET TRANSACTION HISTORY  (completed only, excludes internal fee rows)
+  // GET /api/v1/transactions/history?page=1&limit=10
+  // ============================================================
+  async getHistory(userId, page = 1, limit = 10) {
+    const offset = (page - 1) * limit;
+
+    const rows = await query(
+      `SELECT
+         t.transaction_id,
+         t.amount,
+         t.transaction_type,
+         t.status,
+         t.reference,
+         t.created_at,
+         u_from.name  AS from_name,
+         u_from.phone AS from_phone,
+         u_to.name    AS to_name,
+         u_to.phone   AS to_phone,
+         CASE WHEN w_from.user_id = $1 THEN 'debit' ELSE 'credit' END AS direction
+       FROM transactions t
+       JOIN wallets w_from ON t.from_wallet_id = w_from.wallet_id
+       JOIN wallets w_to   ON t.to_wallet_id   = w_to.wallet_id
+       JOIN users   u_from ON w_from.user_id   = u_from.user_id
+       JOIN users   u_to   ON w_to.user_id     = u_to.user_id
+       WHERE (w_from.user_id = $1 OR w_to.user_id = $1)
+         AND t.status = 'completed'
+         AND t.transaction_type != 'agent_fee'
+       ORDER BY t.created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [userId, limit, offset]
+    );
+
+    const countRow = await query(
+      `SELECT COUNT(*) AS total
+       FROM transactions t
+       JOIN wallets w_from ON t.from_wallet_id = w_from.wallet_id
+       JOIN wallets w_to   ON t.to_wallet_id   = w_to.wallet_id
+       WHERE (w_from.user_id = $1 OR w_to.user_id = $1)
+         AND t.status = 'completed'
+         AND t.transaction_type != 'agent_fee'`,
+      [userId]
+    );
+
+    const total = parseInt(countRow.rows[0].total);
+
+    return {
+      transactions: rows.rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  // ============================================================
+  // GET TRANSACTION DETAILS  (user must be a party to it)
+  // Also returns full event lifecycle log
+  // GET /api/v1/transactions/:id
+  // ============================================================
+  async getTransactionDetails(transactionId, userId) {
+    const txnRes = await query(
+      `SELECT
+         t.transaction_id,
+         t.amount,
+         t.transaction_type,
+         t.status,
+         t.reference,
+         t.created_at,
+         u_from.name  AS from_name,
+         u_from.phone AS from_phone,
+         u_to.name    AS to_name,
+         u_to.phone   AS to_phone
+       FROM transactions t
+       JOIN wallets w_from ON t.from_wallet_id = w_from.wallet_id
+       JOIN wallets w_to   ON t.to_wallet_id   = w_to.wallet_id
+       JOIN users   u_from ON w_from.user_id   = u_from.user_id
+       JOIN users   u_to   ON w_to.user_id     = u_to.user_id
+       WHERE t.transaction_id = $1
+         AND (w_from.user_id = $2 OR w_to.user_id = $2)`,
+      [transactionId, userId]
+    );
+
+    if (txnRes.rows.length === 0) {
+      throw new Error('Transaction not found or access denied');
+    }
+
+    // Full lifecycle log
+    const eventsRes = await query(
+      `SELECT event_type, event_status, details, created_at
+       FROM transaction_events
+       WHERE transaction_id = $1
+       ORDER BY created_at ASC`,
+      [transactionId]
+    );
+
+    return {
+      ...txnRes.rows[0],
+      events: eventsRes.rows,
+    };
+  }
+
+  // ============================================================
+  // REQUEST MONEY  (Requester asks Requestee to pay)
+  // POST /api/v1/transactions/request
+  // ============================================================
+  async requestMoney(requesterUserId, recipientPhone, amount, message) {
+    const requesterWalletRes = await query(
+      `SELECT wallet_id FROM wallets
+       WHERE user_id = $1 AND wallet_type IN ('user','agent')`,
+      [requesterUserId]
+    );
+    if (requesterWalletRes.rows.length === 0) throw new Error('Your wallet not found');
+    const requesterWalletId = requesterWalletRes.rows[0].wallet_id;
+
+    const requesteeRes = await query(
+      `SELECT u.user_id, u.name, w.wallet_id
+       FROM users u
+       JOIN wallets w ON u.user_id = w.user_id
+       WHERE u.phone = $1 AND w.wallet_type IN ('user','agent')`,
+      [recipientPhone]
+    );
+    if (requesteeRes.rows.length === 0) throw new Error('Recipient not found with this phone number');
+    const requestee = requesteeRes.rows[0];
+    if (requestee.user_id === requesterUserId) throw new Error('Cannot request money from yourself');
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    const insertRes = await query(
+      `INSERT INTO money_requests
+         (requester_user_id, requester_wallet_id, requestee_user_id, requestee_wallet_id,
+          amount, message, expires_at, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'requested')
+       RETURNING *`,
+      [requesterUserId, requesterWalletId, requestee.user_id, requestee.wallet_id,
+        amount, message || null, expiresAt]
+    );
+
+    return {
+      ...insertRes.rows[0],
+      requestee_name: requestee.name,
+      requestee_phone: recipientPhone,
+    };
+  }
+
+  // ============================================================
+  // GET INCOMING REQUESTS  (requests where I am the payer)
+  // GET /api/v1/transactions/requests/incoming
+  // ============================================================
+  async getIncomingRequests(userId) {
+    const result = await query(
+      `SELECT
+         mr.*,
+         u.name  AS requester_name,
+         u.phone AS requester_phone
+       FROM money_requests mr
+       JOIN users u ON mr.requester_user_id = u.user_id
+       WHERE mr.requestee_user_id = $1
+         AND mr.status = 'requested'
+       ORDER BY mr.created_at DESC`,
+      [userId]
+    );
+    return result.rows;
+  }
+
+  // ============================================================
+  // GET SENT REQUESTS  (requests I created)
+  // GET /api/v1/transactions/requests/sent
+  // ============================================================
+  async getSentRequests(userId) {
+    const result = await query(
+      `SELECT
+         mr.*,
+         u.name  AS requestee_name,
+         u.phone AS requestee_phone
+       FROM money_requests mr
+       JOIN users u ON mr.requestee_user_id = u.user_id
+       WHERE mr.requester_user_id = $1
+       ORDER BY mr.created_at DESC`,
+      [userId]
+    );
+    return result.rows;
+  }
+
+  // ============================================================
+  // APPROVE / PAY A MONEY REQUEST
+  // POST /api/v1/transactions/requests/:requestId/pay
+  // ============================================================
+  async approveRequest(requestId, payerUserId, epin) {
+    const client = await getClient();
+    let transactionId = null;
+
+    try {
+      await client.query('BEGIN');
+
+      // ── Step 1: Fetch & lock the money request ──────────────
+      const reqRes = await client.query(
+        'SELECT * FROM money_requests WHERE request_id = $1 FOR UPDATE',
         [requestId]
       );
-      if (reqResult.rows.length === 0) throw new Error('Money request not found');
+      if (reqRes.rows.length === 0) throw new Error('Money request not found');
+      const moneyRequest = reqRes.rows[0];
 
-      const moneyRequest = reqResult.rows[0];
-
-      // STEP 2: Validate the payer is the correct requestee
       if (moneyRequest.requestee_user_id !== payerUserId) {
         throw new Error('You are not authorised to pay this request');
       }
@@ -263,56 +705,62 @@ class TransactionService {
         throw new Error('This money request has expired');
       }
 
-      // STEP 3: Verify ePin
-      const epinResult = await client.query(
+      // ── Step 2: Verify ePin ─────────────────────────────────
+      const epinRow = await client.query(
         'SELECT epin_hash FROM users WHERE user_id = $1',
         [payerUserId]
       );
-      const isValidEpin = await comparePassword(epin, epinResult.rows[0].epin_hash);
-      if (!isValidEpin) throw new Error('Invalid ePin');
+      if (!(await comparePassword(epin, epinRow.rows[0].epin_hash))) {
+        throw new Error('Invalid ePin');
+      }
 
-      // STEP 4: Get payer wallet and check balance
-      const payerWalletResult = await client.query(
+      // ── Step 3: Lock payer wallet & check balance ───────────
+      const payerWalletRes = await client.query(
         `SELECT wallet_id, balance, status FROM wallets
          WHERE wallet_id = $1 FOR UPDATE`,
         [moneyRequest.requestee_wallet_id]
       );
-      if (payerWalletResult.rows.length === 0) throw new Error('Payer wallet not found');
-
-      const payerWallet = payerWalletResult.rows[0];
-      if (payerWallet.status !== 'active') throw new Error('Your wallet is not active');
-
-      const payerBalance = parseFloat(payerWallet.balance);
+      if (payerWalletRes.rows.length === 0) throw new Error('Payer wallet not found');
+      const payerWallet = payerWalletRes.rows[0];
       const requestAmount = parseFloat(moneyRequest.amount);
-      if (payerBalance < requestAmount) {
-        throw new Error(`Insufficient balance. You have ৳${payerBalance.toFixed(2)}`);
+
+      if (payerWallet.status !== 'active') throw new Error('Your wallet is not active');
+      if (parseFloat(payerWallet.balance) < requestAmount) {
+        throw new Error(`Insufficient balance. Available: ৳${parseFloat(payerWallet.balance).toFixed(2)}`);
       }
 
-      // STEP 5: Create the actual transaction
+      // ── Step 4: Create transaction record (initiated) ───────
       const reference = `REQ-${Date.now()}`;
-      await client.query(
-        `INSERT INTO transactions (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
-         VALUES ($1, $2, $3, 'request_payment', 'completed', $4)`,
+      const txnRes = await client.query(
+        `INSERT INTO transactions
+           (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
+         VALUES ($1, $2, $3, 'request_payment', 'initiated', $4)
+         RETURNING transaction_id, created_at`,
         [moneyRequest.requestee_wallet_id, moneyRequest.requester_wallet_id, requestAmount, reference]
       );
+      transactionId = txnRes.rows[0].transaction_id;
+      const createdAt = txnRes.rows[0].created_at;
 
-      const txnIdRes = await client.query('SELECT LASTVAL() as id');
-      const transactionId = txnIdRes.rows[0].id;
-      const txnData = await client.query('SELECT created_at FROM transactions WHERE transaction_id = $1', [transactionId]);
+      await logEvent(client, transactionId, 'initiated', 'info', `Payment for request #${requestId} of ৳${requestAmount} initiated`);
+      await logEvent(client, transactionId, 'epin_verified', 'info', 'Payer ePin verified');
 
-      // STEP 6: Deduct from payer
+      // ── Step 5: Deduct from payer ───────────────────────────
       await client.query(
-        `UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2`,
+        'UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2',
         [requestAmount, moneyRequest.requestee_wallet_id]
       );
+      await logEvent(client, transactionId, 'amount_deducted', 'info',
+        `৳${requestAmount} deducted from payer`);
 
-      // STEP 7: Credit requester
+      // ── Step 6: Credit requester ────────────────────────────
       await client.query(
-        `UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2`,
+        'UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2',
         [requestAmount, moneyRequest.requester_wallet_id]
       );
+      await logEvent(client, transactionId, 'amount_credited', 'info',
+        `৳${requestAmount} credited to requester`);
 
-      // STEP 8: Update request status → 'paid'
+      // ── Step 7: Mark request as paid ───────────────────────
       await client.query(
         `UPDATE money_requests
          SET status = 'paid', paid_transaction_id = $1
@@ -320,12 +768,13 @@ class TransactionService {
         [transactionId, requestId]
       );
 
-      // STEP 9: Log event
+      // ── Step 8: Mark transaction completed ──────────────────
       await client.query(
-        `INSERT INTO transaction_events (transaction_id, event_type, event_status, details)
-         VALUES ($1, 'request_paid', 'success', $2)`,
-        [transactionId, `Request #${requestId} paid`]
+        `UPDATE transactions SET status = 'completed' WHERE transaction_id = $1`,
+        [transactionId]
       );
+      await logEvent(client, transactionId, 'completed', 'success',
+        `Request #${requestId} paid successfully`);
 
       await client.query('COMMIT');
 
@@ -334,45 +783,46 @@ class TransactionService {
         reference,
         amount: requestAmount,
         request_id: requestId,
-        date: txnData.rows[0].created_at
+        date: createdAt,
       };
 
     } catch (error) {
       await client.query('ROLLBACK');
+      await recordFailure(transactionId, error.message);
       throw error;
     } finally {
       client.release();
     }
   }
 
-  // ==============================================
-  // UPDATE REQUEST STATUS (decline / cancel)
-  // ==============================================
+  // ============================================================
+  // UPDATE REQUEST STATUS  (decline or cancel — with ownership check)
+  // PATCH /api/v1/transactions/requests/:requestId/status
+  // ============================================================
   async updateRequestStatus(requestId, userId, status) {
-    try {
-      await query(`UPDATE money_requests SET status = $1 WHERE request_id = $2`, [status, requestId]);
-      const result = await query('SELECT * FROM money_requests WHERE request_id = $1', [requestId]);
-      return result.rows[0];
-    } catch (error) {
-      throw error;
-    }
-  }
+    // 'declined' → only the requestee (payer) can do it
+    // 'cancelled' → only the requester (creator) can do it
+    const updateRes = await query(
+      `UPDATE money_requests
+       SET status = $1
+       WHERE request_id = $2
+         AND status = 'requested'
+         AND (
+           ($1 = 'declined'  AND requestee_user_id = $3) OR
+           ($1 = 'cancelled' AND requester_user_id = $3)
+         )
+       RETURNING *`,
+      [status, requestId, userId]
+    );
 
-  // ==============================================
-  // CASH IN (Agent → User)
-  // ==============================================
-  // Agent deposits physical cash into a user's wallet
- async cashIn(agentUserId, userPhone, amount, agentEpin) {
-    // This function allows an agent to cash in money into a user's wallet. The agent must provide their ePin for authentication.
-  }
-  // ==============================================
-  // CASH OUT (User → Agent, with 1.5% fee)
-  // ==============================================
-  // User withdraws cash through an agent; agent earns 1.5% fee
-  async cashOut(userId, agentPhone, amount, userEpin) {
-    // This function allows a user to cash out money through an agent. The user must provide their ePin for authentication. The agent receives the cash and earns a 1.5% fee on the transaction.
+    if (updateRes.rows.length === 0) {
+      throw new Error(
+        'Request not found, already resolved, or you are not authorised to perform this action'
+      );
+    }
+
+    return updateRes.rows[0];
   }
 }
 
-// Export a single instance
 export default new TransactionService();

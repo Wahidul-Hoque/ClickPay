@@ -13,51 +13,98 @@ import {
   CreditCard,
   Zap,
 } from 'lucide-react';
-import { notificationAPI } from '@/lib/api';
+import { transactionAPI, walletAPI } from '@/lib/api';
 import Link from 'next/link';
 
-interface Notification {
-  notification_id: string;
-  message: string;
+interface Transaction {
+  transaction_id: string;
+  amount: string;
+  transaction_type: string;
+  status: string;
   created_at: string;
+  from_name: string;
+  from_phone: string;
+  to_name: string;
+  to_phone: string;
+  direction: 'credit' | 'debit';
 }
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [txnStats, setTxnStats] = useState({ total: 0, types: {} as Record<string, number> });
   const [loading, setLoading] = useState(true);
 
+  const [balance, setBalance] = useState<number>(user?.wallet?.balance || 0);
+
   useEffect(() => {
-    fetchRecentNotifications();
+    fetchRecentTransactions();
+    fetchBalance();
   }, []);
 
-  const fetchRecentNotifications = async () => {
+  const fetchBalance = async () => {
     try {
-      const response = await notificationAPI.getRecent();
-      setNotifications(response.data.data.slice(0, 5));
+      const response = await walletAPI.getBalance();
+      if (response.data.success) {
+        setBalance(response.data.data);
+      }
     } catch (error) {
-      console.error('Failed to fetch notifications:', error);
+      console.error('Failed to fetch balance:', error);
+    }
+  };
+
+  const fetchRecentTransactions = async () => {
+    try {
+      const response = await transactionAPI.getHistory({ page: 1, limit: 100 });
+      if (response.data.success) {
+        const allTxns = response.data.data;
+        setTransactions(allTxns.slice(0, 5));
+
+        const now = new Date();
+        const thisMonth = now.getMonth();
+        const thisYear = now.getFullYear();
+
+        let total = 0;
+        const types: Record<string, number> = {};
+
+        allTxns.forEach((t: Transaction) => {
+          const d = new Date(t.created_at);
+          if (d.getMonth() === thisMonth && d.getFullYear() === thisYear) {
+            total++;
+            const typeLabel = t.transaction_type.replace('_', ' ');
+            // capitalize the first letter
+            const capType = typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1);
+            types[capType] = (types[capType] || 0) + 1;
+          }
+        });
+
+        setTxnStats({ total, types });
+      }
+    } catch (error) {
+      console.error('Failed to fetch transactions:', error);
     } finally {
       setLoading(false);
     }
   };
 
+
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return date.toLocaleDateString();
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
   };
 
   const statCards = [
     {
       label: 'Total Balance',
-      value: '৳0.00',
+      value: `৳${balance.toFixed(2)}`,
       sub: 'Available balance',
       icon: Wallet,
       gradient: 'gradient-indigo',
@@ -84,8 +131,10 @@ export default function DashboardPage() {
     },
     {
       label: 'Transactions',
-      value: '0',
-      sub: 'This month',
+      value: txnStats.total.toString(),
+      sub: Object.entries(txnStats.types)
+        .map(([type, count]) => `${type}: ${count}`)
+        .join(' • ') || 'No transactions this month',
       icon: Send,
       gradient: 'gradient-violet',
       glow: 'shadow-glow-violet',
@@ -102,7 +151,7 @@ export default function DashboardPage() {
 
   return (
 
-    
+
     <div className="space-y-8 animate-fadeIn">
 
       {/* ── Welcome ─────────────────────────────────────────── */}
@@ -125,7 +174,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      
+
 
       {/* ── Stat Cards ──────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 stagger">
@@ -162,19 +211,62 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <div className="flex flex-col items-center justify-center py-14 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
-              <Send className="w-7 h-7 text-slate-400" />
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-14">
+              <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
-            <p className="font-semibold text-slate-700">No transactions yet</p>
-            <p className="text-sm text-slate-400 mt-1">Start by sending money to someone</p>
-            <Link
-              href="/dashboard/send"
-              className="btn btn-primary mt-5 text-xs"
-            >
-              <Send className="w-3.5 h-3.5" /> Send Money
-            </Link>
-          </div>
+          ) : transactions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-14 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+                <Send className="w-7 h-7 text-slate-400" />
+              </div>
+              <p className="font-semibold text-slate-700">No transactions yet</p>
+              <p className="text-sm text-slate-400 mt-1">Start by sending money to someone</p>
+              <Link
+                href="/dashboard/send"
+                className="btn btn-primary mt-5 text-xs"
+              >
+                <Send className="w-3.5 h-3.5" /> Send Money
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {transactions.map((t) => {
+                const isCredit = t.direction === 'credit';
+
+                let displayType = t.transaction_type.replace(/_/g, ' ');
+                displayType = displayType.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+                if (t.transaction_type === 'transfer') {
+                  displayType = isCredit ? 'Received Money' : 'Send Money';
+                } else if (t.transaction_type === 'cash_in') {
+                  displayType = 'Mobile Recharge';
+                }
+
+                return (
+                  <div key={`txn-${t.transaction_id}`} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white hover:shadow-sm transition-all">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isCredit ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+                        }`}>
+                        {isCredit ? <ArrowUpRight className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">
+                          {isCredit ? t.from_name : t.to_name}
+                        </p>
+                        <p className="text-xs text-slate-500 capitalize">{displayType} • {formatTime(t.created_at)}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-bold ${isCredit ? 'text-emerald-600' : 'text-slate-800'}`}>
+                        {isCredit ? '+' : '-'}৳{parseFloat(t.amount).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Notifications */}
@@ -199,7 +291,7 @@ export default function DashboardPage() {
                 <div key={i} className="h-14 rounded-xl animate-shimmer" />
               ))}
             </div>
-          ) : notifications.length === 0 ? (
+          ) : transactions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
                 <Bell className="w-6 h-6 text-slate-400" />
@@ -209,20 +301,47 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {notifications.map((n) => (
-                <div
-                  key={n.notification_id}
-                  className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 hover:bg-primary-50 transition-colors group cursor-default"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-primary-200 transition-colors">
-                    <Bell className="w-4 h-4 text-primary-600" />
+              {transactions.map((t) => {
+                const isCredit = t.direction === 'credit';
+
+                let displayType = t.transaction_type.replace(/_/g, ' ');
+                displayType = displayType.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+                if (t.transaction_type === 'transfer') {
+                  displayType = isCredit ? 'Received Money' : 'Send Money';
+                } else if (t.transaction_type === 'cash_in') {
+                  displayType = 'Mobile Recharge';
+                }
+
+                return (
+                  <div
+                    key={`notif-${t.transaction_id}`}
+                    className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 hover:bg-primary-50 transition-colors group cursor-default"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-primary-200 transition-colors">
+                      <Bell className="w-4 h-4 text-primary-600" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800 truncate">
+                            {displayType}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {isCredit ? t.from_name : `To: ${t.to_name}`}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0 ml-2">
+                          <p className={`text-sm font-bold ${isCredit ? 'text-emerald-600' : 'text-slate-800'}`}>
+                            {isCredit ? '+' : '-'}৳{parseFloat(t.amount).toFixed(2)}
+                          </p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{formatTime(t.created_at)}</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm text-slate-800 leading-snug">{n.message}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{formatTime(n.created_at)}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

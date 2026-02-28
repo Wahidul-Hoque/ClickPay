@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Send, Phone, DollarSign, Lock, AlertCircle } from 'lucide-react';
 import { useToast } from '@/contexts/toastcontext';
 import { useRouter } from 'next/navigation';
+import { transactionAPI } from '@/lib/api';
 
 export default function SendMoneyPage() {
   const router = useRouter();
@@ -17,29 +18,16 @@ export default function SendMoneyPage() {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
+
     // Show loading info
     toast.info('Processing transaction...');
 
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/v1/send', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ toPhone: recipient, amount, epin, note })
-      // });
-
-      // Simulate API call
-      await new Promise((resolve, reject) => {
-        setTimeout(() => {
-          // Simulate success or error randomly for demo
-          const success = Math.random() > 0.3; // 70% success rate
-          if (success) {
-            resolve({ success: true });
-          } else {
-            reject(new Error('Insufficient balance'));
-          }
-        }, 2000);
+      // Make real API call
+      await transactionAPI.send({
+        toPhone: recipient,
+        amount: amount,
+        epin: epin
       });
 
       // Success
@@ -116,7 +104,7 @@ export default function SendMoneyPage() {
                   required
                 />
               </div>
-              
+
               {/* Quick Amount Buttons */}
               <div className="grid grid-cols-4 gap-2 mt-3">
                 {[100, 500, 1000, 5000].map((amt) => (

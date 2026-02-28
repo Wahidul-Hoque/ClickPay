@@ -2,70 +2,60 @@
 
 import { useState, useEffect } from 'react';
 import { Bell, X, Trash2 } from 'lucide-react';
-import { notificationAPI } from '@/lib/api';
+import { transactionAPI } from '@/lib/api';
+import Link from 'next/link';
 
-interface Notification {
-  notification_id: string;
-  message: string;
+interface Transaction {
+  transaction_id: string;
+  amount: string;
+  transaction_type: string;
+  status: string;
   created_at: string;
+  from_name: string;
+  from_phone: string;
+  to_name: string;
+  to_phone: string;
+  direction: 'credit' | 'debit';
 }
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      fetchNotifications();
+      fetchTransactions();
     }
   }, [isOpen]);
 
-  const fetchNotifications = async () => {
+  const fetchTransactions = async () => {
     try {
       setLoading(true);
-      const response = await notificationAPI.getRecent();
-      setNotifications(response.data.data);
+      const response = await transactionAPI.getHistory({ page: 1, limit: 5 });
+      setTransactions(response.data.data);
     } catch (error) {
-      console.error('Failed to fetch notifications:', error);
+      console.error('Failed to fetch transactions:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (notificationId: string) => {
-    try {
-      await notificationAPI.deleteNotification(notificationId);
-      setNotifications(prev => 
-        prev.filter(n => n.notification_id !== notificationId)
-      );
-    } catch (error) {
-      console.error('Failed to delete notification:', error);
-    }
-  };
-
-  const handleClearAll = async () => {
-    try {
-      await notificationAPI.clearAll();
-      setNotifications([]);
-    } catch (error) {
-      console.error('Failed to clear notifications:', error);
-    }
-  };
-
   const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
+    const d = new Date(dateString);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = String(d.getFullYear()).slice(-2);
 
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
-    return date.toLocaleDateString();
+    let hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'pm' : 'am';
+
+    hours = hours % 12;
+    hours = hours || 12; // the hour '0' should be '12'
+    const strHours = String(hours).padStart(2, '0');
+
+    return `${strHours}:${minutes}${ampm} ${day}/${month}/${year}`;
   };
 
   return (
@@ -73,14 +63,9 @@ export default function NotificationBell() {
       {/* Bell Icon */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
+        className="relative p-2 rounded-lg hover:bg-slate-100 transition-colors"
       >
-        <Bell className="w-6 h-6 text-gray-700" />
-        {notifications.length > 0 && (
-          <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-            {notifications.length > 9 ? '9+' : notifications.length}
-          </span>
-        )}
+        <Bell className="w-6 h-6 text-slate-700" />
       </button>
 
       {/* Dropdown */}
@@ -93,24 +78,16 @@ export default function NotificationBell() {
           />
 
           {/* Notification Panel */}
-          <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[500px] flex flex-col">
+          <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 z-50 max-h-[500px] flex flex-col overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold text-gray-900">Notifications</h3>
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="font-semibold text-slate-900">Notifications</h3>
               <div className="flex items-center space-x-2">
-                {notifications.length > 0 && (
-                  <button
-                    onClick={handleClearAll}
-                    className="text-xs text-red-600 hover:text-red-700 font-medium"
-                  >
-                    Clear All
-                  </button>
-                )}
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="p-1 hover:bg-gray-100 rounded"
+                  className="p-1 hover:bg-slate-200 rounded transition-colors"
                 >
-                  <X className="w-4 h-4 text-gray-500" />
+                  <X className="w-4 h-4 text-slate-500" />
                 </button>
               </div>
             </div>
@@ -119,57 +96,68 @@ export default function NotificationBell() {
             <div className="flex-1 overflow-y-auto">
               {loading ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-8 h-8 border-2 border-rose-500 border-t-transparent flex items-center justify-center rounded-full animate-spin"></div>
                 </div>
-              ) : notifications.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <Bell className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                  <p className="text-sm">No notifications</p>
+              ) : transactions.length === 0 ? (
+                <div className="text-center py-12 text-slate-500">
+                  <Bell className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+                  <p className="text-sm">No recent activity</p>
                 </div>
               ) : (
-                <div className="divide-y">
-                  {notifications.map((notification) => (
-                    <div
-                      key={notification.notification_id}
-                      className="p-4 hover:bg-gray-50 transition-colors group"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 pr-2">
-                          <p className="text-sm text-gray-900">
-                            {notification.message}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {formatTime(notification.created_at)}
-                          </p>
+                <div className="divide-y divide-slate-100">
+                  {transactions.map((t) => {
+                    const directionName = t.direction === 'credit' ? t.from_name : t.to_name;
+                    const isCredit = t.direction === 'credit';
+
+                    let displayType = t.transaction_type.replace(/_/g, ' ');
+                    displayType = displayType.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+                    if (t.transaction_type === 'transfer') {
+                      displayType = isCredit ? 'Received Money' : 'Send Money';
+                    } else if (t.transaction_type === 'cash_in') {
+                      displayType = 'Mobile Recharge';
+                    }
+
+                    return (
+                      <div
+                        key={`drop-${t.transaction_id}`}
+                        className="p-4 hover:bg-slate-50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-slate-800 truncate">
+                              {displayType}
+                            </p>
+                            <p className="text-[13px] text-slate-500 mt-0.5 truncate">
+                              {isCredit ? ` ${directionName}` : `To: ${directionName}`}
+                            </p>
+                            <p className="text-[11px] text-slate-400 mt-1">
+                              {formatTime(t.created_at)}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className={`text-sm font-bold ${isCredit ? 'text-[#1D8260]' : 'text-[#A0202F]'}`}>
+                              {isCredit ? '+' : '-'}৳{parseFloat(t.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </p>
+                          </div>
                         </div>
-                        <button
-                          onClick={() => handleDelete(notification.notification_id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-200 rounded"
-                        >
-                          <Trash2 className="w-4 h-4 text-gray-500" />
-                        </button>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
 
             {/* Footer */}
-            {notifications.length > 0 && (
-              <div className="border-t p-3">
-                <button
-                  onClick={() => {
-                    setIsOpen(false);
-                    // Navigate to full notifications page
-                    window.location.href = '/dashboard/notifications';
-                  }}
-                  className="w-full text-center text-sm text-primary-600 hover:text-primary-700 font-medium"
-                >
-                  View All Notifications
-                </button>
-              </div>
-            )}
+            <div className="border-t border-slate-100 p-3 bg-slate-50/50">
+              <Link
+                href="/dashboard/notifications"
+                onClick={() => setIsOpen(false)}
+                className="block w-full py-2 text-center text-sm text-rose-600 hover:bg-rose-50 rounded-lg transition-colors font-semibold"
+              >
+                View All Activity
+              </Link>
+            </div>
           </div>
         </>
       )}

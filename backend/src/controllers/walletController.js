@@ -3,6 +3,8 @@
 // ==============================================
 // This file handles HTTP requests/responses for wallet management
 
+import walletService from '../services/walletService.js';
+
 class WalletController {
   // ==============================================
   // GET WALLET BALANCE
@@ -10,14 +12,13 @@ class WalletController {
   // GET /api/v1/wallet/balance
   async getBalance(req, res, next) {
     try {
-      // TODO: Implement wallet balance
-      // const userId = req.user.userId;
-      // const balance = await walletService.getBalance(userId);
-      
+      const userId = req.user.userId;
+      const balance = await walletService.getBalance(userId);
+
       return res.json({
         success: true,
-        message: 'Get balance - To be implemented',
-        data: null
+        message: 'Wallet balance retrieved successfully',
+        data: balance
       });
     } catch (error) {
       next(error);
@@ -31,7 +32,7 @@ class WalletController {
   async topup(req, res, next) {
     try {
       // TODO: Implement external top-up
-      
+
       return res.json({
         success: true,
         message: 'Top-up - To be implemented',
@@ -49,7 +50,7 @@ class WalletController {
   async getPaymentMethods(req, res, next) {
     try {
       // TODO: Implement get payment methods
-      
+
       return res.json({
         success: true,
         message: 'Get payment methods - To be implemented',
@@ -67,7 +68,7 @@ class WalletController {
   async addPaymentMethod(req, res, next) {
     try {
       // TODO: Implement add payment method
-      
+
       return res.json({
         success: true,
         message: 'Add payment method - To be implemented',
