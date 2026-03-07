@@ -7,6 +7,7 @@ CREATE TABLE users (
   epin_hash   VARCHAR(255) NOT NULL,
   role        VARCHAR(20)  NOT NULL CHECK (role IN ('user','agent','admin')),
   status      VARCHAR(30)  NOT NULL,
+  city        VARCHAR(100),
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 

@@ -6,13 +6,13 @@ import authService from '../services/authService.js';
 
 class AuthController {
   // POST /api/v1/auth/register
-  // Body: { name, phone, nid, epin, role }
+  // Body: { name, phone,city , nid, epin, role }
   async register(req, res, next) {
     try {
       // Validate input
-      const { name, phone, nid, epin, role } = req.body;
+      const { name, phone, city, nid, epin, role } = req.body;
       
-      if (!name || !phone || !nid || !epin || !role) {
+      if (!name || !phone || !city || !nid || !epin || !role) {
         return res.status(400).json({
           success: false,
           message: 'All fields are required '
