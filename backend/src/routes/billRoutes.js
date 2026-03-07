@@ -4,13 +4,13 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// ==============================================
-// PROTECTED ROUTES (All require authentication)
-// ==============================================
-
-// Get list of available billers
+// Get ALL active billers
 // GET /api/v1/bills/billers
 router.get('/billers', protect, billController.getBillers);
+
+// Get billers filtered by category
+// GET /api/v1/bills/billers/category/electricity
+router.get('/billers/category/:category', protect, billController.getBillersByCategory);
 
 // Pay a utility bill
 // POST /api/v1/bills/pay
