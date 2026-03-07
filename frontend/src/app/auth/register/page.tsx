@@ -51,8 +51,18 @@ export default function RegisterPage() {
       setAuth(user, token);
       
       toast.success('Registration successful!');
-      router.push('/dashboard');
-    } catch (error: any) {
+
+      if (user.role === 'agent') {
+        router.push('/agent');
+      } else if (user.role === 'admin') {
+        router.push('/admin');
+      } else {
+        router.push('/dashboard'); // Standard user
+      }
+      
+    } 
+    
+    catch (error: any) {
       const message = error.response?.data?.message || 'Registration failed';
       toast.error(message);
       
