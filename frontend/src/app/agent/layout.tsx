@@ -14,7 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
-  Trophy, 
+  Trophy,
 } from 'lucide-react';
 
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
@@ -62,7 +62,8 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
     { name: 'Cash In', href: '/agent/cash-in', icon: Download },
     { name: 'Cash Out', href: '/agent/cash-out', icon: Upload },
     { name: 'Transactions', href: '/agent/transactions', icon: FileText },
-    { name: 'Ranking', href: '/agent/rankings', icon: Trophy }, // Added Ranking Link
+    { name: 'Ranking', href: '/agent/rankings', icon: Trophy },
+    { name: 'Settings', href: '/agent/settings', icon: Settings },
   ];
 
   const isActive = (href: string) =>
@@ -71,9 +72,8 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen bg-slate-50">
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col transition-all duration-300 ease-in-out bg-slate-900 border-r border-slate-800 ${
-          sidebarExpanded ? 'w-64' : 'w-[72px]'
-        }`}
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col transition-all duration-300 ease-in-out bg-slate-900 border-r border-slate-800 ${sidebarExpanded ? 'w-64' : 'w-[72px]'
+          }`}
       >
         {/* Logo */}
         <div className="flex items-center justify-between px-4 h-16 border-b border-slate-800">
@@ -99,9 +99,8 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-                  active ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'
-                } ${!sidebarExpanded ? 'justify-center' : ''}`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${active ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  } ${!sidebarExpanded ? 'justify-center' : ''}`}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
                 {sidebarExpanded && <span className="text-sm font-medium">{item.name}</span>}

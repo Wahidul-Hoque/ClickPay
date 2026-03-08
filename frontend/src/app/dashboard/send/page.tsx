@@ -5,6 +5,7 @@ import { Send, Phone, DollarSign, Lock, AlertCircle } from 'lucide-react';
 import { useToast } from '@/contexts/toastcontext';
 import { useRouter } from 'next/navigation';
 import { transactionAPI } from '@/lib/api';
+import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
 
 export default function SendMoneyPage() {
   const router = useRouter();
@@ -14,6 +15,8 @@ export default function SendMoneyPage() {
   const [epin, setEpin] = useState('');
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [result, setResult] = useState<any>(null);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,25 +27,24 @@ export default function SendMoneyPage() {
 
     try {
       // Make real API call
-      await transactionAPI.send({
+      const response = await transactionAPI.send({
         toPhone: recipient,
         amount: amount,
         epin: epin
       });
 
-      // Success
-      toast.success(`৳${amount} sent successfully to ${recipient}!`);
+      if (response.data.success) {
+        setResult(response.data.data);
+        setSuccess(true);
+        // Success
+        toast.success(`৳${amount} sent successfully to ${recipient}!`);
 
-      // Reset form
-      setRecipient('');
-      setAmount('');
-      setEpin('');
-      setNote('');
-
-      // Optional: Navigate after delay
-      setTimeout(() => {
-        toast.info('Check your transaction history for details');
-      }, 1500);
+        // Reset form
+        setRecipient('');
+        setAmount('');
+        setEpin('');
+        setNote('');
+      }
 
     } catch (error: any) {
       console.error('Send money error:', error);
@@ -55,6 +57,22 @@ export default function SendMoneyPage() {
   return (
     <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center py-8">
       <div className="w-full max-w-2xl mx-auto space-y-6">
+
+        {/* Summary Modal */}
+        {success && result && (
+          <TransactionSummaryModal
+            isOpen={success}
+            onClose={() => setSuccess(false)}
+            title="Money Sent Successfully"
+            accountLabel="Recipient"
+            account={result.to_phone || result.phone || result.recipient || recipient}
+            amount={result.amount || amount}
+            charge={result.charge || '0.00'}
+            transactionId={result.transaction_id || result.reference || ''}
+            reference={note || result.reference || 'Transfer'}
+            time={result.created_at ? new Date(result.created_at).toLocaleString('en-GB') : undefined}
+          />
+        )}
         {/* Header */}
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-full mb-4">

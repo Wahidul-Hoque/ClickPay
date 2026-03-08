@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { transactionAPI, walletAPI } from '@/lib/api';
 import Link from 'next/link';
+import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
 
 interface Transaction {
   transaction_id: string;
@@ -27,6 +28,7 @@ interface Transaction {
   to_name: string;
   to_phone: string;
   direction: 'credit' | 'debit';
+  reference?: string;
 }
 
 export default function DashboardPage() {
@@ -34,6 +36,7 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [txnStats, setTxnStats] = useState({ total: 0, types: {} as Record<string, number> });
   const [loading, setLoading] = useState(true);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
   const [balance, setBalance] = useState<number>(user?.wallet?.balance || 0);
 
@@ -154,6 +157,24 @@ export default function DashboardPage() {
 
     <div className="space-y-8 animate-fadeIn">
 
+      {/* Transaction Summary Modal */}
+      {selectedTransaction && (
+        <TransactionSummaryModal
+          isOpen={!!selectedTransaction}
+          onClose={() => setSelectedTransaction(null)}
+          title="Transaction Details"
+          accountLabel={selectedTransaction.direction === 'credit' ? 'From' : 'To'}
+          account={selectedTransaction.direction === 'credit'
+            ? (selectedTransaction.from_name || selectedTransaction.from_phone)
+            : (selectedTransaction.to_name || selectedTransaction.to_phone)}
+          amount={selectedTransaction.amount}
+          charge="0.00"
+          transactionId={selectedTransaction.reference || ''}
+          reference=""
+          time={selectedTransaction.created_at ? new Date(selectedTransaction.created_at).toLocaleString('en-GB') : undefined}
+        />
+      )}
+
       {/* ── Welcome ─────────────────────────────────────────── */}
       <div className="flex items-start justify-between">
         <div>
@@ -240,11 +261,15 @@ export default function DashboardPage() {
                 if (t.transaction_type === 'transfer') {
                   displayType = isCredit ? 'Received Money' : 'Send Money';
                 } else if (t.transaction_type === 'cash_in') {
-                  displayType = 'Mobile Recharge';
+                  displayType = 'Cash In';
                 }
 
                 return (
-                  <div key={`txn-${t.transaction_id}`} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white hover:shadow-sm transition-all">
+                  <div
+                    key={`txn-${t.transaction_id}`}
+                    className="flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white hover:shadow-sm transition-all cursor-pointer"
+                    onClick={() => setSelectedTransaction(t)}
+                  >
                     <div className="flex items-center gap-3">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isCredit ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
                         }`}>
@@ -310,7 +335,7 @@ export default function DashboardPage() {
                 if (t.transaction_type === 'transfer') {
                   displayType = isCredit ? 'Received Money' : 'Send Money';
                 } else if (t.transaction_type === 'cash_in') {
-                  displayType = 'Mobile Recharge';
+                  displayType = 'Cash In';
                 }
 
                 return (

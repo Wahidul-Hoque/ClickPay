@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Download, Hash, Loader2, CheckCircle2, User, ArrowRight } from 'lucide-react';
 import { useToast } from '@/contexts/toastcontext';
 import api from '@/lib/api'; // Standard axios instance
+import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
 
 export default function CashInPage() {
   const toast = useToast();
@@ -56,99 +57,85 @@ export default function CashInPage() {
         </div>
       </div>
 
-      {/* Success Summary */}
+      {/* Success Summary Modal */}
       {success && result && (
-        <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-2xl space-y-4 animate-slideDown">
-          <div className="flex items-center gap-2 text-emerald-700">
-            <CheckCircle2 className="w-6 h-6" />
-            <p className="font-bold text-lg">Transaction Successful</p>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white p-3 rounded-xl border border-emerald-100">
-              <p className="text-xs text-slate-500 uppercase font-bold">Amount</p>
-              <p className="text-xl font-bold text-slate-900">৳{result.amount || result.amount_sent}</p>
-            </div>
-            <div className="bg-white p-3 rounded-xl border border-emerald-100">
-              <p className="text-xs text-slate-500 uppercase font-bold">Transaction ID</p>
-              <p className="text-sm font-mono text-slate-700">#{result.transaction_id}</p>
-            </div>
-          </div>
-
-          <button 
-            onClick={() => setSuccess(false)}
-            className="text-emerald-600 text-sm font-semibold hover:underline"
-          >
-            Perform another Cash-In
-          </button>
-        </div>
+        <TransactionSummaryModal
+          isOpen={success}
+          onClose={() => setSuccess(false)}
+          title="Cash In Successful"
+          accountLabel="User Phone"
+          account={result.to_phone || result.phone || formData.userPhone}
+          amount={result.amount || result.amount_sent || formData.amount}
+          charge={result.charge || '0.00'}
+          transactionId={result.transaction_id || ''}
+          reference={result.reference || 'Agent Deposit'}
+          time={result.created_at ? new Date(result.created_at).toLocaleString('en-GB') : undefined}
+        />
       )}
 
       {/* Main Form */}
-      {!success && (
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-5">
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">User Phone Number</label>
-            <div className="relative">
-              <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                required
-                type="text"
-                placeholder="01XXXXXXXXX"
-                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
-                value={formData.userPhone}
-                onChange={(e) => setFormData({ ...formData, userPhone: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Amount (৳)</label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">৳</span>
-              <input
-                required
-                type="number"
-                min="1"
-                placeholder="0.00"
-                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-lg font-semibold"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="bg-slate-50 p-4 rounded-xl border border-dashed border-slate-300">
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Confirm with Agent ePin</label>
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-5">
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-2">User Phone Number</label>
+          <div className="relative">
+            <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               required
-              type="password"
-              maxLength={5}
-              pattern="\d{5}"
-              placeholder="•••••"
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-center text-2xl tracking-[0.5em] font-mono"
-              value={formData.epin}
-              onChange={(e) => setFormData({ ...formData, epin: e.target.value.replace(/\D/g, '') })}
+              type="text"
+              placeholder="01XXXXXXXXX"
+              className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+              value={formData.userPhone}
+              onChange={(e) => setFormData({ ...formData, userPhone: e.target.value })}
             />
-            <p className="text-[10px] text-slate-400 text-center mt-2 italic">Enter your 5-digit security PIN to authorize this transfer</p>
           </div>
+        </div>
 
-          <button
-            disabled={loading}
-            type="submit"
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {loading ? (
-              <Loader2 className="w-6 h-6 animate-spin" />
-            ) : (
-              <>
-                <Download className="w-5 h-5" />
-                Confirm Cash In
-              </>
-            )}
-          </button>
-        </form>
-      )}
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-2">Amount (৳)</label>
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">৳</span>
+            <input
+              required
+              type="number"
+              min="1"
+              placeholder="0.00"
+              className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-lg font-semibold"
+              value={formData.amount}
+              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div className="bg-slate-50 p-4 rounded-xl border border-dashed border-slate-300">
+          <label className="block text-sm font-semibold text-slate-700 mb-2">Confirm with Agent ePin</label>
+          <input
+            required
+            type="password"
+            maxLength={5}
+            pattern="\d{5}"
+            placeholder="•••••"
+            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-center text-2xl tracking-[0.5em] font-mono"
+            value={formData.epin}
+            onChange={(e) => setFormData({ ...formData, epin: e.target.value.replace(/\D/g, '') })}
+          />
+          <p className="text-[10px] text-slate-400 text-center mt-2 italic">Enter your 5-digit security PIN to authorize this transfer</p>
+        </div>
+
+        <button
+          disabled={loading}
+          type="submit"
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          {loading ? (
+            <Loader2 className="w-6 h-6 animate-spin" />
+          ) : (
+            <>
+              <Download className="w-5 h-5" />
+              Confirm Cash In
+            </>
+          )}
+        </button>
+      </form>
 
       {/* Helpful Tips */}
       <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">

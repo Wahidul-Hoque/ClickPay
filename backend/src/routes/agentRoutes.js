@@ -19,5 +19,6 @@ router.get('/dashboard', isAgent, agentController.getDashboard);
 router.post('/cash-in', isAgent, agentController.cashIn);
 router.get('/history', isAgent, agentController.getHistory);
 router.get('/rankings', isAgent, agentController.getRankings);
+router.get('/regions', isAgent, agentController.getRegions);
 
 export default router;

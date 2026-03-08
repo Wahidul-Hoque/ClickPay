@@ -115,7 +115,7 @@ export default function NotificationBell() {
                     if (t.transaction_type === 'transfer') {
                       displayType = isCredit ? 'Received Money' : 'Send Money';
                     } else if (t.transaction_type === 'cash_in') {
-                      displayType = 'Mobile Recharge';
+                      displayType = 'Cash In';
                     }
 
                     return (

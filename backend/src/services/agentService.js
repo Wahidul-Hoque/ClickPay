@@ -11,7 +11,7 @@ class AgentService {
        WHERE u.user_id = $1 AND u.role = 'agent'`,
       [agentId]
     );
-    
+
     // Also get today's transaction count
     const stats = await query(
       `SELECT COUNT(*) as total_tx, SUM(amount) as total_volume 
@@ -40,7 +40,7 @@ class AgentService {
       // Get Wallets
       const agentWallet = await client.query('SELECT wallet_id, balance FROM wallets WHERE user_id = $1 AND wallet_type = $2 FOR UPDATE', [agentId, 'agent']);
       const userRes = await client.query('SELECT w.wallet_id FROM wallets w JOIN users u ON w.user_id = u.user_id WHERE u.phone = $1 AND u.role = $2', [userPhone, 'user']);
-      
+
       if (userRes.rows.length === 0) throw new Error('User not found');
       if (parseFloat(agentWallet.rows[0].balance) < amount) throw new Error('Insufficient balance');
 
@@ -80,7 +80,51 @@ class AgentService {
     return res.rows;
   }
 
-  async getAgentRankings() {
+  async getAgentRankings(filters = {}) {
+    const { regions, startDate, endDate, transactionTypes, rankBy } = filters;
+    let queryParams = [];
+    let paramIdx = 1;
+
+    let transactionFilter = "AND t.transaction_type IN ('cash_in', 'cash_out')";
+    if (transactionTypes) {
+      const typesList = transactionTypes.split(',').filter(t => ['cash_in', 'cash_out'].includes(t));
+      if (typesList.length > 0) {
+        transactionFilter = `AND t.transaction_type IN (${typesList.map((_, i) => `$${paramIdx + i}`).join(', ')})`;
+        queryParams.push(...typesList);
+        paramIdx += typesList.length;
+      }
+    }
+
+    let dateFilter = "AND t.created_at >= DATE_TRUNC('month', CURRENT_DATE)";
+    if (startDate && endDate) {
+      dateFilter = `AND t.created_at BETWEEN $${paramIdx++} AND $${paramIdx++}`;
+      queryParams.push(startDate, endDate);
+    } else if (startDate) {
+      dateFilter = `AND t.created_at >= $${paramIdx++}`;
+      queryParams.push(startDate);
+    } else if (endDate) {
+      dateFilter = `AND t.created_at <= $${paramIdx++}`;
+      queryParams.push(endDate);
+    }
+
+    let regionFilter = "";
+    if (regions) {
+      const regionsList = regions.split(',').filter(r => r.trim() !== "");
+      if (regionsList.length > 0) {
+        regionFilter = `AND LOWER(u.city) IN (${regionsList.map((_, i) => `$${paramIdx + i}`).join(', ')})`;
+        queryParams.push(...regionsList.map(r => r.trim().toLowerCase()));
+        paramIdx += regionsList.length;
+      }
+    }
+
+    let orderByClause = "ORDER BY total_volume DESC";
+    if (rankBy) {
+      const ranksList = rankBy.split(',').filter(r => ['total_volume', 'transaction_count'].includes(r));
+      if (ranksList.length > 0) {
+        orderByClause = `ORDER BY ${ranksList.map(r => `${r} DESC`).join(', ')}`;
+      }
+    }
+
     const rankingQuery = `
       SELECT 
         u.user_id,
@@ -95,15 +139,36 @@ class AgentService {
       WHERE 
         u.role = 'agent' 
         AND t.status = 'completed'
-        AND t.transaction_type IN ('cash_in', 'cash_out')
-        AND t.created_at >= DATE_TRUNC('month', CURRENT_DATE) -- From beginning of this month
+        ${transactionFilter}
+        ${dateFilter}
+        ${regionFilter}
       GROUP BY u.user_id
-      ORDER BY total_volume DESC
-      LIMIT 100; -- Top 100 agents
+      ${orderByClause}
+      LIMIT 100;
     `;
-    
-    const result = await query(rankingQuery);
+
+    const result = await query(rankingQuery, queryParams);
     return result.rows;
+  }
+
+  async getRegions(searchQuery) {
+    let queryParams = [];
+    let condition = "WHERE role = 'agent'";
+
+    if (searchQuery) {
+      condition += " AND city ILIKE $1";
+      queryParams.push(`%${searchQuery}%`);
+    }
+
+    const q = `
+      SELECT DISTINCT city 
+      FROM users 
+      ${condition} AND city IS NOT NULL
+      ORDER BY city ASC
+      LIMIT 20;
+    `;
+    const res = await query(q, queryParams);
+    return res.rows.map(row => row.city);
   }
 }
 

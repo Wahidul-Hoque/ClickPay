@@ -7,6 +7,7 @@ import {
   CreditCard, Zap, Droplet, Wifi, Phone, Tv, Flame,
   ArrowLeft, Loader2, Lock, CheckCircle2,
 } from 'lucide-react';
+import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
 
 // ── Types ────────────────────────────────────────────
 interface Biller {
@@ -30,11 +31,11 @@ interface BillPayment {
 // ── Category config ──────────────────────────────────
 const categoryConfig: Record<string, { icon: any; color: string; bgColor: string; label: string }> = {
   electricity: { icon: Zap, color: 'text-yellow-600', bgColor: 'bg-yellow-100', label: 'Electricity' },
-  water:       { icon: Droplet, color: 'text-blue-600', bgColor: 'bg-blue-100', label: 'Water' },
-  internet:    { icon: Wifi, color: 'text-purple-600', bgColor: 'bg-purple-100', label: 'Internet' },
-  mobile:      { icon: Phone, color: 'text-green-600', bgColor: 'bg-green-100', label: 'Mobile' },
-  tv_cable:    { icon: Tv, color: 'text-red-600', bgColor: 'bg-red-100', label: 'TV/Cable' },
-  gas:         { icon: Flame, color: 'text-orange-600', bgColor: 'bg-orange-100', label: 'Gas' },
+  water: { icon: Droplet, color: 'text-blue-600', bgColor: 'bg-blue-100', label: 'Water' },
+  internet: { icon: Wifi, color: 'text-purple-600', bgColor: 'bg-purple-100', label: 'Internet' },
+  mobile: { icon: Phone, color: 'text-green-600', bgColor: 'bg-green-100', label: 'Mobile' },
+  tv_cable: { icon: Tv, color: 'text-red-600', bgColor: 'bg-red-100', label: 'TV/Cable' },
+  gas: { icon: Flame, color: 'text-orange-600', bgColor: 'bg-orange-100', label: 'Gas' },
 };
 
 export default function BillsPage() {
@@ -238,20 +239,20 @@ export default function BillsPage() {
       {/* ══════════════════════════════════════════════ */}
       {view === 'pay' && selectedBiller && (
         <div className="max-w-lg mx-auto space-y-5">
-          {/* Success banner */}
+          {/* Success banner Modal */}
           {paySuccess && (
-            <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 p-4 rounded-xl">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle2 className="w-5 h-5" />
-                <p className="font-bold">Payment Successful!</p>
-              </div>
-              <div className="text-sm space-y-1">
-                <p>Amount: <span className="font-semibold">৳{paySuccess.amount}</span></p>
-                <p>To: <span className="font-semibold">{paySuccess.biller_name}</span></p>
-                <p>Reference: <span className="font-mono text-xs">{paySuccess.reference}</span></p>
-                <p>New Balance: <span className="font-semibold">৳{paySuccess.new_balance?.toFixed(2)}</span></p>
-              </div>
-            </div>
+            <TransactionSummaryModal
+              isOpen={true}
+              onClose={() => setPaySuccess(null)}
+              title="Bill Paid Successfully"
+              accountLabel="Biller"
+              account={paySuccess.biller_name || selectedBiller.name}
+              amount={paySuccess.amount || formData.amount}
+              charge={paySuccess.charge || '0.00'}
+              transactionId={paySuccess.transaction_id || paySuccess.transaction_reference || '0'}
+              reference={paySuccess.reference || formData.reference || 'Bill Payment'}
+              time={paySuccess.created_at ? new Date(paySuccess.created_at).toLocaleString('en-GB') : undefined}
+            />
           )}
 
           {/* Payment form */}

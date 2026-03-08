@@ -3,6 +3,7 @@
 import { FileText, ArrowUpRight, Search, TrendingDown, LayoutList, SlidersHorizontal, ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { transactionAPI } from '@/lib/api';
+import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
 
 interface Transaction {
   transaction_id: string;
@@ -24,6 +25,7 @@ export default function TransactionsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
   useEffect(() => {
     fetchTransactions();
@@ -80,6 +82,23 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-4 max-w-3xl mx-auto rounded-3xl bg-white min-h-[calc(100vh-6rem)] sm:p-4">
+      {/* Transaction Summary Modal */}
+      {selectedTransaction && (
+        <TransactionSummaryModal
+          isOpen={!!selectedTransaction}
+          onClose={() => setSelectedTransaction(null)}
+          title="Transaction Details"
+          accountLabel={selectedTransaction.direction === 'credit' ? 'From' : 'To'}
+          account={selectedTransaction.direction === 'credit'
+            ? (selectedTransaction.from_name || selectedTransaction.from_phone)
+            : (selectedTransaction.to_name || selectedTransaction.to_phone)}
+          amount={selectedTransaction.amount}
+          charge="0.00"
+          transactionId={selectedTransaction.reference || ''}
+          reference=""
+          time={selectedTransaction.created_at ? new Date(selectedTransaction.created_at).toLocaleString('en-GB') : undefined}
+        />
+      )}
 
       {/* Search & Filter Bar */}
       <div className="flex items-center gap-3 px-4 pt-4 pb-2">
@@ -165,11 +184,15 @@ export default function TransactionsPage() {
               if (t.transaction_type === 'transfer') {
                 displayType = isCredit ? 'Received Money' : 'Send Money';
               } else if (t.transaction_type === 'cash_in') {
-                displayType = 'Mobile Recharge';
+                displayType = 'Cash In';
               }
 
               return (
-                <div key={t.transaction_id} className="flex items-start justify-between px-4 py-4 hover:bg-slate-50 transition-colors cursor-pointer group">
+                <div
+                  key={t.transaction_id}
+                  className="flex items-start justify-between px-4 py-4 hover:bg-slate-50 transition-colors cursor-pointer group"
+                  onClick={() => setSelectedTransaction(t)}
+                >
 
                   {/* Left Icon + Middle Info */}
                   <div className="flex items-start gap-4 flex-1">
