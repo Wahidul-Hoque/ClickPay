@@ -132,3 +132,51 @@ export const notificationAPI = {
   clearAll: () =>
     apiClient.delete('/notifications'),
 };
+
+export const adminApi = {
+    /** 1, 3, 5: Financial Analytics & User Behavior **/
+    getAnalytics: async (city?: string) => {
+        const url = city ? `/admin/analytics?city=${city}` : '/admin/analytics';
+        const response = await apiClient.get(url);
+        return response.data; // Returns revenue, churn, and trend data
+    },
+
+    /** 2, 11: Agent & Merchant Management **/
+    getAgentPerformance: async (city?: string) => {
+        const url = city ? `/admin/agents/performance?city=${city}` : '/admin/agents/performance';
+        const response = await apiClient.get(url);
+        return response.data; // Returns ranking and commission breakdown
+    },
+
+    /** 6, 7, 8: Loans, Savings & Subscriptions **/
+    getPortfolioReports: async () => {
+        const response = await apiClient.get('/admin/reports/portfolio');
+        return response.data; // Returns loan risk, savings maturity, and MRR
+    },
+
+    /** 9: User Management & Account Controls **/
+    getUsers: async (filters: { query?: string; status?: string; page?: number } = {}) => {
+        const params = new URLSearchParams(filters as any).toString();
+        const response = await apiClient.get(`/admin/users?${params}`);
+        return response.data;
+    },
+
+    toggleUserStatus: async (userId: string, action: 'freeze' | 'unfreeze') => {
+        const response = await apiClient.patch(`/admin/users/${userId}/status`, { action });
+        return response.data;
+    },
+
+    /** 10: Reconciliation & Settlement **/
+    getSettlementReport: async () => {
+        const response = await apiClient.get('/admin/reconciliation/daily');
+        return response.data; // Money in vs Money out
+    },
+
+    /** 12: System Audit & Admin Action Log **/
+    getAuditLogs: async (limit = 50) => {
+        const response = await apiClient.get(`/admin/audit-logs?limit=${limit}`);
+        return response.data;
+    }
+};
+
+

@@ -216,3 +216,13 @@ CREATE TABLE notifications (
   message          VARCHAR(500) NOT NULL,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- ADMIN_ACTIVITY_LOGS (Feature #12)
+CREATE TABLE admin_activity_logs (
+  log_id          BIGSERIAL PRIMARY KEY,
+  admin_user_id   BIGINT NOT NULL REFERENCES users(user_id),
+  action_type     VARCHAR(50) NOT NULL, -- e.g., 'user_freeze', 'rate_change', 'loan_approve'
+  target_id       VARCHAR(50),          -- ID of the user or record modified
+  description     TEXT,                 -- Detailed explanation of the change
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
