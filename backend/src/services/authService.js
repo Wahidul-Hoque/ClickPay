@@ -8,7 +8,7 @@ import { hashPassword, comparePassword, generateToken } from '../middleware/auth
 class AuthService {
   // REGISTERS NEW USER and Creates a new user and their wallet
   async register(userData) {
-    const { name, phone,city , nid, epin, role } = userData;
+    const { name, phone, city, nid, epin, role } = userData;
     const client = await getClient();
 
     try {
@@ -17,7 +17,7 @@ class AuthService {
       const epinHash = await hashPassword(epin);
       //inserting user
       const userQuery = `
-        INSERT INTO users (name, phone,city ,  nid, epin_hash, role, status)
+        INSERT INTO users (name, phone, city, nid, epin_hash, role, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
       `;
       

@@ -17,6 +17,7 @@ import billRoutes from './routes/billRoutes.js';
 import loanRoutes from './routes/loanRoutes.js';
 import savingsRoutes from './routes/savingsRoutes.js';
 import agentRoutes from './routes/agentRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
 
 
 
@@ -89,6 +90,9 @@ app.use(`${API_PREFIX}/savings`, savingsRoutes);
 
 // Agent routes
 app.use(`${API_PREFIX}/agent`, agentRoutes);
+
+// Admin routes
+app.use(`${API_PREFIX}/admin`, adminRoutes);
 
 // ==============================================
 // ERROR HANDLING
