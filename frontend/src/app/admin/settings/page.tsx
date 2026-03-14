@@ -1,5 +1,5 @@
 import SharedSettings from '@/components/SharedSettings';
 
-export default function SettingsPage() {
+export default function AdminSettingsPage() {
   return <SharedSettings />;
 }

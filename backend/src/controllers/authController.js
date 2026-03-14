@@ -11,7 +11,7 @@ class AuthController {
     try {
       // Validate input
       const { name, phone, city, nid, epin, role } = req.body;
-      
+
       if (!name || !phone || !city || !nid || !epin || !role) {
         return res.status(400).json({
           success: false,
@@ -64,7 +64,7 @@ class AuthController {
       });
 
     } catch (error) {
-      if (error.code === '23505') { 
+      if (error.code === '23505') {
         return res.status(409).json({
           success: false,
           message: 'A user with this phone number or NID already exists'

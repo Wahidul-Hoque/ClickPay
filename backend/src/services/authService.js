@@ -20,7 +20,7 @@ class AuthService {
         INSERT INTO users (name, phone, city, nid, epin_hash, role, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
       `;
-      
+
       await client.query(userQuery, [name, phone, city, nid, epinHash, role, 'active']);
 
       const userIdResult = await client.query('SELECT LASTVAL() as id');
@@ -38,7 +38,7 @@ class AuthService {
         INSERT INTO wallets (user_id, wallet_type, balance, status)
         VALUES ($1, $2, $3, $4)
       `;
-      
+
       await client.query(walletInsertQuery, [userId, walletType, 0.00, 'active']);
 
       // Manual Fetch Wallet ID using LASTVAL()
@@ -91,7 +91,7 @@ class AuthService {
         JOIN wallets w ON u.user_id = w.user_id 
         WHERE u.phone = $1 AND w.wallet_type IN ('user', 'agent')
       `;
-      
+
       const result = await query(userQuery, [phone]);
 
       if (result.rows.length === 0) {
@@ -105,7 +105,7 @@ class AuthService {
       }
 
       const isValidEpin = await comparePassword(epin, user.epin_hash);
-      
+
       if (!isValidEpin) {
         throw new Error('Invalid phone number or ePin');
       }
@@ -155,7 +155,7 @@ class AuthService {
         JOIN wallets w ON u.user_id = w.user_id 
         WHERE u.user_id = $1 AND w.wallet_type IN ('user', 'agent')
       `;
-      
+
       const result = await query(profileQuery, [userId]);
 
       if (result.rows.length === 0) {
