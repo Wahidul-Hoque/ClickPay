@@ -4,8 +4,8 @@ import agentService from '../services/agentService.js';
 class AdminController {
   async getDashboardData(req, res, next) {
     try {
-      const { city } = req.query;
-      const analytics = await adminService.getFinancialAnalytics(city);
+      const { city, startDate, endDate } = req.query;
+      const analytics = await adminService.getFinancialAnalytics(city, startDate, endDate);
       const agents = await adminService.getAgentPerformance(city);
       const portfolio = await adminService.getPortfolioReports();
       const audit = await adminService.getAuditLogs();
@@ -17,11 +17,36 @@ class AdminController {
     } catch (error) { next(error); }
   }
 
+  async getTrendData(req, res, next) {
+    try {
+      const { city, startDate, endDate } = req.query;
+      const trend = await adminService.getTrendAnalytics(city, startDate, endDate);
+      res.json({ success: true, data: trend });
+    } catch (error) { next(error); }
+  }
+
+  async getSegmentationData(req, res, next) {
+    try {
+      const { city, startDate, endDate } = req.query;
+      const segmentation = await adminService.getSegmentationAnalytics(city, startDate, endDate);
+      res.json({ success: true, data: segmentation });
+    } catch (error) { next(error); }
+  }
+
   async getUsers(req, res, next) {
     try {
       const { search } = req.query;
       const users = await adminService.getAllUsers(search);
       res.json({ success: true, data: users });
+    } catch (error) { next(error); }
+  }
+
+  async getUserTransactions(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { startDate, endDate, types } = req.query;
+      const transactions = await adminService.getUserTransactions(id, startDate, endDate, types);
+      res.json({ success: true, data: transactions });
     } catch (error) { next(error); }
   }
 

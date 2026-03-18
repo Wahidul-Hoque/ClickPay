@@ -1,11 +1,33 @@
 import { query, getClient } from '../config/database.js';
 
 class AdminService {
-  async getFinancialAnalytics(city) {
-    const cityFilter = city ? "AND u.city = $1" : "";
-    const params = city ? [city] : [];
+  async getFinancialAnalytics(city, startDate, endDate) {
+    const buildDateFilter = (prefix = 't', dateCol = 'created_at') => {
+      let filter = "";
+      let params = [];
+      if (startDate && endDate) {
+        filter = `DATE(${prefix}.${dateCol}) >= $1 AND DATE(${prefix}.${dateCol}) <= $2`;
+        params = [startDate, endDate];
+      } else if (startDate) {
+        filter = `DATE(${prefix}.${dateCol}) >= $1`;
+        params = [startDate];
+      } else if (endDate) {
+        filter = `DATE(${prefix}.${dateCol}) <= $1`;
+        params = [endDate];
+      } else {
+        filter = `DATE(${prefix}.${dateCol}) >= CURRENT_DATE - INTERVAL '1 month'`;
+      }
+      return { filter, params };
+    };
 
-    // Financial Stats
+    // 1. Financial Stats
+    const statsDate = buildDateFilter('t', 'created_at');
+    const statsParams = [...statsDate.params];
+    let statsCityFilter = "";
+    if (city) {
+      statsParams.push(city);
+      statsCityFilter = `AND u.city = $${statsParams.length}`;
+    }
     const stats = await query(`
       SELECT 
         COALESCE(SUM(t.amount), 0) as total_volume,
@@ -14,26 +36,35 @@ class AdminService {
       FROM transactions t
       JOIN wallets w ON t.from_wallet_id = w.wallet_id
       JOIN users u ON w.user_id = u.user_id
-      WHERE t.status = 'completed' ${cityFilter}
-    `, params);
+      WHERE t.status = 'completed' AND ${statsDate.filter} ${statsCityFilter}
+    `, statsParams);
 
-    // Platform Revenue (Fees)
+    // 2. Platform Revenue (Fees)
+    const revDate = buildDateFilter('t', 'created_at');
     const revenue = await query(`
-      SELECT COALESCE(SUM(fee_amount), 0) as total_fees
-      FROM agent_fees
-    `);
+      SELECT COALESCE(SUM(af.fee_amount), 0) as total_fees
+      FROM agent_fees af
+      JOIN transactions t ON af.cashout_transaction_id = t.transaction_id
+      WHERE ${revDate.filter}
+    `, revDate.params);
 
-    // Trend Analysis (Last 10 Days)
-    const trendFilter = city ? "JOIN wallets w ON t.from_wallet_id = w.wallet_id JOIN users u ON w.user_id = u.user_id WHERE t.status = 'completed' AND t.created_at >= CURRENT_DATE - INTERVAL '10 days' AND u.city = $1" : "WHERE status = 'completed' AND created_at >= CURRENT_DATE - INTERVAL '10 days'";
+    // 3. Trend Analysis
+    const trendDate = buildDateFilter('t', 'created_at');
+    const trendParams = [...trendDate.params];
+    let trendFilterStr = `WHERE t.status = 'completed' AND ${trendDate.filter}`;
+    if (city) {
+      trendFilterStr = `JOIN wallets w ON t.from_wallet_id = w.wallet_id JOIN users u ON w.user_id = u.user_id WHERE t.status = 'completed' AND ${trendDate.filter} AND u.city = $${trendParams.length + 1}`;
+      trendParams.push(city);
+    }
     const trend = await query(`
       SELECT DATE(t.created_at) as date, COALESCE(SUM(t.amount), 0) as volume
       FROM transactions t
-      ${trendFilter}
+      ${trendFilterStr}
       GROUP BY DATE(t.created_at)
       ORDER BY date ASC
-    `, params);
+    `, trendParams);
 
-    // User Segmentation
+    // 4. User Segmentation
     const segmentParams = city ? [city] : [];
     const segmentFilter = city ? "AND city = $1" : "";
     const segmentation = await query(`
@@ -45,16 +76,21 @@ class AdminService {
       WHERE role = 'user' ${segmentFilter}
     `, segmentParams);
 
-    // Daily Reconciliation Dashboard
-    const reconTarget = city ? "JOIN wallets w ON t.from_wallet_id = w.wallet_id JOIN users u ON w.user_id = u.user_id AND u.city = $1" : "";
+    // 5. Daily Reconciliation Dashboard => Now Date Range Reconciliation Dashboard
+    const reconDate = buildDateFilter('t', 'created_at');
+    const reconParams = [...reconDate.params];
+    let reconFilterStr = `WHERE t.status = 'completed' AND ${reconDate.filter}`;
+    if (city) {
+      reconFilterStr = `JOIN wallets w ON t.from_wallet_id = w.wallet_id JOIN users u ON w.user_id = u.user_id WHERE t.status = 'completed' AND ${reconDate.filter} AND u.city = $${reconParams.length + 1}`;
+      reconParams.push(city);
+    }
     const reconciliation = await query(`
       SELECT 
         COALESCE(SUM(t.amount) FILTER (WHERE t.transaction_type IN ('cash_in', 'add_money')), 0) as inflow,
         COALESCE(SUM(t.amount) FILTER (WHERE t.transaction_type IN ('cash_out', 'payment', 'send_money')), 0) as outflow
       FROM transactions t
-      ${reconTarget}
-      WHERE DATE(t.created_at) = CURRENT_DATE AND t.status = 'completed'
-    `, params);
+      ${reconFilterStr}
+    `, reconParams);
 
     return { 
       stats: stats.rows[0], 
@@ -62,6 +98,115 @@ class AdminService {
       trend: trend.rows,
       segmentation: segmentation.rows[0],
       reconciliation: reconciliation.rows[0]
+    };
+  }
+
+  async getTrendAnalytics(city, startDate, endDate) {
+    const buildDateFilter = (prefix = 't', dateCol = 'created_at') => {
+      let filter = "";
+      let params = [];
+      if (startDate && endDate) {
+        filter = `DATE(${prefix}.${dateCol}) >= $1 AND DATE(${prefix}.${dateCol}) <= $2`;
+        params = [startDate, endDate];
+      } else if (startDate) {
+        filter = `DATE(${prefix}.${dateCol}) >= $1`;
+        params = [startDate];
+      } else if (endDate) {
+        filter = `DATE(${prefix}.${dateCol}) <= $1`;
+        params = [endDate];
+      } else {
+        filter = `DATE(${prefix}.${dateCol}) >= CURRENT_DATE - INTERVAL '1 month'`;
+      }
+      return { filter, params };
+    };
+
+    const trendDate = buildDateFilter('t', 'created_at');
+    const trendParams = [...trendDate.params];
+    let trendFilterStr = `WHERE t.status = 'completed' AND ${trendDate.filter}`;
+    if (city) {
+      trendFilterStr = `JOIN wallets w ON t.from_wallet_id = w.wallet_id JOIN users u ON w.user_id = u.user_id WHERE t.status = 'completed' AND ${trendDate.filter} AND u.city = $${trendParams.length + 1}`;
+      trendParams.push(city);
+    }
+
+    const trend = await query(`
+      SELECT 
+        DATE(t.created_at) as date, 
+        t.transaction_type, 
+        COALESCE(SUM(t.amount), 0) as volume
+      FROM transactions t
+      ${trendFilterStr}
+      GROUP BY DATE(t.created_at), t.transaction_type
+      ORDER BY date ASC
+    `, trendParams);
+
+    // Format the data so we have an array grouped by date
+    const groupedTrend = {};
+    for (const row of trend.rows) {
+      const d = new Date(row.date).toISOString().split('T')[0];
+      if (!groupedTrend[d]) {
+        groupedTrend[d] = { date: row.date, total_volume: 0 };
+      }
+      groupedTrend[d][row.transaction_type] = parseFloat(row.volume);
+      groupedTrend[d].total_volume += parseFloat(row.volume);
+    }
+
+    return Object.values(groupedTrend).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }
+
+  async getSegmentationAnalytics(city, startDate, endDate) {
+    let filterStr = "";
+    let params = [];
+
+    if (city) {
+      params.push(city);
+      filterStr += ` AND u.city = $${params.length}`;
+    }
+
+    if (startDate && endDate) {
+      params.push(startDate, endDate);
+      filterStr += ` AND DATE(u.created_at) >= $${params.length - 1} AND DATE(u.created_at) <= $${params.length}`;
+    } else if (startDate) {
+      params.push(startDate);
+      filterStr += ` AND DATE(u.created_at) >= $${params.length}`;
+    } else if (endDate) {
+      params.push(endDate);
+      filterStr += ` AND DATE(u.created_at) <= $${params.length}`;
+    }
+
+    const activityQuery = await query(`
+      WITH UserActivity AS (
+        SELECT 
+          u.user_id,
+          MAX(t.created_at) as last_tx_date
+        FROM users u
+        LEFT JOIN wallets w ON u.user_id = w.user_id
+        LEFT JOIN transactions t ON (w.wallet_id = t.from_wallet_id OR w.wallet_id = t.to_wallet_id)
+        WHERE u.role = 'user' ${filterStr}
+        GROUP BY u.user_id
+      )
+      SELECT 
+        COUNT(*) FILTER (WHERE last_tx_date >= CURRENT_DATE - INTERVAL '7 days') as active_users,
+        COUNT(*) FILTER (WHERE last_tx_date < CURRENT_DATE - INTERVAL '7 days' AND last_tx_date >= CURRENT_DATE - INTERVAL '30 days') as irregular_users,
+        COUNT(*) FILTER (WHERE last_tx_date < CURRENT_DATE - INTERVAL '30 days' AND last_tx_date >= CURRENT_DATE - INTERVAL '90 days') as dormant_users,
+        COUNT(*) FILTER (WHERE last_tx_date < CURRENT_DATE - INTERVAL '90 days' OR last_tx_date IS NULL) as inactive_users,
+        COUNT(*) as total_users
+      FROM UserActivity
+    `, params);
+
+    const walletsQuery = await query(`
+      SELECT 
+        COUNT(*) FILTER (WHERE w.status = 'active') as active_wallets,
+        COUNT(*) FILTER (WHERE w.status = 'frozen') as frozen_wallets,
+        COUNT(*) FILTER (WHERE w.status = 'disabled') as disabled_wallets,
+        COUNT(*) as total_wallets
+      FROM users u
+      JOIN wallets w ON u.user_id = w.user_id
+      WHERE u.role = 'user' ${filterStr}
+    `, params);
+
+    return {
+      activity: activityQuery.rows[0],
+      wallets: walletsQuery.rows[0]
     };
   }
 
@@ -112,7 +257,47 @@ class AdminService {
       JOIN wallets w ON u.user_id = w.user_id
       WHERE w.wallet_type != 'system' ${searchFilter}
       ORDER BY u.created_at DESC
+      LIMIT 10
     `, params);
+    return res.rows;
+  }
+
+  async getUserTransactions(userId, startDate, endDate, types) {
+    let filterStr = "";
+    const params = [userId];
+
+    if (startDate && endDate) {
+      params.push(startDate, endDate);
+      filterStr += ` AND DATE(t.created_at) >= $${params.length - 1} AND DATE(t.created_at) <= $${params.length}`;
+    } else if (startDate) {
+      params.push(startDate);
+      filterStr += ` AND DATE(t.created_at) >= $${params.length}`;
+    } else if (endDate) {
+      params.push(endDate);
+      filterStr += ` AND DATE(t.created_at) <= $${params.length}`;
+    }
+
+    if (types) {
+      const typeList = types.split(',');
+      const typePlaceholders = typeList.map((_, i) => `$${params.length + 1 + i}`).join(',');
+      filterStr += ` AND t.transaction_type IN (${typePlaceholders})`;
+      params.push(...typeList);
+    }
+
+    const res = await query(`
+      SELECT DISTINCT t.*, 
+        u_from.name as sender_name, u_from.phone as sender_phone,
+        u_to.name as receiver_name, u_to.phone as receiver_phone
+      FROM transactions t
+      JOIN wallets w ON (w.wallet_id = t.from_wallet_id OR w.wallet_id = t.to_wallet_id)
+      LEFT JOIN wallets w_from ON w_from.wallet_id = t.from_wallet_id
+      LEFT JOIN users u_from ON u_from.user_id = w_from.user_id
+      LEFT JOIN wallets w_to ON w_to.wallet_id = t.to_wallet_id
+      LEFT JOIN users u_to ON u_to.user_id = w_to.user_id
+      WHERE w.user_id = $1 ${filterStr}
+      ORDER BY t.created_at DESC
+    `, params);
+
     return res.rows;
   }
 

@@ -9,7 +9,10 @@ router.use(protect);
 router.use(authorize('admin'));
 
 router.get('/dashboard', adminController.getDashboardData);
+router.get('/dashboard/trend', adminController.getTrendData);
+router.get('/dashboard/segmentation', adminController.getSegmentationData);
 router.get('/users', adminController.getUsers);
+router.get('/users/:id/transactions', adminController.getUserTransactions);
 router.patch('/users/:id/status', adminController.updateUserStatus);
 router.get('/cities', adminController.getCities);
 router.get('/agent/rankings', adminController.getRankings);

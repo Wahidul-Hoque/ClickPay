@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import AgentRankingList from '@/components/AgentRankingList';
+import { DatePickerDialog } from '@/components/DatePickerDialog';
 import {
     LayoutDashboard, Users, UserRound, History, Settings, ShieldCheck, 
     TrendingUp, CreditCard, Activity, PieChart, Lock, Unlock, 
@@ -10,10 +11,43 @@ import {
     Calendar, ArrowRightLeft, DollarSign, Percent, LogOut
 } from 'lucide-react';
 
+function useOnClickOutside(ref: any, handler: any) {
+  useEffect(() => {
+    const listener = (event: any) => {
+      if (!ref.current || ref.current.contains(event.target)) return;
+      handler(event);
+    };
+    document.addEventListener("mousedown", listener);
+    document.addEventListener("touchstart", listener);
+    return () => { document.removeEventListener("mousedown", listener); document.removeEventListener("touchstart", listener); };
+  }, [ref, handler]);
+}
+
 export default function AdminDashboard() {
     const [activeSection, setActiveSection] = useState('dashboard');
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [selectedCity, setSelectedCity] = useState("");
+    const [cityInputValue, setCityInputValue] = useState("");
+    const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false);
+    const cityDropdownRef = useRef<HTMLDivElement>(null);
+    useOnClickOutside(cityDropdownRef, () => setIsCityDropdownOpen(false));
+
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
+    const [trendCity, setTrendCity] = useState("");
+    const [trendStartDate, setTrendStartDate] = useState("");
+    const [trendEndDate, setTrendEndDate] = useState("");
+    const [trendData, setTrendData] = useState<any[]>([]);
+    const [trendView, setTrendView] = useState<'chart' | 'methods'>('chart');
+    
+    const [segCity, setSegCity] = useState("");
+    const [segStartDate, setSegStartDate] = useState("");
+    const [segEndDate, setSegEndDate] = useState("");
+    const [segData, setSegData] = useState<any>(null);
+    const [segView, setSegView] = useState<'activity' | 'wallets'>('activity');
+    const [userSearch, setUserSearch] = useState("");
+
+    const [datePickerTarget, setDatePickerTarget] = useState<string | null>(null);
 
     const [analytics, setAnalytics] = useState<any>(null);
     const [portfolio, setPortfolio] = useState<any>(null);
@@ -32,19 +66,17 @@ export default function AdminDashboard() {
                 }
                 const headers = { Authorization: `Bearer ${token}` };
 
-                const dashboardRes = await fetch(`http://localhost:5000/api/v1/admin/dashboard?city=${selectedCity}`, { headers });
+                let dashUrl = `http://localhost:5000/api/v1/admin/dashboard?city=${selectedCity}`;
+                if (startDate) dashUrl += `&startDate=${startDate}`;
+                if (endDate) dashUrl += `&endDate=${endDate}`;
+
+                const dashboardRes = await fetch(dashUrl, { headers });
                 const dashboardData = await dashboardRes.json();
                 
                 if (dashboardData.success) {
                     setAnalytics(dashboardData.data.analytics);
                     setPortfolio(dashboardData.data.portfolio);
                     setAudit(dashboardData.data.audit);
-                }
-
-                const usersRes = await fetch('http://localhost:5000/api/v1/admin/users', { headers });
-                const usersJson = await usersRes.json();
-                if (usersJson.success) {
-                    setUsers(usersJson.data);
                 }
 
                 const citiesRes = await fetch('http://localhost:5000/api/v1/admin/cities', { headers });
@@ -57,17 +89,86 @@ export default function AdminDashboard() {
             }
         };
         fetchAdminData();
-    }, [selectedCity]);
+    }, [selectedCity, startDate, endDate]);
+
+    useEffect(() => {
+        const fetchTrendData = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                const headers = { Authorization: `Bearer ${token}` };
+
+                let trendUrl = `http://localhost:5000/api/v1/admin/dashboard/trend?city=${trendCity}`;
+                if (trendStartDate) trendUrl += `&startDate=${trendStartDate}`;
+                if (trendEndDate) trendUrl += `&endDate=${trendEndDate}`;
+
+                const trendRes = await fetch(trendUrl, { headers });
+                const data = await trendRes.json();
+                
+                if (data.success) {
+                    setTrendData(data.data);
+                }
+            } catch (error) {
+                console.error("Failed to fetch trend data", error);
+            }
+        };
+        fetchTrendData();
+    }, [trendCity, trendStartDate, trendEndDate]);
+
+    useEffect(() => {
+        const fetchSegData = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                const headers = { Authorization: `Bearer ${token}` };
+
+                let segUrl = `http://localhost:5000/api/v1/admin/dashboard/segmentation?city=${segCity}`;
+                if (segStartDate) segUrl += `&startDate=${segStartDate}`;
+                if (segEndDate) segUrl += `&endDate=${segEndDate}`;
+
+                const segRes = await fetch(segUrl, { headers });
+                const data = await segRes.json();
+                
+                if (data.success) {
+                    setSegData(data.data);
+                }
+            } catch (error) {
+                console.error("Failed to fetch segmentation data", error);
+            }
+        };
+        fetchSegData();
+    }, [segCity, segStartDate, segEndDate]);
+
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                const headers = { Authorization: `Bearer ${token}` };
+                
+                const url = `http://localhost:5000/api/v1/admin/users${userSearch ? `?search=${userSearch}` : ''}`;
+                const usersRes = await fetch(url, { headers });
+                const usersJson = await usersRes.json();
+                if (usersJson.success) {
+                    setUsers(usersJson.data);
+                }
+            } catch (error) {
+                console.error("Failed to fetch users", error);
+            }
+        };
+        
+        const delay = setTimeout(fetchUsers, 300);
+        return () => clearTimeout(delay);
+    }, [userSearch]);
 
     const toggleUserStatus = async (id: number, currentStatus: string) => {
         const action = currentStatus === 'active' ? 'freeze' : 'unfreeze';
         try {
-            const token = localStorage.getItem('token');
             const res = await fetch(`http://localhost:5000/api/v1/admin/users/${id}/status`, {
                 method: 'PATCH',
-                headers: { 
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json'
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${localStorage.getItem('token')}`
                 },
                 body: JSON.stringify({ action })
             });
@@ -75,10 +176,22 @@ export default function AdminDashboard() {
             if (data.success) {
                 setUsers(users.map(u => u.user_id === id ? { ...u, status: data.status } : u));
             }
-        } catch (err) {
-            console.error(err);
+        } catch (error) {
+            console.error("Failed to toggle status", error);
         }
     };
+
+    const methodTotals: Record<string, number> = {};
+    if (trendData && trendData.length > 0) {
+        trendData.forEach(d => {
+            Object.keys(d).forEach(k => {
+                if (k !== 'date' && k !== 'total_volume') {
+                    methodTotals[k] = (methodTotals[k] || 0) + parseFloat(d[k]);
+                }
+            });
+        });
+    }
+    const sortedMethods = Object.entries(methodTotals).sort((a, b) => b[1] - a[1]);
 
     const scrollToSection = (id: string) => {
         const element = document.getElementById(id);
@@ -91,6 +204,16 @@ export default function AdminDashboard() {
     const handleLogout = () => {
         localStorage.removeItem('token');
         router.push('/auth/login');
+    };
+
+    const handleDatePick = (dateStr: string, targetName: string) => {
+        if (targetName === 'startDate') setStartDate(dateStr);
+        if (targetName === 'endDate') setEndDate(dateStr);
+        if (targetName === 'trendStartDate') setTrendStartDate(dateStr);
+        if (targetName === 'trendEndDate') setTrendEndDate(dateStr);
+        if (targetName === 'segStartDate') setSegStartDate(dateStr);
+        if (targetName === 'segEndDate') setSegEndDate(dateStr);
+        setDatePickerTarget(null);
     };
 
     return (
@@ -157,24 +280,105 @@ export default function AdminDashboard() {
                 </header>
 
                 <div className="p-10 space-y-32">
-                    
+                    <DatePickerDialog
+                        isOpen={datePickerTarget !== null}
+                        initDate={datePickerTarget === 'startDate' ? startDate : endDate}
+                        targetName={datePickerTarget}
+                        onCancel={() => setDatePickerTarget(null)}
+                        onOk={handleDatePick}
+                        theme="indigo"
+                    />
+
                     {/* SECTION 1, 3, 5: ANALYTICS, CHURN & TRENDS */}
                     <section id="dashboard" className="scroll-mt-32">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                            <div>
-                                <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Financial Intelligence</h2>
-                                <p className="text-slate-500 font-medium">Real-time revenue & user behavior analysis</p>
+                        <div className="mb-6">
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Financial Intelligence</h2>
+                            <p className="text-slate-500 font-medium">Real-time revenue & user behavior analysis</p>
+                        </div>
+
+                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-8 flex flex-wrap gap-4 items-end">
+                            <div className="flex-1 min-w-[200px] relative" ref={cityDropdownRef}>
+                                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Area / Branch</label>
+                                <div className="relative flex flex-wrap gap-2 items-center bg-slate-50 border border-slate-200 rounded-xl p-2 min-h-[42px] focus-within:ring-2 focus-within:ring-indigo-500 transition-all">
+                                    <Landmark className="w-4 h-4 text-slate-400 ml-1 shrink-0" />
+                                    {selectedCity && (
+                                        <span className="bg-indigo-100 text-indigo-700 text-xs px-2 py-1 rounded-md flex items-center gap-1 font-bold">
+                                            {selectedCity}
+                                            <button type="button" onClick={() => setSelectedCity('')} className="hover:text-indigo-900 font-black focus:outline-none ml-1">×</button>
+                                        </span>
+                                    )}
+                                    <input
+                                        type="text"
+                                        placeholder={!selectedCity ? "Search or write Area..." : ""}
+                                        value={cityInputValue}
+                                        onChange={(e) => {
+                                            setCityInputValue(e.target.value);
+                                            setIsCityDropdownOpen(true);
+                                        }}
+                                        onFocus={() => setIsCityDropdownOpen(true)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && cityInputValue.trim()) {
+                                                setSelectedCity(cityInputValue.trim());
+                                                setCityInputValue('');
+                                                setIsCityDropdownOpen(false);
+                                                e.preventDefault();
+                                            }
+                                        }}
+                                        className="flex-1 bg-transparent min-w-[80px] focus:outline-none text-sm px-1 py-0.5 text-slate-700 font-bold"
+                                    />
+                                </div>
+                                {isCityDropdownOpen && (
+                                    <div className="absolute z-10 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-lg p-2 max-h-48 overflow-y-auto">
+                                        {cities.filter(c => c.toLowerCase().includes(cityInputValue.toLowerCase())).length > 0 ? (
+                                            cities.filter(c => c.toLowerCase().includes(cityInputValue.toLowerCase())).map((suggestion, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    className="px-4 py-2 hover:bg-slate-50 rounded-lg cursor-pointer text-sm text-slate-700 font-medium transition-colors"
+                                                    onClick={() => {
+                                                        setSelectedCity(suggestion);
+                                                        setCityInputValue('');
+                                                        setIsCityDropdownOpen(false);
+                                                    }}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <Landmark className="w-3 h-3 text-slate-400" /> {suggestion}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="px-4 py-2 text-sm text-slate-500 italic">Press Enter to add "{cityInputValue}"</div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                            <div className="flex gap-3 items-center">
-                                <select 
-                                    className="px-4 py-2 rounded-xl text-sm font-bold bg-white border border-slate-200 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-700 cursor-pointer transition-all hover:bg-slate-50"
-                                    value={selectedCity}
-                                    onChange={(e) => setSelectedCity(e.target.value)}
-                                >
-                                    <option value="">All Branches</option>
-                                    {cities.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
+                            <div className="flex-1 min-w-[150px]">
+                                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">From Date</label>
+                                <input
+                                    type="text"
+                                    readOnly
+                                    placeholder="Select Date"
+                                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all cursor-pointer h-[42px] text-sm text-slate-700 font-bold"
+                                    value={startDate}
+                                    onClick={() => setDatePickerTarget('startDate')}
+                                />
                             </div>
+                            <div className="flex-1 min-w-[150px]">
+                                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">To Date</label>
+                                <input
+                                    type="text"
+                                    readOnly
+                                    placeholder="Select Date"
+                                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all cursor-pointer h-[42px] text-sm text-slate-700 font-bold"
+                                    value={endDate}
+                                    onClick={() => setDatePickerTarget('endDate')}
+                                />
+                            </div>
+                            <button 
+                                onClick={() => { setStartDate(''); setEndDate(''); setSelectedCity(''); }}
+                                className="px-6 py-2 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-all h-[42px] flex items-center justify-center min-w-[100px]"
+                            >
+                                Reset
+                            </button>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
@@ -184,38 +388,213 @@ export default function AdminDashboard() {
                             <StatCard title="Avg Trans" value={`৳${Number(analytics?.stats?.avg_transaction || 0).toFixed(0)}`} trend="+2.0%" up icon={<ArrowRightLeft className="text-amber-600"/>} bg="bg-amber-50" />
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                            <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                                <div className="flex justify-between items-center mb-8">
-                                    <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest">Transaction Trend Analysis (10 Days)</h4>
+                        <div className="flex flex-col gap-8">
+                            <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
+                                    <div className="flex gap-4 items-center">
+                                        <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest whitespace-nowrap">
+                                            Transaction Trend
+                                        </h4>
+                                        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+                                            <button onClick={() => setTrendView('chart')} className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${trendView === 'chart' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>Chart</button>
+                                            <button onClick={() => setTrendView('methods')} className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${trendView === 'methods' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>Methods</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex flex-wrap gap-2 items-center bg-slate-50 p-2 rounded-2xl border border-slate-100">
+                                        <div className="relative flex items-center bg-white border border-slate-200 rounded-lg px-2 py-1 focus-within:ring-2 focus-within:ring-indigo-500 cursor-pointer w-28">
+                                            <select 
+                                                className="w-full bg-transparent outline-none text-[10px] text-slate-700 font-bold appearance-none cursor-pointer"
+                                                value={trendCity}
+                                                onChange={(e) => setTrendCity(e.target.value)}
+                                            >
+                                                <option value="">All Areas</option>
+                                                {cities.map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            placeholder="From"
+                                            className="w-24 px-2 py-1 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer text-[10px] text-slate-700 font-bold"
+                                            value={trendStartDate}
+                                            onClick={() => setDatePickerTarget('trendStartDate')}
+                                        />
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            placeholder="To"
+                                            className="w-24 px-2 py-1 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer text-[10px] text-slate-700 font-bold"
+                                            value={trendEndDate}
+                                            onClick={() => setDatePickerTarget('trendEndDate')}
+                                        />
+                                        <button 
+                                            onClick={() => { setTrendStartDate(''); setTrendEndDate(''); setTrendCity(''); }}
+                                            className="px-3 py-1 bg-white border border-slate-200 text-slate-600 font-bold rounded-lg hover:bg-slate-100 transition-all text-[10px]"
+                                        >
+                                            Reset
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="h-64 flex items-end justify-between gap-4">
-                                    {analytics?.trend && analytics.trend.length > 0 ? (
-                                        analytics.trend.map((t: any, i: number) => {
-                                            const maxVol = Math.max(...analytics.trend.map((d: any) => parseFloat(d.volume)));
-                                            const h = maxVol > 0 ? (parseFloat(t.volume) / maxVol) * 100 : 0;
+
+                                {trendView === 'chart' ? (
+                                    <>
+                                        <div className="flex gap-3 mb-6 flex-wrap">
+                                            {Object.entries({cash_in: 'emerald-500', cash_out: 'rose-500', transfer: 'sky-500', send_money: 'amber-500', request_payment: 'purple-500', add_money: 'teal-500', other: 'slate-400'}).map(([k, color]) => (
+                                                <div key={k} className="flex items-center gap-1.5"><div className={`w-2 h-2 rounded-sm bg-${color}`}></div><span className="text-[10px] uppercase font-bold text-slate-500">{k.replace('_', ' ')}</span></div>
+                                            ))}
+                                        </div>
+
+                                        <div className="h-64 flex items-end justify-between gap-1 md:gap-2">
+                                            {trendData && trendData.length > 0 ? (
+                                                trendData.map((t: any, i: number) => {
+                                                    const maxVol = Math.max(...trendData.map((d: any) => parseFloat(d.total_volume)));
+                                                    const totalH = maxVol > 0 ? (parseFloat(t.total_volume) / maxVol) * 100 : 0;
+                                                    
+                                                    const keys = Object.keys(t).filter(k => k !== 'date' && k !== 'total_volume');
+                                                    
+                                                    const typeColors: Record<string, string> = {
+                                                        cash_in: 'bg-emerald-500 hover:bg-emerald-400',
+                                                        cash_out: 'bg-rose-500 hover:bg-rose-400',
+                                                        transfer: 'bg-sky-500 hover:bg-sky-400',
+                                                        send_money: 'bg-amber-500 hover:bg-amber-400',
+                                                        request_payment: 'bg-purple-500 hover:bg-purple-400',
+                                                        add_money: 'bg-teal-500 hover:bg-teal-400',
+                                                    };
+                                                    
+                                                    return (
+                                                        <div key={i} style={{ height: `${Math.max(totalH, 5)}%` }} className="flex-1 bg-transparent relative group cursor-pointer transition-all flex flex-col justify-end">
+                                                            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-3 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-all z-50 pointer-events-none shadow-xl border border-slate-800 flex flex-col items-center min-w-[120px]">
+                                                                <span className="font-black text-emerald-400 text-xs mb-1">৳{parseFloat(t.total_volume).toLocaleString()}</span>
+                                                                <div className="flex flex-col gap-1 w-full mt-1 border-t border-slate-700 pt-1">
+                                                                    {keys.map(k => t[k] > 0 && (
+                                                                        <div key={k} className="flex justify-between items-center w-full gap-3 text-[9px]">
+                                                                            <span className="text-slate-400 uppercase font-black tracking-widest">{k.replace('_', ' ')}</span>
+                                                                            <span className="font-bold text-white">৳{t[k]}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <div className="w-full h-full flex flex-col justify-end rounded-t-xl overflow-hidden bg-slate-100/50">
+                                                                {keys.map((k) => {
+                                                                    if (!t[k]) return null;
+                                                                    const sliceH = (parseFloat(t[k]) / parseFloat(t.total_volume)) * 100;
+                                                                    return <div key={k} style={{ height: `${sliceH}%` }} className={`w-full transition-all ${typeColors[k] || 'bg-slate-400 hover:bg-slate-300'}`}></div>
+                                                                })}
+                                                            </div>
+
+                                                            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[8px] font-black text-slate-400 rotate-45 whitespace-nowrap">{new Date(t.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>
+                                                        </div>
+                                                    );
+                                                })
+                                            ) : (
+                                                <div className="w-full h-full flex justify-center items-center text-slate-300 text-sm font-bold">No transaction data available</div>
+                                            )}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="flex flex-col gap-2 h-72 overflow-y-auto pr-2 custom-scrollbar">
+                                        {sortedMethods.length > 0 ? sortedMethods.map(([method, volume], index) => {
+                                            const maxVolume = sortedMethods[0]?.[1] || 1;
                                             return (
-                                                <div key={i} className="flex-1 bg-slate-100 rounded-t-xl relative group cursor-pointer hover:bg-indigo-50 transition-all flex flex-col justify-end">
-                                                    <div style={{ height: `${Math.max(h, 5)}%` }} className="bg-indigo-600 w-full rounded-t-xl group-hover:bg-indigo-500 transition-all"></div>
-                                                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap">
-                                                        ৳{parseFloat(t.volume).toLocaleString()}
+                                                <div key={method} className="flex items-center p-4 rounded-2xl border border-slate-100 bg-slate-50 hover:bg-white hover:shadow-sm transition-all group">
+                                                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-black text-slate-500 text-xs mr-4 shrink-0 transition-all group-hover:bg-indigo-100 group-hover:text-indigo-600">{index + 1}</div>
+                                                    <div className="flex-1 mr-6">
+                                                        <h5 className="font-bold text-slate-800 uppercase text-[10px] tracking-widest mb-2">{method.replace('_', ' ')}</h5>
+                                                        <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                                                            <div className="h-full bg-indigo-500 rounded-full transition-all duration-700 max-w-full" style={{ width: `${(volume / maxVolume) * 100}%` }}></div>
+                                                        </div>
                                                     </div>
-                                                    <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[8px] font-black text-slate-400 rotate-45">{new Date(t.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>
+                                                    <div className="font-black text-slate-800 text-sm group-hover:text-indigo-600 transition-colors shrink-0">
+                                                        ৳{volume.toLocaleString()}
+                                                    </div>
                                                 </div>
                                             );
-                                        })
-                                    ) : (
-                                        <div className="w-full h-full flex justify-center items-center text-slate-300 text-sm font-bold">No transaction data available</div>
-                                    )}
-                                </div>
+                                        }) : (
+                                            <div className="w-full h-full flex justify-center items-center text-slate-300 text-sm font-bold">No transaction data available</div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                            <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                                <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest mb-6">User Segmentation</h4>
-                                <div className="space-y-6">
-                                    <SegmentRow label="Active Users" value={analytics?.segmentation?.active_users || '0'} percent={(analytics?.segmentation?.active_users / (analytics?.segmentation?.total_users || 1)) * 100 || 0} color="bg-emerald-500" />
-                                    <SegmentRow label="Frozen/Inactive" value={analytics?.segmentation?.frozen_users || '0'} percent={(analytics?.segmentation?.frozen_users / (analytics?.segmentation?.total_users || 1)) * 100 || 0} color="bg-rose-500" />
-                                    <SegmentRow label="Total Users" value={analytics?.segmentation?.total_users || '0'} percent={100} color="bg-indigo-600" />
+                            <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm flex flex-col">
+                                <div className="mb-6 flex flex-col md:flex-row justify-between md:items-center gap-4">
+                                    <div className="flex gap-4 items-center">
+                                        <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest whitespace-nowrap">
+                                            User Segmentation
+                                        </h4>
+                                        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+                                            <button onClick={() => setSegView('activity')} className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${segView === 'activity' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>Activity</button>
+                                            <button onClick={() => setSegView('wallets')} className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${segView === 'wallets' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}>Wallets</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex flex-wrap gap-2 items-center bg-slate-50 p-2 rounded-2xl border border-slate-100">
+                                        <div className="relative flex items-center bg-white border border-slate-200 rounded-lg px-2 py-1 focus-within:ring-2 focus-within:ring-indigo-500 cursor-pointer w-28">
+                                            <select 
+                                                className="w-full bg-transparent outline-none text-[10px] text-slate-700 font-bold appearance-none cursor-pointer"
+                                                value={segCity}
+                                                onChange={(e) => setSegCity(e.target.value)}
+                                            >
+                                                <option value="">All Areas</option>
+                                                {cities.map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            placeholder="From"
+                                            className="w-24 px-2 py-1 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer text-[10px] text-slate-700 font-bold"
+                                            value={segStartDate}
+                                            onClick={() => setDatePickerTarget('segStartDate')}
+                                        />
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            placeholder="To"
+                                            className="w-24 px-2 py-1 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer text-[10px] text-slate-700 font-bold"
+                                            value={segEndDate}
+                                            onClick={() => setDatePickerTarget('segEndDate')}
+                                        />
+                                        <button 
+                                            onClick={() => { setSegStartDate(''); setSegEndDate(''); setSegCity(''); }}
+                                            className="px-3 py-1 bg-white border border-slate-200 text-slate-600 font-bold rounded-lg hover:bg-slate-100 transition-all text-[10px]"
+                                        >
+                                            Reset
+                                        </button>
+                                    </div>
                                 </div>
+                                {segView === 'activity' ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mt-2 items-center">
+                                        <div>
+                                            <SegmentRow label="Active (< 7d)" value={segData?.activity?.active_users || '0'} percent={(segData?.activity?.active_users / (segData?.activity?.total_users || 1)) * 100 || 0} color="bg-emerald-500" />
+                                        </div>
+                                        <div>
+                                            <SegmentRow label="Irregular (< 30d)" value={segData?.activity?.irregular_users || '0'} percent={(segData?.activity?.irregular_users / (segData?.activity?.total_users || 1)) * 100 || 0} color="bg-amber-500" />
+                                        </div>
+                                        <div>
+                                            <SegmentRow label="Inactive (> 90d)" value={segData?.activity?.inactive_users || '0'} percent={(segData?.activity?.inactive_users / (segData?.activity?.total_users || 1)) * 100 || 0} color="bg-rose-500" />
+                                        </div>
+                                        <div>
+                                            <SegmentRow label="Total Users" value={segData?.activity?.total_users || '0'} percent={100} color="bg-indigo-600" />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mt-2 items-center">
+                                        <div>
+                                            <SegmentRow label="Active Wallets" value={segData?.wallets?.active_wallets || '0'} percent={(segData?.wallets?.active_wallets / (segData?.wallets?.total_wallets || 1)) * 100 || 0} color="bg-emerald-500" />
+                                        </div>
+                                        <div>
+                                            <SegmentRow label="Frozen Wallets" value={segData?.wallets?.frozen_wallets || '0'} percent={(segData?.wallets?.frozen_wallets / (segData?.wallets?.total_wallets || 1)) * 100 || 0} color="bg-sky-500" />
+                                        </div>
+                                        <div>
+                                            <SegmentRow label="Disabled Wallets" value={segData?.wallets?.disabled_wallets || '0'} percent={(segData?.wallets?.disabled_wallets / (segData?.wallets?.total_wallets || 1)) * 100 || 0} color="bg-rose-500" />
+                                        </div>
+                                        <div>
+                                            <SegmentRow label="Total Wallets" value={segData?.wallets?.total_wallets || '0'} percent={100} color="bg-indigo-600" />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </section>
@@ -227,12 +606,24 @@ export default function AdminDashboard() {
 
                     {/* SECTION 9: USER MANAGEMENT & ACCOUNT CONTROLS */}
                     <section id="users" className="scroll-mt-32">
-                        <div className="flex justify-between items-end mb-8">
+                        <div className="flex flex-col md:flex-row justify-between md:items-end mb-8 gap-4">
                             <div>
                                 <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Account Lifecycle</h2>
                                 <p className="text-slate-500 font-medium">Freeze/Unfreeze & Detailed Directory</p>
                             </div>
-                            <button className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 hover:scale-105 transition-all">+ New User</button>
+                            <div className="flex flex-wrap gap-4 items-center">
+                                <div className="relative">
+                                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Search phone number..." 
+                                        className="pl-9 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-slate-700 shadow-sm w-full md:w-64"
+                                        value={userSearch}
+                                        onChange={(e) => setUserSearch(e.target.value)}
+                                    />
+                                </div>
+                                <button className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 hover:scale-105 transition-all whitespace-nowrap">+ New User</button>
+                            </div>
                         </div>
                         <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm">
                             <table className="w-full text-left">
@@ -246,7 +637,7 @@ export default function AdminDashboard() {
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
                                     {users.length > 0 ? users.map((u, i) => (
-                                        <UserRow key={i} id={u.user_id} name={u.name} phone={u.phone} nid={u.nid} status={u.status} balance={u.balance} onToggle={toggleUserStatus} />
+                                        <UserRow key={i} id={u.user_id} name={u.name} phone={u.phone} nid={u.nid} status={u.status} balance={u.balance} onToggle={toggleUserStatus} onViewHistory={(userId: number) => router.push(`/admin/user/${userId}`)} />
                                     )) : (
                                         <tr><td colSpan={4} className="px-8 py-6 text-center text-slate-400">Loading users...</td></tr>
                                     )}
@@ -341,7 +732,7 @@ function StatCard({ title, value, trend, up, icon, bg }: any) {
     );
 }
 
-function UserRow({ id, name, phone, nid, status, balance, onToggle }: any) {
+function UserRow({ id, name, phone, nid, status, balance, onToggle, onViewHistory }: any) {
     return (
         <tr className="hover:bg-slate-50/80 transition-all group border-b border-slate-50 last:border-0">
             <td className="px-8 py-6">
@@ -358,9 +749,14 @@ function UserRow({ id, name, phone, nid, status, balance, onToggle }: any) {
             </td>
             <td className="px-8 py-6 font-black text-slate-700 text-sm">৳{balance}</td>
             <td className="px-8 py-6 text-right">
-                <button onClick={() => onToggle(id, status)} className={`p-3 rounded-2xl transition-all ${status === 'active' ? 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white'}`}>
-                    {status === 'active' ? <Lock size={16}/> : <Unlock size={16}/>}
-                </button>
+                <div className="flex items-center justify-end gap-2">
+                    <button onClick={() => onViewHistory(id)} className="px-4 py-2.5 bg-indigo-50 text-indigo-600 rounded-2xl text-[10px] uppercase font-black tracking-widest hover:bg-indigo-600 hover:text-white transition-all">
+                        History
+                    </button>
+                    <button onClick={() => onToggle(id, status)} className={`p-2.5 rounded-2xl transition-all ${status === 'active' ? 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white'}`}>
+                        {status === 'active' ? <Lock size={16}/> : <Unlock size={16}/>}
+                    </button>
+                </div>
             </td>
         </tr>
     );
