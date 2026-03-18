@@ -31,6 +31,10 @@ router.get('/profile', protect, authController.getProfile);
 
 // Logout user
 // POST /api/v1/auth/logout
-router.post('/logout', protect, authController.logout);
+router.post('/logout', protect, authController.logout)
+
+// Change user PIN
+// POST /api/v1/auth/change-pin
+router.post('/change-pin', protect, authController.changePin);
 
 export default router;

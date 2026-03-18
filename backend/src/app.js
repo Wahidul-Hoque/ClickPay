@@ -20,17 +20,10 @@ import agentRoutes from './routes/agentRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 
 
-
-
-
-// ==============================================
 // CREATE EXPRESS APP
-// ==============================================
 const app = express();
 
-// ==============================================
 // MIDDLEWARE
-// ==============================================
 
 // 1. CORS - Allow frontend to make requests
 app.use(cors({

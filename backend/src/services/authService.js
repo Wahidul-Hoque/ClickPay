@@ -1,6 +1,3 @@
-// ==============================================
-// AUTH SERVICE (The Kitchen - Business Logic)
-// ==============================================
 
 import { query, getClient } from '../config/database.js';
 import { hashPassword, comparePassword, generateToken } from '../middleware/auth.js';
@@ -180,6 +177,39 @@ class AuthService {
         }
       };
 
+    } catch (error) {
+      throw error;
+    }
+  }
+
+async changePin(userId, oldPin, newPin) {
+    try {
+      // 1. Get user's current PIN hash
+      const userResult = await query(
+        'SELECT epin_hash FROM users WHERE user_id = $1',
+        [userId]
+      );
+
+      if (userResult.rows.length === 0) {
+        throw new Error('User not found');
+      }
+
+      const user = userResult.rows[0];
+
+      // 2. Verify old PIN
+      const isMatch = await comparePassword(oldPin, user.epin_hash);
+      if (!isMatch) {
+        throw new Error('Incorrect old PIN');
+      }
+
+      // 3. Hash and save new PIN
+      const newPinHash = await hashPassword(newPin);
+      await query(
+        'UPDATE users SET epin_hash = $1 WHERE user_id = $2',
+        [newPinHash, userId]
+      );
+
+      return { message: 'PIN updated successfully' };
     } catch (error) {
       throw error;
     }

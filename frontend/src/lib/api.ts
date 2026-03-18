@@ -46,6 +46,7 @@ export const authAPI = {
   login: (data: any) => apiClient.post('/auth/login', data),
   getProfile: () => apiClient.get('/auth/profile'),
   logout: () => apiClient.post('/auth/logout'),
+  changePin: (data: { oldPin: string; newPin: string }) => apiClient.post('/auth/change-pin', data),
 };
 
 export const transactionAPI = {

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Settings, User, Lock, CreditCard, HelpCircle, Shield, X } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
+import { authAPI } from '@/lib/api';
 
 export default function SharedSettings() {
   const { user } = useAuthStore();
@@ -12,14 +13,21 @@ export default function SharedSettings() {
   const [message, setMessage] = useState('');
 
   const handleChangePin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (oldPin.length !== 5 || newPin.length !== 5) {
-      setMessage('PINs must be exactly 5 digits.');
-      return;
-    }
-    // Simulate API call to change PIN since the backend is not yet implemented
-    setMessage('Processing...');
-    setTimeout(() => {
+  e.preventDefault();
+  
+  if (oldPin.length !== 5 || newPin.length !== 5) {
+    setMessage('PINs must be exactly 5 digits.');
+    return;
+  }
+
+  setMessage('Processing...');
+
+  try {
+    // 2. Use the central API utility
+    const response = await authAPI.changePin({ oldPin, newPin });
+
+    // With axios (apiClient), a successful request returns response.data
+    if (response.data.success) {
       setMessage('PIN changed successfully!');
       setTimeout(() => {
         setIsChangingPin(false);
@@ -27,8 +35,13 @@ export default function SharedSettings() {
         setNewPin('');
         setMessage('');
       }, 2000);
-    }, 1000);
-  };
+    }
+  } catch (error: any) {
+    // 3. Handle errors from the backend
+    const errorMessage = error.response?.data?.message || 'Failed to change PIN';
+    setMessage(errorMessage);
+  }
+};
 
   type SettingsItem = {
     label: string;

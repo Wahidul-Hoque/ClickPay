@@ -144,6 +144,48 @@ class AuthController {
       message: 'Logout successful'
     });
   }
+
+async changePin(req, res, next) {
+  try {
+    const userId = req.user.userId;
+    const { oldPin, newPin } = req.body;
+
+    if (!oldPin || !newPin) {
+      return res.status(400).json({
+        success: false,
+        message: 'Old and new PIN are required'
+      });
+    }
+
+    if (newPin.length !== 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'New PIN must be 5 digits'
+      });
+    }
+    if (oldPin === newPin) {
+      return res.status(400).json({
+        success: false,
+        message: 'New PIN must be different from old PIN'
+      });
+    }
+
+    const result = await authService.changePin(userId, oldPin, newPin);
+
+    return res.json({
+      success: true,
+      message: result.message
+    });
+  } catch (error) {
+      if (error.message === 'Incorrect old PIN') {
+        return res.status(400).json({
+          success: false,
+          message: error.message
+        });
+      }
+      next(error);
+    }
+  }
 }
 
 export default new AuthController();
