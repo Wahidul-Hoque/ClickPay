@@ -46,6 +46,13 @@ class LoanController {
       res.json({ success: true, message: "Loan application rejected." });
     } catch (error) { next(error); }
   }
+
+  async adminGetDetailedLoans(req, res, next) {
+    try {
+      const data = await loanService.getAllLoansDetailed();
+      res.json({ success: true, data });
+    } catch (error) { next(error); }
+  }
 }
 
 export default new LoanController();

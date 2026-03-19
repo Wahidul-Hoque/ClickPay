@@ -67,7 +67,13 @@ const LoanSummaryWidget = () => {
                     href="/admin/loans" 
                     className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl text-xs font-black transition-all shadow-lg shadow-indigo-600/20"
                 >
-                    See All
+                    See All Applications
+                </Link>
+                <Link 
+                    href="/admin/loans/all" 
+                    className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl text-xs font-black transition-all shadow-lg shadow-indigo-600/20"
+                    >
+                    View All Loans
                 </Link>
             </div>
 

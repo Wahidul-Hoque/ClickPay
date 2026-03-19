@@ -12,5 +12,5 @@ router.post('/repay/:loanId', protect, loanController.repay);
 router.get('/admin/applications', protect, loanController.adminGetAll);
 router.post('/admin/approve/:id', protect, loanController.adminApprove);
 router.post('/admin/reject/:id', protect, loanController.adminReject);
-
+router.get('/admin/detailed', protect, loanController.adminGetDetailedLoans);
 export default router;

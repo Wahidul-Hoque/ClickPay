@@ -212,6 +212,16 @@ class LoanService {
     );
     return { success: true };
   }
+
+  async getAllLoansDetailed() {
+    const res = await query(`
+      SELECT l.*, u.name as user_name, u.phone as user_phone
+      FROM loans l
+      JOIN users u ON l.user_id = u.user_id
+      ORDER BY l.disbursed_at DESC
+    `);
+    return res.rows;
+  }
 }
 
 export default new LoanService();
