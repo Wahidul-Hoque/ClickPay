@@ -92,11 +92,9 @@ export const billAPI = {
 };
 
 export const loanAPI = {
-  apply: (data: any) => apiClient.post('/loans/apply', data),
-  getApplications: () => apiClient.get('/loans/applications'),
-  getActive: () => apiClient.get('/loans/active'),
-  repay: (id: string, data: any) => apiClient.post(`/loans/${id}/repay`, data),
-  getDetails: (id: string) => apiClient.get(`/loans/${id}`),
+  getStatus: () => apiClient.get('/loans/status'),
+  repay: (loanId: string) => apiClient.post(`/loans/repay/${loanId}`),
+  apply: (data: {amount: number}) => apiClient.post('/loans/apply', data),
 };
 
 export const savingsAPI = {

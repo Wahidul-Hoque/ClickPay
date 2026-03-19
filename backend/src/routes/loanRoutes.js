@@ -3,21 +3,14 @@ import loanController from '../controllers/loanController.js';
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
-
-// Apply for a loan
-// POST /api/v1/loans/apply
+// User routes
+router.get('/status', protect, loanController.getStatus);
 router.post('/apply', protect, loanController.apply);
-
-// Get user's loans
-// GET /api/v1/loans/my-loans
-router.get('/my-loans', protect, loanController.getMyLoans);
-
-// Repay a loan
-// POST /api/v1/loans/repay/:loanId
 router.post('/repay/:loanId', protect, loanController.repay);
 
-// Get loan details
-// GET /api/v1/loans/:loanId
-router.get('/:loanId', protect, loanController.getLoanDetails);
+// Admin routes
+router.get('/admin/applications', protect, loanController.adminGetAll);
+router.post('/admin/approve/:id', protect, loanController.adminApprove);
+router.post('/admin/reject/:id', protect, loanController.adminReject);
 
 export default router;

@@ -10,6 +10,8 @@ import {
     FileText, Search, Filter, Bell, Menu, X, Landmark, RefreshCcw, 
     Calendar, ArrowRightLeft, DollarSign, Percent, LogOut
 } from 'lucide-react';
+import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 function useOnClickOutside(ref: any, handler: any) {
   useEffect(() => {
@@ -22,6 +24,78 @@ function useOnClickOutside(ref: any, handler: any) {
     return () => { document.removeEventListener("mousedown", listener); document.removeEventListener("touchstart", listener); };
   }, [ref, handler]);
 }
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const LoanSummaryWidget = () => {
+    const [apps, setApps] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchLoans = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                // Use the same pattern as your other dashboard calls
+                const res = await fetch(`${API_BASE}/loans/admin/applications?limit=5`, {
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const result = await res.json();
+                
+                if (result.success) {
+                    setApps(result.data);
+                }
+            } catch (error) {
+                console.error("Failed to fetch loans:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchLoans();
+    }, []);
+
+    if (loading) return <div className="p-10 text-center text-xs font-black text-slate-400 uppercase tracking-widest">Scanning Portfolio...</div>;
+
+    return (
+        <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200">
+            <div className="flex justify-between items-center mb-8">
+                <div>
+                    <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest">Loan Requests</h4>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Review pending applications</p>
+                </div>
+                <Link 
+                    href="/admin/loans" 
+                    className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl text-xs font-black transition-all shadow-lg shadow-indigo-600/20"
+                >
+                    See All
+                </Link>
+            </div>
+
+            <div className="space-y-3">
+                {apps && apps.length > 0 ? apps.map((app: any) => (
+                    <div key={app.application_id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-transparent hover:border-slate-100 transition-all group">
+                        <div className="flex items-center space-x-4">
+                            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 font-black group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                                {app.name ? app.name[0] : 'U'}
+                            </div>
+                            <div>
+                                <p className="text-sm font-black text-slate-800">{app.name}</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">৳{app.requested_amount} • {new Date(app.created_at).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                        <Link href="/admin/loans" className="p-2.5 bg-white rounded-xl text-slate-300 hover:text-indigo-600 shadow-sm border border-slate-100 transition-colors">
+                            <ArrowRightLeft size={16} />
+                        </Link>
+                    </div>
+                )) : (
+                    <div className="text-center py-12 bg-slate-50 rounded-[1.5rem] border-2 border-dashed border-slate-100">
+                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic">No pending requests</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
 
 export default function AdminDashboard() {
     const [activeSection, setActiveSection] = useState('dashboard');
@@ -202,6 +276,7 @@ export default function AdminDashboard() {
     };
 
     const handleLogout = () => {
+        toast.dismiss();
         localStorage.removeItem('token');
         router.push('/auth/login');
     };
@@ -646,28 +721,35 @@ export default function AdminDashboard() {
                         </div>
                     </section>
 
-                    {/* SECTION 6, 7, 8: LOAN, SAVINGS & SUBSCRIPTIONS */}
+                    {/* SECTION 3: LOANS & SAVINGS (INTEGRATED WIDGET) */}
                     <section id="loans" className="scroll-mt-32">
-                        <h2 className="text-3xl font-black text-slate-900 tracking-tighter mb-8">Credit & Interest Portfolios</h2>
+                        <div className="mb-8">
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Credit & Interest Portfolios</h2>
+                            <p className="text-slate-500 font-medium">Review loan requests and savings maturity</p>
+                        </div>
                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                            <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                                <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest mb-6">Loan Default Risk Assessment</h4>
-                                <div className="space-y-4">
-                                    {portfolio?.loans?.length > 0 ? portfolio.loans.map((l: any, i: number) => (
-                                        <LoanItem key={i} user={`${l.count} Loans`} amount={`৳${l.total_amount || 0}`} interest="Avg" status={l.status} color={l.status === 'active' ? 'text-indigo-600' : 'text-rose-600'} />
-                                    )) : (
-                                        <p className="text-slate-400">No loan data available</p>
-                                    )}
+                            {/* Loan Applications Summary */}
+                            <LoanSummaryWidget />
+
+                            {/* Existing Savings Overview */}
+                            <div className="bg-slate-900 rounded-[2rem] p-10 text-white relative overflow-hidden flex flex-col justify-center">
+                                <div className="absolute top-0 right-0 p-10 opacity-10"><Landmark size={150}/></div>
+                                <h4 className="font-black text-indigo-400 uppercase text-xs tracking-widest mb-10">Fixed Savings Pool</h4>
+                                <div className="flex items-end gap-3 mb-4">
+                                    <span className="text-6xl font-black">৳{portfolio?.totalSavings?.total_savings || 0}</span>
+                                    <span className="text-indigo-400 font-bold mb-2">Total Assets</span>
                                 </div>
-                            </div>
-                            <div className="bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden">
-                                <div className="absolute top-0 right-0 p-8 opacity-10"><Landmark size={120}/></div>
-                                <h4 className="font-black text-indigo-400 uppercase text-xs tracking-widest mb-8">Fixed Savings Maturity (30 Days)</h4>
-                                <div className="flex items-end gap-2 mb-2">
-                                    <span className="text-5xl font-black">৳{portfolio?.totalSavings?.total_savings || 0}</span>
-                                    <span className="text-indigo-400 font-bold mb-1">Total Savings</span>
+                                <div className="flex items-center gap-6 mt-4">
+                                    <div>
+                                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Monthly Growth</p>
+                                        <p className="text-lg font-black text-emerald-400">৳{portfolio?.mrr?.mrr || 0}</p>
+                                    </div>
+                                    <div className="w-[1px] h-10 bg-slate-800"></div>
+                                    <div>
+                                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Active Plans</p>
+                                        <p className="text-lg font-black">42</p>
+                                    </div>
                                 </div>
-                                <p className="text-slate-400 text-sm font-medium">Monthly Recurring Revenue (MRR): ৳{portfolio?.mrr?.mrr || 0}</p>
                             </div>
                         </div>
                     </section>
