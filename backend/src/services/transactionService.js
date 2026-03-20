@@ -405,8 +405,30 @@ class TransactionService {
       await logEvent(client, transactionId, 'profit_distributed', 'info', `৳${systemProfit} system profit recorded`);
 
       // 7. Finalize
+      const agentFeeTxn = await client.query(
+        `INSERT INTO transactions (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING transaction_id`,
+        [userWallet.wallet_id, agentWallet.wallet_id, agentCommission, 'agent_fee', 'completed', `${reference}-AFEE`]
+      );
+      const agentFeeTransactionId = agentFeeTxn.rows[0].transaction_id;
+
+      // 8. Insert into Agent Fees table
+      await client.query(
+        `INSERT INTO agent_fees (cashout_transaction_id, agent_wallet_id, fee_amount, payout_transaction_id) 
+         VALUES ($1, $2, $3, $4)`, 
+        [transactionId, agentWallet.wallet_id, agentCommission, agentFeeTransactionId]
+      );
+
+      // 9. Record System Profit Transaction
+      await client.query(
+        `INSERT INTO transactions (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [userWallet.wallet_id, systemWallet.wallet_id, systemProfit, 'system_profit', 'completed', `${reference}-PROF`]
+      );
+
+      // 10. Mark Main Transaction as Completed
       await client.query("UPDATE transactions SET status = 'completed' WHERE transaction_id = $1", [transactionId]);
-      await logEvent(client, transactionId, 'completed', 'success', `Cashout to ${agentWallet.name} completed successfully`);
+      await logEvent(client, transactionId, 'completed', 'success', `Cashout successful`);
 
       await client.query('COMMIT');
 
@@ -418,9 +440,13 @@ class TransactionService {
         agent: agentWallet.name,
         date: txnRes.rows[0].created_at
       };
+
     } catch (error) {
       await client.query('ROLLBACK');
-      await recordFailure(transactionId, error.message);
+      // Only attempt failure record if transactionId was actually created
+      if (transactionId) {
+        await recordFailure(transactionId, error.message);
+      }
       throw error;
     } finally {
       client.release();
