@@ -4,6 +4,8 @@
 import './config/env.js';
 import express from 'express';
 import cors from 'cors';
+import cron from 'node-cron';
+import subscriptionService from './services/subscriptionService.js';
 
 // Import middleware
 import { errorHandler, notFound } from './middleware/errorHandler.js';
@@ -96,6 +98,16 @@ app.use(notFound);
 
 // Global error handler
 app.use(errorHandler);
+
+// ... existing middleware and routes ...
+
+/**
+ * BACKGROUND WORKER: Runs every day at 00:00 (Midnight)
+ * Format: 'minute hour day month day-of-week'
+ */
+cron.schedule('0 0 * * *', () => {
+  subscriptionService.processDailyBilling();
+});
 
 // ==============================================
 // START SERVER

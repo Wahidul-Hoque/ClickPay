@@ -107,15 +107,6 @@ export const savingsAPI = {
   calculateInterest: (id: string) => apiClient.get(`/savings/accounts/${id}/interest`),
 };
 
-export const subscriptionAPI = {
-  create: (data: any) => apiClient.post('/subscriptions/create', data),
-  getMy: () => apiClient.get('/subscriptions/my-subscriptions'),
-  getDetails: (id: string) => apiClient.get(`/subscriptions/${id}`),
-  pause: (id: string) => apiClient.patch(`/subscriptions/${id}/pause`),
-  resume: (id: string) => apiClient.patch(`/subscriptions/${id}/resume`),
-  cancel: (id: string) => apiClient.delete(`/subscriptions/${id}`),
-};
-
 export const notificationAPI = {
   // Get all notifications with pagination
   getNotifications: (page = 1, limit = 20) =>
@@ -184,6 +175,20 @@ export const adminApi = {
       const response = await apiClient.get('/loans/admin/detailed');
       return response.data;
     }
+};
+
+export const merchantAPI = {
+  getMerchants: () => apiClient.get('/merchants'),
+  getMerchantDetails: (id: string) => apiClient.get(`/merchants/${id}`),
+};
+
+export const subscriptionAPI = {
+  getSubscriptions: () => apiClient.get('/subscriptions/my-subscriptions'),
+  subscribe: (data: { merchantId: string; planName: string; amount: number; epin: string }) => 
+    apiClient.post('/subscriptions/subscribe', data),
+  cancelSubscription: (id: string) => apiClient.patch(`/subscriptions/${id}/cancel`),
+  updateStatus: (id: string, status: string) => 
+    apiClient.patch(`/subscriptions/${id}/status`, { status }),
 };
 
 
