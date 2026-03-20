@@ -1,6 +1,3 @@
-// ==============================================
-// TRANSACTION ROUTES (The Menu)
-// ==============================================
 // Defines all transaction-related API endpoints.
 // Order matters: specific paths must come before parameterised ones.
 

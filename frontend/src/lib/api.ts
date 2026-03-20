@@ -63,7 +63,8 @@ export const transactionAPI = {
   updateRequestStatus: (requestId: string, status: 'declined' | 'cancelled') => 
     apiClient.patch(`/transactions/requests/${requestId}/status`, { status }),
   cashIn: (data: any) => apiClient.post('/transactions/cash-in', data),
-  cashOut: (data: any) => apiClient.post('/transactions/cash-out', data),
+  cashOut: (data: { agentPhone: string; amount: number; epin: string }) => 
+    apiClient.post('/transactions/cash-out', data),
   getHistory: (params?: any) => apiClient.get('/transactions/history', { params }),
   getDetails: (id: string) => apiClient.get(`/transactions/${id}`),
 };

@@ -62,6 +62,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navItems = [
     { name: 'Overview', href: '/dashboard', icon: Wallet },
     { name: 'Send Money', href: '/dashboard/send', icon: Send },
+    { name: 'Cash Out', href: '/dashboard/cashout', icon: Download },
     { name: 'Transactions', href: '/dashboard/transactions', icon: FileText },
     { name: 'Notifications', href: '/dashboard/notifications', icon: Bell },
     { name: 'QR Code', href: '/dashboard/qr', icon: QrCode },

@@ -1,6 +1,3 @@
-// ==============================================
-// TRANSACTION CONTROLLER (The Waiter)
-// ==============================================
 // This file handles HTTP requests/responses for all transaction operations.
 // Validates input, delegates to transactionService, returns standardised responses.
 
@@ -166,12 +163,21 @@ class TransactionController {
         return res.status(400).json({ success: false, message: 'Agent phone, amount, and ePin are required' });
       }
 
-      const result = await transactionService.cashOut(userId, agentPhone, parseFloat(amount), epin);
-      return res.json({ success: true, message: 'Cash out successful', data: result });
+      const cashoutAmount = parseFloat(amount);
+      if (isNaN(cashoutAmount) || cashoutAmount <= 0) {
+        return res.status(400).json({ success: false, message: 'Invalid amount' });
+      }
 
+      const result = await transactionService.cashOut(userId, agentPhone, cashoutAmount, epin);
+      
+      return res.json({ 
+        success: true, 
+        message: 'Cash out successful', 
+        data: result 
+      });
     } catch (error) {
-      const clientErrors = ['not found', 'Invalid', 'Insufficient', 'not active'];
-      if (clientErrors.some(msg => error.message.includes(msg))) {
+      const clientErrors = ['not found', 'Invalid', 'Insufficient', 'inactive', 'yourself'];
+      if (clientErrors.some(msg => error.message.toLowerCase().includes(msg))) {
         return res.status(400).json({ success: false, message: error.message });
       }
       next(error);

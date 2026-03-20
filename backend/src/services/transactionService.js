@@ -337,149 +337,87 @@ class TransactionService {
     try {
       await client.query('BEGIN');
 
-      // ── Step 1: Verify user ePin ────────────────────────────
-      const epinRow = await client.query(
-        'SELECT epin_hash FROM users WHERE user_id = $1',
-        [userId]
-      );
+      // 1. Verify User ePin
+      const epinRow = await client.query('SELECT epin_hash FROM users WHERE user_id = $1', [userId]);
       if (epinRow.rows.length === 0) throw new Error('User not found');
       if (!(await comparePassword(userEpin, epinRow.rows[0].epin_hash))) {
         throw new Error('Invalid ePin');
       }
 
-      // ── Step 2: Lock user wallet ────────────────────────────
+      // 2. Lock Wallets (User, Agent, and System Profit)
       const userRes = await client.query(
-        `SELECT wallet_id, balance, status
-         FROM wallets
-         WHERE user_id = $1 AND wallet_type IN ('user','agent')
-         FOR UPDATE`,
+        "SELECT wallet_id, balance FROM wallets WHERE user_id = $1 AND status = 'active' FOR UPDATE",
         [userId]
       );
-      if (userRes.rows.length === 0) throw new Error('User wallet not found');
+      if (userRes.rows.length === 0) throw new Error('User wallet not found or inactive');
       const userWallet = userRes.rows[0];
-      if (userWallet.status !== 'active') throw new Error('Your wallet is not active');
 
-      // ── Step 3: Lock agent wallet ───────────────────────────
       const agentRes = await client.query(
-        `SELECT w.wallet_id, w.status, w.user_id, u.name
-         FROM wallets w
-         JOIN users u ON w.user_id = u.user_id
-         WHERE u.phone = $1 AND w.wallet_type = 'agent'
-         FOR UPDATE`,
+        `SELECT w.wallet_id, u.name FROM wallets w 
+         JOIN users u ON w.user_id = u.user_id 
+         WHERE u.phone = $1 AND w.wallet_type = 'agent' AND w.status = 'active' FOR UPDATE`,
         [agentPhone]
       );
-      if (agentRes.rows.length === 0) throw new Error('Agent not found with this phone number');
+      if (agentRes.rows.length === 0) throw new Error('Agent not found or inactive');
       const agentWallet = agentRes.rows[0];
-      if (agentWallet.status !== 'active') throw new Error('Agent wallet is not active');
-      if (agentWallet.user_id === userId) throw new Error('Cannot cash out to yourself');
 
-      // ── Step 4: Duplicate guard ─────────────────────────────
-      const dup = await client.query(
-        `SELECT 1 FROM transactions
-         WHERE from_wallet_id = $1 AND to_wallet_id = $2
-           AND amount = $3
-           AND status = 'completed'
-           AND created_at > NOW() - INTERVAL '30 seconds'`,
-        [userWallet.wallet_id, agentWallet.wallet_id, amount]
+      const systemRes = await client.query(
+        "SELECT wallet_id FROM wallets WHERE wallet_type = 'system' AND system_purpose = 'profit' FOR UPDATE"
       );
-      if (dup.rows.length > 0) {
-        throw new Error('Duplicate cash-out detected — please wait before retrying');
+      if (systemRes.rows.length === 0) throw new Error('System profit wallet not found');
+      const systemWallet = systemRes.rows[0];
+
+      // 3. Fee Math (1.5% total)
+      const systemProfit = parseFloat((amount * 0.01).toFixed(2));
+      const agentCommission = parseFloat((amount * 0.005).toFixed(2));
+      const totalFee = systemProfit + agentCommission;
+      const totalDeduction = amount + totalFee;
+
+      if (parseFloat(userWallet.balance) < totalDeduction) {
+        throw new Error(`Insufficient balance. Required: ৳${totalDeduction.toFixed(2)} (incl. 1.5% fee)`);
       }
 
-      // ── Step 5: Calculate fee & total deduction ─────────────
-      const fee = parseFloat((amount * 0.015).toFixed(2));
-      const totalDeduction = parseFloat((parseFloat(amount) + fee).toFixed(2));
-
-      const currentBalance = parseFloat(userWallet.balance);
-      if (currentBalance < totalDeduction) {
-        throw new Error(
-          `Insufficient balance. You need ৳${totalDeduction} (৳${amount} + ৳${fee} fee) but have ৳${currentBalance.toFixed(2)}`
-        );
-      }
-
-      // ── Step 6: Create main transaction record (initiated) ──
+      // 4. Initiate Transaction Record
       const reference = `COUT-${Date.now()}`;
       const txnRes = await client.query(
-        `INSERT INTO transactions
-           (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
-         VALUES ($1, $2, $3, 'cash_out', 'initiated', $4)
-         RETURNING transaction_id, created_at`,
+        `INSERT INTO transactions (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
+         VALUES ($1, $2, $3, 'cash_out', 'initiated', $4) RETURNING transaction_id, created_at`,
         [userWallet.wallet_id, agentWallet.wallet_id, amount, reference]
       );
       transactionId = txnRes.rows[0].transaction_id;
-      const createdAt = txnRes.rows[0].created_at;
 
-      await logEvent(client, transactionId, 'initiated', 'info',
-        `Cash-out of ৳${amount} (fee ৳${fee}) via agent ${agentWallet.name} initiated`);
-      await logEvent(client, transactionId, 'epin_verified', 'info', 'User ePin verified');
+      // 5. Log Initial Events
+      await logEvent(client, transactionId, 'initiated', 'info', `Cashout of ৳${amount} via agent ${agentPhone} started`);
+      await logEvent(client, transactionId, 'epin_verified', 'info', 'User ePin verified successfully');
 
-      // ── Step 7: Deduct total (amount + fee) from user ───────
-      await client.query(
-        'UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2',
-        [totalDeduction, userWallet.wallet_id]
-      );
-      const newBalanceRow = await client.query(
-        'SELECT balance FROM wallets WHERE wallet_id = $1',
-        [userWallet.wallet_id]
-      );
-      const newUserBalance = parseFloat(newBalanceRow.rows[0].balance);
-      await logEvent(client, transactionId, 'amount_deducted', 'info',
-        `৳${totalDeduction} deducted from user (৳${amount} cash + ৳${fee} fee). Remaining: ৳${newUserBalance}`);
+      // 6. Execute Balance Transfers
+      // A. Deduct total from User
+      await client.query('UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2', [totalDeduction, userWallet.wallet_id]);
+      await logEvent(client, transactionId, 'amount_deducted', 'info', `৳${totalDeduction} (৳${amount} + ৳${totalFee} fee) deducted from user`);
 
-      // ── Step 8: Credit agent with cash amount ───────────────
-      await client.query(
-        'UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2',
-        [amount, agentWallet.wallet_id]
-      );
-      await logEvent(client, transactionId, 'amount_credited', 'info',
-        `৳${amount} credited to agent ${agentWallet.name}`);
+      // B. Credit Agent (Principal + 0.5%)
+      const agentTotal = amount + agentCommission;
+      await client.query('UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2', [agentTotal, agentWallet.wallet_id]);
+      await logEvent(client, transactionId, 'amount_credited', 'info', `৳${agentTotal} credited to agent (includes 0.5% commission)`);
 
-      // ── Step 9: Credit agent with fee ──────────────────────
-      await client.query(
-        'UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2',
-        [fee, agentWallet.wallet_id]
-      );
+      // C. Credit System Profit (1%)
+      await client.query('UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2', [systemProfit, systemWallet.wallet_id]);
+      await logEvent(client, transactionId, 'profit_distributed', 'info', `৳${systemProfit} system profit recorded`);
 
-      // ── Step 10: Record fee transaction & agent_fees entry ──
-      const feeRef = `FEE-${Date.now()}`;
-      const feeTxnRes = await client.query(
-        `INSERT INTO transactions
-           (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
-         VALUES ($1, $2, $3, 'agent_fee', 'completed', $4)
-         RETURNING transaction_id`,
-        [userWallet.wallet_id, agentWallet.wallet_id, fee, feeRef]
-      );
-      const feeTransactionId = feeTxnRes.rows[0].transaction_id;
-
-      await client.query(
-        `INSERT INTO agent_fees (cashout_transaction_id, agent_wallet_id, fee_amount, payout_transaction_id)
-         VALUES ($1, $2, $3, $4)`,
-        [transactionId, agentWallet.wallet_id, fee, feeTransactionId]
-      );
-      await logEvent(client, transactionId, 'fee_paid', 'info',
-        `Agent fee of ৳${fee} paid to ${agentWallet.name}`);
-
-      // ── Step 11: Mark main transaction completed ─────────────
-      await client.query(
-        `UPDATE transactions SET status = 'completed' WHERE transaction_id = $1`,
-        [transactionId]
-      );
-      await logEvent(client, transactionId, 'completed', 'success',
-        `Cash-out of ৳${amount} via agent ${agentWallet.name} completed`);
+      // 7. Finalize
+      await client.query("UPDATE transactions SET status = 'completed' WHERE transaction_id = $1", [transactionId]);
+      await logEvent(client, transactionId, 'completed', 'success', `Cashout to ${agentWallet.name} completed successfully`);
 
       await client.query('COMMIT');
 
       return {
         transaction_id: transactionId,
         reference,
-        amount: parseFloat(amount),
-        fee,
-        total_deducted: totalDeduction,
+        amount,
+        fee: totalFee,
         agent: agentWallet.name,
-        new_balance: newUserBalance,
-        date: createdAt,
+        date: txnRes.rows[0].created_at
       };
-
     } catch (error) {
       await client.query('ROLLBACK');
       await recordFailure(transactionId, error.message);
@@ -488,6 +426,7 @@ class TransactionService {
       client.release();
     }
   }
+
 
   // ============================================================
   // GET TRANSACTION HISTORY  (completed only, excludes internal fee rows)
