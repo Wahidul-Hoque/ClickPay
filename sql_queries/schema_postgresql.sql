@@ -5,7 +5,7 @@ CREATE TABLE users (
   phone       VARCHAR(30)  NOT NULL UNIQUE,
   nid         VARCHAR(50)  NOT NULL UNIQUE,
   epin_hash   VARCHAR(255) NOT NULL,
-  role        VARCHAR(20)  NOT NULL CHECK (role IN ('user','agent','admin')),
+  role        VARCHAR(20)  NOT NULL CHECK (role IN ('user','agent','admin','merchant')),
   status      VARCHAR(30)  NOT NULL,
   city        VARCHAR(100),
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
@@ -15,7 +15,7 @@ CREATE TABLE users (
 CREATE TABLE wallets (
   wallet_id      BIGSERIAL PRIMARY KEY,
   user_id        BIGINT NOT NULL REFERENCES users(user_id),
-  wallet_type    VARCHAR(20) NOT NULL CHECK (wallet_type IN ('user','agent','system')),
+  wallet_type    VARCHAR(20) NOT NULL CHECK (wallet_type IN ('user','agent','system','merchant')),
   system_purpose VARCHAR(50),
   balance        NUMERIC(18,2) DEFAULT 0 NOT NULL CHECK (balance >= 0),
   status         VARCHAR(20) NOT NULL CHECK (status IN ('active','frozen','closed')),

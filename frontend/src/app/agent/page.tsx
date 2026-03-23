@@ -12,6 +12,9 @@ import {
   Shield,
   Loader2,
   Trophy,
+  History,
+  Phone,
+  CreditCard
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -159,11 +162,14 @@ export default function AgentDashboard() {
               <Link href="/agent/cash-in" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-emerald-500 hover:text-white transition-all font-bold">
                 <Download className="w-5 h-5" /> Cash In
               </Link>
-              <Link href="/agent/cash-out" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-blue-500 hover:text-white transition-all font-bold">
-                <Upload className="w-5 h-5" /> Cash Out
+              <Link href="/agent/bills" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-rose-500 hover:text-white transition-all font-bold group/recalc">
+                <Phone className="w-5 h-5 text-rose-500 group-hover/recalc:text-white transition-colors" /> Mobile Recharge
               </Link>
-              <Link href="/agent/rankings" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-yellow-500 hover:text-white transition-all font-bold">
-                <Trophy className="w-5 h-5" /> Rankings
+              <Link href="/agent/bills" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-emerald-600 hover:text-white transition-all font-bold group/bills">
+                <CreditCard className="w-5 h-5 text-emerald-600 group-hover/bills:text-white transition-colors" /> Pay Bills
+              </Link>
+              <Link href="/agent/transactions" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-indigo-600 hover:text-white transition-all font-bold">
+                <History className="w-5 h-5 text-indigo-600 group-hover:text-white transition-colors" /> Transaction History
               </Link>
             </div>
           </div>

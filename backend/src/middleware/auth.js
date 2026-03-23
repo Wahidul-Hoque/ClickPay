@@ -13,6 +13,7 @@ import pool from '../config/database.js';
 // Use this to protect routes that require authentication
 // Example: router.get('/profile', protect, controller.getProfile)
 export const protect = async (req, res, next) => {
+  console.log(`[PROTECT] Request received from ${req.ip}`);
   try {
     // STEP 1: Get token from Authorization header
     // Format: "Authorization: Bearer eyJhbGciOiJIUzI1..."
@@ -23,6 +24,7 @@ export const protect = async (req, res, next) => {
     }
 
     if (!token) {
+      console.warn('[PROTECT] No token provided');
       return res.status(401).json({
         success: false,
         message: 'Not authorized. No token provided.'
@@ -31,6 +33,7 @@ export const protect = async (req, res, next) => {
 
     // STEP 2: Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log(`[PROTECT] Token decoded for User: ${decoded.userId}`);
 
     //Database check.
     //This ensures the user hasn't been deleted or banned since the token was issued.
@@ -40,6 +43,7 @@ export const protect = async (req, res, next) => {
     const currentUser = result.rows[0];
 
     if (!currentUser) {
+      console.warn(`[PROTECT] User ${decoded.userId} not found in DB`);
       return res.status(401).json({
         success: false,
         message: 'Not authorized. User not found.'
@@ -47,6 +51,7 @@ export const protect = async (req, res, next) => {
     }
 
     if (currentUser.status !== 'active') {
+      console.warn(`[PROTECT] User ${decoded.userId} is INACTIVE`);
       return res.status(403).json({
         success: false,
         message: 'Your account has been suspended. Please contact support.'
@@ -59,11 +64,13 @@ export const protect = async (req, res, next) => {
       role: currentUser.role,
       name: currentUser.name
     };
+    console.log(`[PROTECT] Authorized for user ${req.user.userId} (${req.user.role})`);
 
     // STEP 4: Continue to next middleware/controller
     next();
 
   } catch (error) {
+    console.error('[PROTECT] ERROR:', error.message);
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
         success: false,
@@ -85,12 +92,15 @@ export const protect = async (req, res, next) => {
 // Example: router.post('/cash-in', protect, authorize('agent'), controller.cashIn)
 export const authorize = (...roles) => {
   return (req, res, next) => {
+    console.log(`[AUTH] Checking roles for user ${req.user.userId}: ${req.user.role} vs required: ${roles}`);
     if (!roles.includes(req.user.role)) {
+      console.warn(`[AUTH] DENIED: User ${req.user.userId} has role ${req.user.role}`);
       return res.status(403).json({
         success: false,
         message: `Access denied. Only ${roles.join(', ')} can access this route.`
       });
     }
+    console.log(`[AUTH] PASSED for user ${req.user.userId}`);
     next();
   };
 };

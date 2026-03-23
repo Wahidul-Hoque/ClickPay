@@ -17,5 +17,7 @@ router.patch('/users/:id/status', adminController.updateUserStatus);
 router.get('/cities', adminController.getCities);
 router.get('/agent/rankings', adminController.getRankings);
 router.get('/agent/regions', adminController.getRegions);
+router.get('/merchant/rankings', adminController.getMerchantRankings);
+router.get('/merchant/regions', adminController.getMerchantRegions);
 
 export default router;

@@ -180,6 +180,11 @@ export const adminApi = {
 export const merchantAPI = {
   getMerchants: () => apiClient.get('/merchants'),
   getMerchantDetails: (id: string) => apiClient.get(`/merchants/${id}`),
+  getSubscriptionStatus: () => apiClient.get('/merchant/subscription/status'),
+  subscribe: (data: { planType: 'monthly' | 'semi-annual'; epin: string }) => 
+    apiClient.post('/merchant/subscription/subscribe', data),
+  sendMoney: (data: { toPhone: string; amount: number; epin: string }) =>
+    apiClient.post('/merchant/send', data),
 };
 
 export const subscriptionAPI = {

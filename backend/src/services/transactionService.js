@@ -184,6 +184,112 @@ class TransactionService {
     }
   }
 
+  /**
+   * MERCHANT SEND MONEY (Merchant → User/Agent)
+   * Fee: 1.25% (Debited from Merchant in addition to principal)
+   * Total required: amount * 1.0125
+   */
+  async merchantSendMoney(merchantUserId, toPhone, amount, epin) {
+    const client = await getClient();
+    let transactionId = null;
+
+    try {
+      await client.query('BEGIN');
+      console.log(`[TX:${Date.now()}] Merchant transfer start by ${merchantUserId} to ${toPhone}`);
+
+      // 1. Verify ePin
+      const { rows: epinRows } = await client.query('SELECT epin_hash FROM users WHERE user_id = $1', [merchantUserId]);
+      if (epinRows.length === 0) throw new Error('Merchant not found');
+      if (!(await comparePassword(epin, epinRows[0].epin_hash))) throw new Error('Invalid ePin');
+      console.log('[TX] ePin verified');
+
+      // 2. Lock Wallets
+      const { rows: merchantWallet } = await client.query(
+        "SELECT wallet_id, balance, status FROM wallets WHERE user_id = $1 AND wallet_type = 'merchant' FOR UPDATE",
+        [merchantUserId]
+      );
+      if (merchantWallet.length === 0) throw new Error('Merchant wallet not found');
+      if (merchantWallet[0].status !== 'active') throw new Error('Merchant wallet is not active');
+      console.log('[TX] Merchant wallet locked');
+
+      const { rows: receiverWallet } = await client.query(
+        `SELECT w.wallet_id, w.status, u.name FROM wallets w 
+         JOIN users u ON w.user_id = u.user_id 
+         WHERE u.phone = $1 AND w.wallet_type IN ('user','agent','merchant') FOR UPDATE`,
+        [toPhone]
+      );
+      if (receiverWallet.length === 0) throw new Error('Receiver not found or inactive');
+      if (receiverWallet[0].status !== 'active') throw new Error('Receiver wallet is not active');
+      console.log(`[TX] Receiver ${receiverWallet[0].name} locked`);
+
+      // 3. Calculation
+      const fee = parseFloat((amount * 0.0125).toFixed(2));
+      const totalDeduction = amount + fee;
+      console.log(`[TX] Amount: ${amount}, Fee: ${fee}, Total: ${totalDeduction}`);
+
+      if (parseFloat(merchantWallet[0].balance) < totalDeduction) {
+        throw new Error(`Insufficient funds. Required: ৳${totalDeduction.toFixed(2)} (incl. 1.25% fee)`);
+      }
+
+      // 4. System Wallet
+      const { rows: systemWallet } = await client.query(
+        "SELECT wallet_id FROM wallets WHERE wallet_type = 'system' AND system_purpose = 'profit' FOR UPDATE"
+      );
+      if (systemWallet.length === 0) throw new Error('System revenue wallet not found');
+      console.log('[TX] System profit wallet locked');
+
+      // 5. Atomic Transfers
+      const reference = `MSEN-${Date.now()}`;
+      const { rows: txnRes } = await client.query(
+        `INSERT INTO transactions (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
+         VALUES ($1, $2, $3, 'merchant_transfer', 'initiated', $4) RETURNING transaction_id, created_at`,
+        [merchantWallet[0].wallet_id, receiverWallet[0].wallet_id, amount, reference]
+      );
+      transactionId = txnRes[0].transaction_id;
+
+      // Deduct from merchant (Principal + Fee)
+      await client.query('UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2', [totalDeduction, merchantWallet[0].wallet_id]);
+      
+      // Credit receiver (Principal)
+      await client.query('UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2', [amount, receiverWallet[0].wallet_id]);
+      
+      // Credit system (Fee)
+      await client.query('UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2', [fee, systemWallet[0].wallet_id]);
+
+      // Sub-transaction for commission logging
+      await client.query(
+        `INSERT INTO transactions (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
+         VALUES ($1, $2, $3, 'merchant_commission', 'completed', $4)`,
+        [merchantWallet[0].wallet_id, systemWallet[0].wallet_id, fee, `COMM-${reference}`]
+      );
+
+      // Finalize
+      await client.query("UPDATE transactions SET status = 'completed' WHERE transaction_id = $1", [transactionId]);
+      await client.query('COMMIT');
+      console.log('[TX] COMMIT successful');
+
+      const { rows: finalBal } = await client.query('SELECT balance FROM wallets WHERE wallet_id = $1', [merchantWallet[0].wallet_id]);
+
+      return {
+        transaction_id: transactionId,
+        amount,
+        fee,
+        total_deduction: totalDeduction,
+        new_balance: parseFloat(finalBal[0].balance),
+        reference,
+        to_phone: toPhone
+      };
+
+    } catch (error) {
+      console.error('[TX] ROLLBACK due to:', error.message);
+      await client.query('ROLLBACK');
+      if (transactionId) await recordFailure(transactionId, error.message);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   // ============================================================
   // CASH IN  (Agent → User wallet)
   // Also recorded in external_topups (payment_method_id = NULL for agent cash-ins)
@@ -458,11 +564,45 @@ class TransactionService {
   // GET TRANSACTION HISTORY  (completed only, excludes internal fee rows)
   // GET /api/v1/transactions/history?page=1&limit=10
   // ============================================================
-  async getHistory(userId, page = 1, limit = 10) {
+  async getHistory(userId, page = 1, limit = 10, filters = {}) {
     const offset = (page - 1) * limit;
+    const { startDate, endDate, type } = filters;
 
-    const rows = await query(
-      `SELECT
+    let whereClause = `WHERE (w_from.user_id = $1 OR w_to.user_id = $1) AND t.status = 'completed' AND t.transaction_type != 'agent_fee'`;
+    const dataParams = [userId];
+
+    if (startDate) {
+      dataParams.push(startDate);
+      whereClause += ` AND t.created_at >= $${dataParams.length}`;
+    }
+    if (endDate) {
+      dataParams.push(endDate);
+      whereClause += ` AND t.created_at <= $${dataParams.length}`;
+    }
+    if (type && type !== 'all') {
+      dataParams.push(type);
+      whereClause += ` AND t.transaction_type = $${dataParams.length}`;
+    }
+
+    const countQuery = `
+      SELECT COUNT(*) AS total
+      FROM transactions t
+      JOIN wallets w_from ON t.from_wallet_id = w_from.wallet_id
+      JOIN wallets w_to   ON t.to_wallet_id   = w_to.wallet_id
+      ${whereClause}
+    `;
+
+    const countRow = await query(countQuery, dataParams);
+    const total = parseInt(countRow.rows[0].total);
+
+    // Add limit/offset params
+    dataParams.push(limit);
+    const limitIdx = dataParams.length;
+    dataParams.push(offset);
+    const offsetIdx = dataParams.length;
+
+    const dataQueryStr = `
+      SELECT
          t.transaction_id,
          t.amount,
          t.transaction_type,
@@ -479,26 +619,12 @@ class TransactionService {
        JOIN wallets w_to   ON t.to_wallet_id   = w_to.wallet_id
        JOIN users   u_from ON w_from.user_id   = u_from.user_id
        JOIN users   u_to   ON w_to.user_id     = u_to.user_id
-       WHERE (w_from.user_id = $1 OR w_to.user_id = $1)
-         AND t.status = 'completed'
-         AND t.transaction_type != 'agent_fee'
+       ${whereClause}
        ORDER BY t.created_at DESC
-       LIMIT $2 OFFSET $3`,
-      [userId, limit, offset]
-    );
+       LIMIT $${limitIdx} OFFSET $${offsetIdx}
+    `;
 
-    const countRow = await query(
-      `SELECT COUNT(*) AS total
-       FROM transactions t
-       JOIN wallets w_from ON t.from_wallet_id = w_from.wallet_id
-       JOIN wallets w_to   ON t.to_wallet_id   = w_to.wallet_id
-       WHERE (w_from.user_id = $1 OR w_to.user_id = $1)
-         AND t.status = 'completed'
-         AND t.transaction_type != 'agent_fee'`,
-      [userId]
-    );
-
-    const total = parseInt(countRow.rows[0].total);
+    const rows = await query(dataQueryStr, dataParams);
 
     return {
       transactions: rows.rows,

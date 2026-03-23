@@ -45,11 +45,11 @@ class AuthController {
       }
 
       // Validate role
-      const validRoles = ['user', 'agent', 'admin'];
+      const validRoles = ['user', 'agent', 'admin', 'merchant'];
       if (!validRoles.includes(role)) {
         return res.status(400).json({
           success: false,
-          message: 'Role must be user, agent, or admin'
+          message: 'Role must be user, agent, admin, or merchant'
         });
       }
 

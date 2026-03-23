@@ -2,14 +2,45 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import AgentRankingList from '@/components/AgentRankingList';
-import { DatePickerDialog } from '@/components/DatePickerDialog';
-import {
-    LayoutDashboard, Users, UserRound, History, Settings, ShieldCheck, 
-    TrendingUp, CreditCard, Activity, PieChart, Lock, Unlock, 
-    FileText, Search, Filter, Bell, Menu, X, Landmark, RefreshCcw, 
-    Calendar, ArrowRightLeft, DollarSign, Percent, LogOut
+import { 
+    Users, 
+    TrendingUp, 
+    ShieldCheck, 
+    ArrowRight, 
+    Search, 
+    Bell, 
+    Settings, 
+    Menu, 
+    X, 
+    LogOut, 
+    FileText, 
+    ShieldAlert, 
+    UserCheck, 
+    UserMinus, 
+    Wallet, 
+    LayoutDashboard,
+    PieChart,
+    Calendar,
+    Download,
+    Eye,
+    Landmark,
+    Trophy,
+    Store,
+    UserRound,
+    History,
+    Activity,
+    Lock,
+    Unlock,
+    Filter,
+    RefreshCcw,
+    ArrowRightLeft,
+    DollarSign,
+    Percent,
+    ArrowRightLeft as ArrowRightLeftIcon
 } from 'lucide-react';
+import AgentRankingList from '@/components/AgentRankingList';
+import MerchantRankingList from '@/components/MerchantRankingList';
+import { DatePickerDialog } from '@/components/DatePickerDialog';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
@@ -312,6 +343,7 @@ export default function AdminDashboard() {
                     <NavBtn icon={<LayoutDashboard />} label="Financial Analytics" active={activeSection === 'dashboard'} onClick={() => scrollToSection('dashboard')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<UserRound />} label="User Management" active={activeSection === 'users'} onClick={() => scrollToSection('users')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Users />} label="Agent Performance" active={activeSection === 'agents'} onClick={() => scrollToSection('agents')} collapsed={!isSidebarOpen} />
+                    <NavBtn icon={<Store />} label="Merchant Performance" active={activeSection === 'merchants'} onClick={() => scrollToSection('merchants')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Landmark />} label="Loans & Savings" active={activeSection === 'loans'} onClick={() => scrollToSection('loans')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<RefreshCcw />} label="Reconciliation" active={activeSection === 'recon'} onClick={() => scrollToSection('recon')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Activity />} label="System Audit" active={activeSection === 'audit'} onClick={() => scrollToSection('audit')} collapsed={!isSidebarOpen} />
@@ -683,6 +715,11 @@ export default function AdminDashboard() {
                     {/* SECTION 2, 11: AGENT PERFORMANCE & COMMISSIONS */}
                     <section id="agents" className="scroll-mt-32">
                         <AgentRankingList apiPrefix="/admin/agent" />
+                    </section>
+
+                    {/* Merchant Performance Section */}
+                    <section id="merchants" className="scroll-mt-32">
+                        <MerchantRankingList apiPrefix="/admin/merchant" />
                     </section>
 
                     {/* SECTION 9: USER MANAGEMENT & ACCOUNT CONTROLS */}

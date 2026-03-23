@@ -30,13 +30,22 @@ class AuthService {
       const user = userResult.rows[0];
 
       //Create wallet for the user
-      const walletType = role === 'agent' ? 'agent' : 'user';
+      const walletType = role === 'agent' ? 'agent' : (role === 'merchant' ? 'merchant' : 'user');
       const walletInsertQuery = `
         INSERT INTO wallets (user_id, wallet_type, balance, status)
         VALUES ($1, $2, $3, $4)
       `;
 
       await client.query(walletInsertQuery, [userId, walletType, 0.00, 'active']);
+
+      // If user is a merchant, create merchant_profile
+      if (role === 'merchant') {
+        const merchantProfileQuery = `
+          INSERT INTO merchant_profiles (merchant_user_id, merchant_name, status)
+          VALUES ($1, $2, 'inactive')
+        `;
+        await client.query(merchantProfileQuery, [userId, name]);
+      }
 
       // Manual Fetch Wallet ID using LASTVAL()
       const walletIdResult = await client.query('SELECT LASTVAL() as id');
@@ -83,10 +92,12 @@ class AuthService {
       const userQuery = `
         SELECT 
           u.user_id, u.name, u.phone, u.nid, u.epin_hash, u.role, u.status, u.created_at,
-          w.wallet_id, w.wallet_type, w.balance, w.status as wallet_status
+          w.wallet_id, w.wallet_type, w.balance, w.status as wallet_status,
+          mp.status as merchant_status, mp.subscription_expiry
         FROM users u
         JOIN wallets w ON u.user_id = w.user_id 
-        WHERE u.phone = $1 AND w.wallet_type IN ('user', 'agent')
+        LEFT JOIN merchant_profiles mp ON u.user_id = mp.merchant_user_id
+        WHERE u.phone = $1 AND w.wallet_type IN ('user', 'agent', 'merchant')
       `;
 
       const result = await query(userQuery, [phone]);
@@ -128,7 +139,9 @@ class AuthService {
             wallet_type: userData.wallet_type,
             balance: parseFloat(userData.balance),
             status: userData.wallet_status
-          }
+          },
+          merchant_status: userData.merchant_status,
+          subscription_expiry: userData.subscription_expiry
         },
         token
       };
@@ -147,10 +160,12 @@ class AuthService {
       const profileQuery = `
         SELECT 
           u.user_id, u.name, u.phone, u.nid, u.role, u.status, u.created_at,
-          w.wallet_id, w.wallet_type, w.balance, w.status as wallet_status
+          w.wallet_id, w.wallet_type, w.balance, w.status as wallet_status,
+          mp.status as merchant_status, mp.subscription_expiry
         FROM users u
         JOIN wallets w ON u.user_id = w.user_id 
-        WHERE u.user_id = $1 AND w.wallet_type IN ('user', 'agent')
+        LEFT JOIN merchant_profiles mp ON u.user_id = mp.merchant_user_id
+        WHERE u.user_id = $1 AND w.wallet_type IN ('user', 'agent', 'merchant')
       `;
 
       const result = await query(profileQuery, [userId]);
@@ -174,7 +189,9 @@ class AuthService {
           wallet_type: user.wallet_type,
           balance: parseFloat(user.balance),
           status: user.wallet_status
-        }
+        },
+        merchant_status: user.merchant_status,
+        subscription_expiry: user.subscription_expiry
       };
 
     } catch (error) {

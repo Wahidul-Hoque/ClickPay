@@ -6,8 +6,10 @@ interface User {
   name: string;
   phone: string;
   nid: string;
-  role: 'user' | 'agent' | 'admin';
+  role: 'user' | 'agent' | 'admin' | 'merchant';
   status: string;
+  merchant_status?: string;
+  subscription_expiry?: string;
   wallet?: {
     wallet_id: number;
     wallet_type: string;

@@ -70,11 +70,11 @@ export function TransactionSummaryModal({
                     {/* Row 2 */}
                     <div className="p-4 border-b border-r border-slate-100">
                         <p className="text-xs text-slate-500 mb-1">Amount</p>
-                        <p className="text-[15px] font-medium text-slate-800">৳{Number(amount).toFixed(2)}</p>
+                        <p className="text-[15px] font-medium text-slate-800">৳{(Number(amount) || 0).toFixed(2)}</p>
                     </div>
                     <div className="p-4 border-b border-slate-100">
                         <p className="text-xs text-slate-500 mb-1">Charge</p>
-                        <p className="text-[15px] font-medium text-slate-800">৳{Number(charge).toFixed(2)}</p>
+                        <p className="text-[15px] font-medium text-slate-800">৳{(Number(charge) || 0).toFixed(2)}</p>
                     </div>
 
                     {/* Row 3 */}

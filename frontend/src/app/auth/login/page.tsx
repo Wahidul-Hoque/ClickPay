@@ -44,6 +44,9 @@ export default function LoginPage() {
         case 'admin':
           router.push('/admin');
           break;
+        case 'merchant':
+          router.push('/merchant');
+          break;
         default:
           router.push('/dashboard');
       }

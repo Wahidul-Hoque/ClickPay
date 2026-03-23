@@ -1,5 +1,6 @@
 import adminService from '../services/adminService.js';
 import agentService from '../services/agentService.js';
+import merchantService from '../services/merchantService.js';
 
 class AdminController {
   async getDashboardData(req, res, next) {
@@ -87,6 +88,32 @@ class AdminController {
   async getRegions(req, res, next) {
     try {
       const regions = await agentService.getRegions(req.query.q);
+      res.json({ success: true, data: regions });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getMerchantRankings(req, res, next) {
+    try {
+      const filters = {
+        regions: req.query.regions,
+        startDate: req.query.startDate,
+        endDate: req.query.endDate,
+        transactionTypes: req.query.transactionTypes,
+        rankBy: req.query.rankBy
+      };
+
+      const rankings = await merchantService.getMerchantRankings(filters);
+      res.json({ success: true, data: rankings });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getMerchantRegions(req, res, next) {
+    try {
+      const regions = await merchantService.getRegions(req.query.q);
       res.json({ success: true, data: regions });
     } catch (error) {
       next(error);

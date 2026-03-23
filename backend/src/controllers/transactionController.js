@@ -39,6 +39,33 @@ class TransactionController {
     }
   }
 
+  async merchantSend(req, res, next) {
+    try {
+      const { toPhone, amount, epin } = req.body;
+      const merchantUserId = req.user.userId;
+
+      console.log('--- Merchant Send Attempt ---');
+      console.log('From Merchant:', merchantUserId);
+      console.log('To:', toPhone, '| Amount:', amount);
+
+      if (!toPhone || !amount || !epin) {
+        return res.status(400).json({ success: false, message: 'Phone, amount, and ePin are required' });
+      }
+
+      const result = await transactionService.merchantSendMoney(merchantUserId, toPhone, parseFloat(amount), epin);
+      console.log('Transfer Result:', result);
+      return res.json({ success: true, message: 'Money sent successfully', data: result });
+
+    } catch (error) {
+      console.error('Merchant Send Controller Error:', error.message);
+      const bizErrors = ['not found', 'Invalid', 'Insufficient', 'active', 'yourself'];
+      if (bizErrors.some(m => error.message.includes(m))) {
+        return res.status(400).json({ success: false, message: error.message });
+      }
+      next(error);
+    }
+  }
+
   // ──────────────────────────────────────────
   // CREATE MONEY REQUEST (Asking someone for money)
   // POST /api/v1/transactions/request
@@ -193,7 +220,12 @@ class TransactionController {
       const userId = req.user.userId;
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
-      const result = await transactionService.getHistory(userId, page, limit);
+      const filters = {
+        startDate: req.query.startDate,
+        endDate: req.query.endDate,
+        type: req.query.type
+      };
+      const result = await transactionService.getHistory(userId, page, limit, filters);
       return res.json({ success: true, data: result.transactions, pagination: result.pagination });
     } catch (error) {
       next(error);
