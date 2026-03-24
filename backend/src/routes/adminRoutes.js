@@ -8,16 +8,16 @@ const router = express.Router();
 router.use(protect);
 router.use(authorize('admin'));
 
-router.get('/dashboard', adminController.getDashboardData);
-router.get('/dashboard/trend', adminController.getTrendData);
-router.get('/dashboard/segmentation', adminController.getSegmentationData);
-router.get('/users', adminController.getUsers);
-router.get('/users/:id/transactions', adminController.getUserTransactions);
-router.patch('/users/:id/status', adminController.updateUserStatus);
-router.get('/cities', adminController.getCities);
-router.get('/agent/rankings', adminController.getRankings);
-router.get('/agent/regions', adminController.getRegions);
-router.get('/merchant/rankings', adminController.getMerchantRankings);
-router.get('/merchant/regions', adminController.getMerchantRegions);
+router.get('/dashboard',protect, adminController.getDashboardData);
+router.get('/dashboard/trend',protect, adminController.getTrendData);
+router.get('/dashboard/segmentation', protect, adminController.getSegmentationData);
+router.get('/users', protect, adminController.getUsers);
+router.get('/users/:id/transactions', protect, adminController.getUserTransactions);
+router.patch('/users/:id/status', protect, adminController.updateUserStatus);
+router.get('/cities', protect, adminController.getCities);
+router.get('/agent/rankings', protect, adminController.getRankings);
+router.get('/agent/regions', protect, adminController.getRegions);
+router.get('/merchant/rankings', protect, adminController.getMerchantRankings);
+router.get('/merchant/regions', protect, adminController.getMerchantRegions);
 
 export default router;

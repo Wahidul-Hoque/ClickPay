@@ -220,3 +220,18 @@ export const subscriptionAPI = {
 };
 
 
+export const paymentMethodAPI = {
+  // Get available banks/cards (Master Data)
+  getOptions: () => apiClient.get('/payment-methods/options'),
+  
+  // Link a new external account (Handshake)
+  link: (data: any) => apiClient.post('/payment-methods/link', data),
+  
+  // Get the user's already linked accounts
+  getMyMethods: () => apiClient.get('/payment-methods/my-methods'),
+  
+  // Perform the actual "Add Money" (Top-up) transaction
+  topup: (data: { methodId: number | string; amount: number | string }) => 
+    apiClient.post('/payment-methods/topup', data),
+};
+

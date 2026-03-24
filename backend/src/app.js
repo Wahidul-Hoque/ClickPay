@@ -23,7 +23,7 @@ import agentRoutes from './routes/agentRoutes.js';
 import merchantRoutes from './routes/merchantRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import subscriptionRoutes from './routes/subscriptionRoutes.js';
-
+import paymentMethodRoutes from './routes/paymentMethodRoutes.js';
 // CREATE EXPRESS APP
 const app = express();
 
@@ -97,6 +97,8 @@ app.use(`${API_PREFIX}/admin`, adminRoutes);
 // Subscription routes
 app.use(`${API_PREFIX}/subscriptions`, subscriptionRoutes);
 
+// Payment Method routes
+app.use(`${API_PREFIX}/payment-methods`, paymentMethodRoutes);
 // ==============================================
 // ERROR HANDLING
 // ==============================================

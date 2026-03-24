@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Shield,
   Trophy,
+  CreditCard,
 } from 'lucide-react';
 
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
@@ -60,10 +61,11 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
   const navItems = [
     { name: 'Overview', href: '/agent', icon: Wallet },
     { name: 'Cash In', href: '/agent/cash-in', icon: Download },
-    { name: 'Cash Out', href: '/agent/cash-out', icon: Upload },
+    { name: 'Payment Methods', href: '/agent/payment_methods', icon: CreditCard },
     { name: 'Transactions', href: '/agent/transactions', icon: FileText },
     { name: 'Ranking', href: '/agent/rankings', icon: Trophy },
     { name: 'Settings', href: '/agent/settings', icon: Settings },
+
   ];
 
   const isActive = (href: string) =>

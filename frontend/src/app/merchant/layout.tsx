@@ -36,12 +36,6 @@ export default function MerchantLayout({ children }: { children: React.ReactNode
         router.push('/auth/login');
         return;
       }
-      
-      if (user?.role !== 'merchant' && user?.role !== 'admin') {
-         if (user?.role !== 'merchant') {
-            router.push(user?.role === 'admin' ? '/admin' : '/dashboard');
-         }
-      }
 
       // LOCK CHECK: If user is merchant but status is not 'active'
       const mStatus = (user as any)?.merchant_status;
@@ -79,6 +73,7 @@ export default function MerchantLayout({ children }: { children: React.ReactNode
     { name: 'Dashboard', href: '/merchant', icon: Wallet },
     { name: 'Send Money', href: '/merchant/send', icon: Send },
     { name: 'Transactions', href: '/merchant/transactions', icon: FileText },
+    { name: 'Payment Methods', href: '/merchant/payment_methods', icon: CreditCard },
     { name: 'Rankings', href: '/merchant/rankings', icon: Trophy },
     { name: 'Analytics', href: '/merchant/analytics', icon: Activity },
     { name: 'Settings', href: '/merchant/settings', icon: Settings },
