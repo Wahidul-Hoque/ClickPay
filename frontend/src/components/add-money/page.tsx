@@ -26,7 +26,7 @@ export default function AddMoneyPage({ basePath }: { basePath: string }) {
       setStatus('success');
       toast.success('Funds added successfully!');
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Transaction failed");
+      toast.error(err.response?.data?.message || "Transaction failed");
       setStatus('idle');
     }
   };

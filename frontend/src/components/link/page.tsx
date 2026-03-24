@@ -33,7 +33,7 @@ export default function LinkAccountPage({ basePath }: { basePath: string }) {
       toast.success('Account linked successfully');
       router.push(`${basePath}/payment_methods`);
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Linking failed");
+      toast.error(err.response?.data?.message || "Linking failed");
     } finally {
       setSubmitting(false);
     }

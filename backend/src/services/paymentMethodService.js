@@ -113,32 +113,46 @@ async topupWallet(userId, methodId, amount) {
 
     // ── Step 4: Lock User's ClickPay Wallet ──
     const walletRes = await client.query(
-      'SELECT wallet_id, balance FROM wallets WHERE user_id = $1 FOR UPDATE',
+      `SELECT wallet_id, balance FROM wallets WHERE user_id = $1 AND wallet_type IN ('user','agent','merchant') FOR UPDATE`,
       [userId]
     );
     if (walletRes.rows.length === 0) throw new Error('ClickPay wallet not found');
     console.log(`Locked wallet for user ${userId}. Current balance: ৳${walletRes.rows[0].balance}`);
     const wallet = walletRes.rows[0];
 
-    // ── Step 5: Log Initial Transaction (Main Ledger) ──
+
+    // ── Step 6: Deduct from Mock External World ──
+    if (method.method_type === 'bank') {
+
+      // ── Step 5: Log Initial Transaction (Main Ledger) ──
     const txnRes = await client.query(
       `INSERT INTO transactions 
-         (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
-       VALUES ($1, $1, $2, 'external_topup', 'initiated', $3)
+         (from_bank_account_id, to_wallet_id, amount, transaction_type, status, reference)
+       VALUES ($1, $2, $3, 'bank_transfer', 'initiated', $4)
        RETURNING transaction_id`,
-      [wallet.wallet_id, topupAmount, `Top-up from ${providerName}`]
+      [externalId, wallet.wallet_id, topupAmount, `Top-up from ${providerName}`]
     );
     transactionId = txnRes.rows[0].transaction_id;
 
     await logEvent(client, transactionId, 'initiated', 'info', `Adding money from ${providerName}`);
 
-    // ── Step 6: Deduct from Mock External World ──
-    if (method.method_type === 'bank') {
       await client.query(
         'UPDATE mock_bank_accounts SET current_balance = current_balance - $1 WHERE account_id = $2', 
         [topupAmount, externalId]
       );
     } else {
+
+      // ── Step 5: Log Initial Transaction (Main Ledger) ──
+    const txnRes = await client.query(
+      `INSERT INTO transactions 
+         (from_card_account_id, to_wallet_id, amount, transaction_type, status, reference)
+       VALUES ($1, $2, $3, 'bank_transfer', 'initiated', $4)
+       RETURNING transaction_id`,
+      [externalId, wallet.wallet_id, topupAmount, `Top-up from ${providerName}`]
+    );
+    transactionId = txnRes.rows[0].transaction_id;
+
+    await logEvent(client, transactionId, 'initiated', 'info', `Adding money from ${providerName}`);
       await client.query(
         'UPDATE mock_card_accounts SET current_balance = current_balance - $1 WHERE card_id = $2', 
         [topupAmount, externalId]
@@ -148,7 +162,7 @@ async topupWallet(userId, methodId, amount) {
     // ── Step 7: Credit User's ClickPay Wallet ──
     await client.query(
       'UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2', 
-      [amount, wallet.wallet_id]
+      [topupAmount, wallet.wallet_id]
     );
     
     // Get final balance for confirmation

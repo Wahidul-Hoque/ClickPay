@@ -587,8 +587,8 @@ class TransactionService {
     const countQuery = `
       SELECT COUNT(*) AS total
       FROM transactions t
-      JOIN wallets w_from ON t.from_wallet_id = w_from.wallet_id
-      JOIN wallets w_to   ON t.to_wallet_id   = w_to.wallet_id
+      LEFT JOIN wallets w_from ON t.from_wallet_id = w_from.wallet_id
+      LEFT JOIN wallets w_to   ON t.to_wallet_id   = w_to.wallet_id
       ${whereClause}
     `;
 
@@ -615,10 +615,10 @@ class TransactionService {
          u_to.phone   AS to_phone,
          CASE WHEN w_from.user_id = $1 THEN 'debit' ELSE 'credit' END AS direction
        FROM transactions t
-       JOIN wallets w_from ON t.from_wallet_id = w_from.wallet_id
-       JOIN wallets w_to   ON t.to_wallet_id   = w_to.wallet_id
-       JOIN users   u_from ON w_from.user_id   = u_from.user_id
-       JOIN users   u_to   ON w_to.user_id     = u_to.user_id
+       LEFT JOIN wallets w_from ON t.from_wallet_id = w_from.wallet_id
+       LEFT JOIN wallets w_to   ON t.to_wallet_id   = w_to.wallet_id
+       LEFT JOIN users   u_from ON w_from.user_id   = u_from.user_id
+       LEFT JOIN users   u_to   ON w_to.user_id     = u_to.user_id
        ${whereClause}
        ORDER BY t.created_at DESC
        LIMIT $${limitIdx} OFFSET $${offsetIdx}
@@ -656,10 +656,10 @@ class TransactionService {
          u_to.name    AS to_name,
          u_to.phone   AS to_phone
        FROM transactions t
-       JOIN wallets w_from ON t.from_wallet_id = w_from.wallet_id
-       JOIN wallets w_to   ON t.to_wallet_id   = w_to.wallet_id
-       JOIN users   u_from ON w_from.user_id   = u_from.user_id
-       JOIN users   u_to   ON w_to.user_id     = u_to.user_id
+       LEFT JOIN wallets w_from ON t.from_wallet_id = w_from.wallet_id
+       LEFT JOIN wallets w_to   ON t.to_wallet_id   = w_to.wallet_id
+       LEFT JOIN users   u_from ON w_from.user_id   = u_from.user_id
+       LEFT JOIN users   u_to   ON w_to.user_id     = u_to.user_id
        WHERE t.transaction_id = $1
          AND (w_from.user_id = $2 OR w_to.user_id = $2)`,
       [transactionId, userId]

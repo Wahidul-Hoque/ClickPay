@@ -3,7 +3,7 @@ import { query } from '../config/database.js';
 class WalletService {
     async getBalance(userId) {
         const result = await query(
-            `SELECT balance FROM wallets WHERE user_id = $1 AND wallet_type IN ('user', 'agent')`,
+            `SELECT balance FROM wallets WHERE user_id = $1 AND wallet_type IN ('user', 'agent', 'merchant')`,
             [userId]
         );
         if (result.rows.length === 0) throw new Error('Wallet not found');

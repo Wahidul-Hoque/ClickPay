@@ -61,7 +61,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
   const navItems = [
     { name: 'Overview', href: '/agent', icon: Wallet },
     { name: 'Cash In', href: '/agent/cash-in', icon: Download },
-    { name: 'Payment Methods', href: '/agent/payment_methods', icon: CreditCard },
+    { name: 'Add Money', href: '/agent/payment_methods', icon: CreditCard },
     { name: 'Transactions', href: '/agent/transactions', icon: FileText },
     { name: 'Ranking', href: '/agent/rankings', icon: Trophy },
     { name: 'Settings', href: '/agent/settings', icon: Settings },

@@ -34,13 +34,25 @@ CREATE TABLE wallets (
 -- TRANSACTIONS
 CREATE TABLE transactions (
   transaction_id    BIGSERIAL PRIMARY KEY,
-  from_wallet_id    BIGINT NOT NULL REFERENCES wallets(wallet_id),
+  from_wallet_id    BIGINT  REFERENCES wallets(wallet_id),
+  from_bank_account_id BIGINT REFERENCES mock_bank_accounts(account_id),
+  from_card_account_id BIGINT REFERENCES mock_card_accounts(card_id),
   to_wallet_id      BIGINT NOT NULL REFERENCES wallets(wallet_id),
   amount            NUMERIC(18,2) NOT NULL CHECK (amount > 0),
   transaction_type  VARCHAR(30) NOT NULL,
   status            VARCHAR(20) NOT NULL CHECK (status IN ('initiated','pending','on_hold','completed','failed')),
   reference         VARCHAR(150),
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE transactions
+ADD CONSTRAINT check_transaction_source_logic
+CHECK (
+  (transaction_type = 'bank_transfer' AND from_bank_account_id IS NOT NULL AND from_wallet_id IS NULL AND from_card_account_id IS NULL)
+  OR 
+  (transaction_type = 'card_transfer' AND from_card_account_id IS NOT NULL AND from_wallet_id IS NULL AND from_bank_account_id IS NULL)
+  OR
+  (transaction_type NOT IN ('bank_transfer', 'card_transfer') AND from_wallet_id IS NOT NULL AND from_bank_account_id IS NULL AND from_card_account_id IS NULL)
 );
 
 -- TRANSACTION_EVENTS

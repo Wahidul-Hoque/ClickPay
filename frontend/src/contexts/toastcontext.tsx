@@ -72,15 +72,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const getToastStyles = (type: ToastType) => {
     switch (type) {
       case 'success':
-        return 'bg-green-500 text-white';
+        return 'bg-emerald-600 text-white';
       case 'error':
-        return 'bg-red-500 text-white';
+        return 'bg-rose-600 text-white';
       case 'info':
-        return 'bg-blue-500 text-white';
+        return 'bg-primary-600 text-white';
       case 'warning':
-        return 'bg-orange-500 text-white';
+        return 'bg-amber-600 text-white';
       default:
-        return 'bg-gray-800 text-white';
+        return 'bg-slate-800 text-white';
     }
   };
 

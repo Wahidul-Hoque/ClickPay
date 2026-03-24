@@ -48,6 +48,7 @@ const fetchData = async () => {
     }
 
   } catch (err) {
+    console.log("Error fetching payment data:", err);
     console.error("Failed to load payment data:", err);
     toast.error("Failed to load payment methods");
   } finally {
