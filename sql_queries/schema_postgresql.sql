@@ -220,23 +220,53 @@ CREATE TABLE card_networks (
   name       VARCHAR(50) NOT NULL UNIQUE
 );
 
--- Create User Payment Methods Table
+-- 1. Simulated Database of a Real Bank
+CREATE TABLE mock_bank_accounts (
+  account_id          SERIAL PRIMARY KEY,
+  bank_id             INTEGER NOT NULL REFERENCES banks(bank_id),
+  account_holder_name VARCHAR(150) NOT NULL,
+  phone_number        VARCHAR(30) NOT NULL, -- User will enter this to "Link"
+  bank_pin            VARCHAR(10) NOT NULL, -- User will enter this to "Link"
+  current_balance     NUMERIC(18,2) NOT NULL DEFAULT 10000.00 CHECK (current_balance >= 0),
+  UNIQUE(bank_id, phone_number) -- One phone number per bank
+);
+
+-- 2. (Optional) Create a similar one for Cards if you want
+CREATE TABLE mock_card_accounts (
+  card_id             SERIAL PRIMARY KEY,
+  network_id          INTEGER NOT NULL REFERENCES card_networks(network_id),
+  card_number         VARCHAR(19) NOT NULL UNIQUE, -- User enters this
+  expiry_date         VARCHAR(5) NOT NULL, -- MM/YY
+  cvv                 VARCHAR(3) NOT NULL, --card verification value
+  current_balance     NUMERIC(18,2) NOT NULL DEFAULT 5000.00 CHECK (current_balance >= 0)
+);
+
+
+-- 3. Which User has "Linked" which Mock Account to their MFS profile
 CREATE TABLE user_payment_methods (
   method_id          BIGSERIAL PRIMARY KEY,
   user_id            BIGINT NOT NULL REFERENCES users(user_id),
   method_type        VARCHAR(10) NOT NULL CHECK (method_type IN ('bank', 'card')),
-  bank_id            INTEGER REFERENCES banks(bank_id),
-  network_id         INTEGER REFERENCES card_networks(network_id),
-  identifier_info    VARCHAR(50) NOT NULL, 
-  simulated_balance  NUMERIC(18,2) NOT NULL DEFAULT 10000.00 CHECK (simulated_balance >= 0),
+  
+  -- Link to either a mock bank or a mock card
+  mock_bank_account_id INTEGER REFERENCES mock_bank_accounts(account_id),
+  mock_card_account_id INTEGER REFERENCES mock_card_accounts(card_id),
+  
+  status             VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'disabled')),
   created_at         TIMESTAMPTZ DEFAULT NOW(),
-  CONSTRAINT chk_method_data CHECK (
-    (method_type = 'bank' AND bank_id IS NOT NULL) OR
-    (method_type = 'card' AND network_id IS NOT NULL)
-  )
+
+  -- Logic: ensure it's linked to exactly one mock record
+  CONSTRAINT chk_link_source CHECK (
+    (method_type = 'bank' AND mock_bank_account_id IS NOT NULL) OR
+    (method_type = 'card' AND mock_card_account_id IS NOT NULL)
+  ),
+  -- Prevent linking the same account twice to the same user
+  UNIQUE(user_id, mock_bank_account_id),
+  UNIQUE(user_id, mock_card_account_id)
 );
 
--- Create New External Topups Table
+
+-- 4. The actual "Add Money" / Top-up Transaction
 CREATE TABLE external_topups (
   topup_id            BIGSERIAL PRIMARY KEY,
   wallet_id           BIGINT NOT NULL REFERENCES wallets(wallet_id),
