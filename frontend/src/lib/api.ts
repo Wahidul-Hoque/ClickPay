@@ -188,12 +188,16 @@ export const merchantAPI = {
 };
 
 export const subscriptionAPI = {
-  getSubscriptions: () => apiClient.get('/subscriptions/my-subscriptions'),
-  subscribe: (data: { merchantId: string; planName: string; amount: number; epin: string }) => 
+  // Ensure the string starts with '/subscriptions' 
+  // to match the backend mounting point
+  getDashboard: () => apiClient.get('/subscriptions/dashboard'),
+
+  subscribe: (data: { merchantUserId: number; epin: string }) => 
     apiClient.post('/subscriptions/subscribe', data),
-  cancelSubscription: (id: string) => apiClient.patch(`/subscriptions/${id}/cancel`),
-  updateStatus: (id: string, status: string) => 
-    apiClient.patch(`/subscriptions/${id}/status`, { status }),
+
+  // Note: Ensure the 'id' is passed correctly
+  toggleRenew: (id: number) => 
+    apiClient.patch(`/subscriptions/${id}/toggle-renew`),
 };
 
 

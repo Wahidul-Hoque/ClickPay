@@ -6,6 +6,7 @@ import express from 'express';
 import cors from 'cors';
 import cron from 'node-cron';
 import subscriptionService from './services/subscriptionService.js';
+import './schedulers/subscriptionScheduler.js'; // Import the scheduler to start it
 
 // Import middleware
 import { errorHandler, notFound } from './middleware/errorHandler.js';
@@ -21,7 +22,7 @@ import savingsRoutes from './routes/savingsRoutes.js';
 import agentRoutes from './routes/agentRoutes.js';
 import merchantRoutes from './routes/merchantRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
-
+import subscriptionRoutes from './routes/subscriptionRoutes.js';
 
 // CREATE EXPRESS APP
 const app = express();
@@ -92,6 +93,9 @@ app.use(`${API_PREFIX}/merchant`, merchantRoutes);
 
 // Admin routes
 app.use(`${API_PREFIX}/admin`, adminRoutes);
+
+// Subscription routes
+app.use(`${API_PREFIX}/subscriptions`, subscriptionRoutes);
 
 // ==============================================
 // ERROR HANDLING

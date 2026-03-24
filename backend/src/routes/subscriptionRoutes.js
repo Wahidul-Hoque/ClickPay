@@ -1,12 +1,11 @@
 import express from 'express';
 import subscriptionController from '../controllers/subscriptionController.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
-router.use(authenticateToken);
 
-router.get('/my-subscriptions', subscriptionController.getMySubscriptions);
-router.post('/subscribe', subscriptionController.subscribe);
-router.patch('/:id/status', subscriptionController.updateStatus); // Added this
+router.get('/dashboard', protect, subscriptionController.getDashboard);
+router.post('/subscribe', protect, subscriptionController.subscribe);
+router.patch('/:id/toggle-renew', protect, subscriptionController.toggleRenew);
 
 export default router;
