@@ -100,11 +100,27 @@ export const loanAPI = {
 };
 
 export const savingsAPI = {
-  create: (data: any) => apiClient.post('/savings/create', data),
+  /**
+   * Fetches all savings accounts for the logged-in user.
+   * Backend: GET /api/savings/accounts
+   */
   getAccounts: () => apiClient.get('/savings/accounts'),
-  getDetails: (id: string) => apiClient.get(`/savings/accounts/${id}`),
-  break: (id: string) => apiClient.post(`/savings/accounts/${id}/break`),
-  calculateInterest: (id: string) => apiClient.get(`/savings/accounts/${id}/interest`),
+
+  /**
+   * Creates a new fixed savings account.
+   * @param data { amount: number, durationMonths: number, epin: string }
+   * Backend: POST /api/savings/create
+   */
+  create: (data: { amount: number; durationMonths: number; epin: string }) => 
+    apiClient.post('/savings/create', data),
+
+  /**
+   * Closes or breaks an active savings account early.
+   * @param id The fixed_savings_id
+   * Backend: POST /api/savings/accounts/:id/break
+   */
+  break: (id: string | number) => 
+    apiClient.post(`/savings/accounts/${id}/break`),
 };
 
 export const notificationAPI = {
