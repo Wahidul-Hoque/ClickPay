@@ -48,6 +48,9 @@ export const authAPI = {
   getProfile: () => apiClient.get('/auth/profile'),
   logout: () => apiClient.post('/auth/logout'),
   changePin: (data: { oldPin: string; newPin: string }) => apiClient.post('/auth/change-pin', data),
+  forgotPassword: (data: { phone: string }) => apiClient.post('/auth/forgot-password', data),
+  verifyResetOtp: (data: { phone: string; otp: string }) => apiClient.post('/auth/verify-reset-otp', data),
+  resetPassword: (data: { phone: string; otp: string; newEpin: string }) => apiClient.post('/auth/reset-password', data),
 };
 
 export const transactionAPI = {

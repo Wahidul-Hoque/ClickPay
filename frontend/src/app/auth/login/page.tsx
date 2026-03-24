@@ -93,9 +93,14 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                5-Digit ePin
-              </label>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  5-Digit ePin
+                </label>
+                <Link href="/auth/forgot-password" className="text-xs text-primary-600 hover:text-primary-700 font-medium">
+                  Forgot PIN?
+                </Link>
+              </div>
               <input
                 type="password"
                 name="epin"

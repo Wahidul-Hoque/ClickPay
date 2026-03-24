@@ -14,6 +14,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
     phone: '',
     city: '',
     nid: '',
@@ -107,6 +108,21 @@ export default function RegisterPage() {
                 onChange={handleChange}
                 className="input"
                 placeholder="Enter your full name"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                className="input"
+                placeholder="Enter your email address"
                 required
               />
             </div>

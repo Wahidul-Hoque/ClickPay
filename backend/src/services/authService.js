@@ -1,11 +1,12 @@
 
 import { query, getClient } from '../config/database.js';
 import { hashPassword, comparePassword, generateToken } from '../middleware/auth.js';
+import nodemailer from 'nodemailer';
 
 class AuthService {
   // REGISTERS NEW USER and Creates a new user and their wallet
   async register(userData) {
-    const { name, phone, city, nid, epin, role } = userData;
+    const { name, phone, email, city, nid, epin, role } = userData;
     const client = await getClient();
 
     try {
@@ -14,17 +15,17 @@ class AuthService {
       const epinHash = await hashPassword(epin);
       //inserting user
       const userQuery = `
-        INSERT INTO users (name, phone, city, nid, epin_hash, role, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO users (name, phone, email, city, nid, epin_hash, role, status)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `;
 
-      await client.query(userQuery, [name, phone, city, nid, epinHash, role, 'active']);
+      await client.query(userQuery, [name, phone, email, city, nid, epinHash, role, 'active']);
 
       const userIdResult = await client.query('SELECT LASTVAL() as id');
       const userId = userIdResult.rows[0].id;
 
       const userResult = await client.query(
-        'SELECT user_id, name, phone, city, nid, role, status, created_at FROM users WHERE user_id = $1',
+        'SELECT user_id, name, phone, email, city, nid, role, status, created_at FROM users WHERE user_id = $1',
         [userId]
       );
       const user = userResult.rows[0];
@@ -230,6 +231,115 @@ async changePin(userId, oldPin, newPin) {
     } catch (error) {
       throw error;
     }
+  }
+
+  // ==============================================
+  // FORGOT PASSWORD / PIN FLOW
+  // ==============================================
+
+  async forgotPassword(phone) {
+    // 1. Verify user exists and fetch email
+    const userRes = await query(
+      'SELECT user_id, name, email FROM users WHERE phone = $1',
+      [phone]
+    );
+
+    if (userRes.rows.length === 0) {
+      throw new Error('No account found with this phone number');
+    }
+
+    const user = userRes.rows[0];
+
+    if (!user.email) {
+      throw new Error('No email address registered for this account. Please contact support.');
+    }
+
+    // 2. Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+    // 3. Save OTP to DB
+    await query(
+      'UPDATE users SET reset_otp = $1, reset_otp_expiry = $2 WHERE phone = $3',
+      [otp, expiry, phone]
+    );
+
+    // 4. Send Email via Ethereal (for dev)
+    console.log(`[AUTH] Generating Ethereal email account for OTP...`);
+    // NOTE: In production, configure real SMTP transport here
+    const testAccount = await nodemailer.createTestAccount();
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.ethereal.email',
+      port: 587,
+      secure: false, 
+      auth: {
+        user: testAccount.user,
+        pass: testAccount.pass,
+      },
+    });
+
+    const info = await transporter.sendMail({
+      from: '"ClickPay Security" <security@clickpay.com>',
+      to: user.email,
+      subject: 'ClickPay: Password Reset OTP',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Reset Your PIN</h2>
+          <p>Hello ${user.name},</p>
+          <p>We received a request to reset your ClickPay PIN. Here is your 6-digit OTP:</p>
+          <h1 style="background: #f4f4f5; padding: 16px; text-align: center; letter-spacing: 8px; font-size: 32px; color: #4f46e5; border-radius: 8px;">${otp}</h1>
+          <p>This code will expire in 10 minutes. If you did not request this, please ignore this email.</p>
+        </div>
+      `,
+    });
+
+    console.log('[AUTH] OTP Email sent! Preview URL: %s', nodemailer.getTestMessageUrl(info));
+
+    // Create masked email (e.g. j***@gmail.com)
+    const [name, domain] = user.email.split('@');
+    const maskedEmail = `${name.slice(0, 1)}***@${domain}`;
+
+    return { 
+      message: 'OTP sent successfully to your email.',
+      maskedEmail,
+      previewUrl: nodemailer.getTestMessageUrl(info) // Expose preview URL for developer to easily grab OTP
+    };
+  }
+
+  async verifyResetOtp(phone, otp) {
+    const res = await query(
+      'SELECT reset_otp, reset_otp_expiry FROM users WHERE phone = $1',
+      [phone]
+    );
+
+    if (res.rows.length === 0) throw new Error('User not found');
+    const user = res.rows[0];
+
+    if (!user.reset_otp || user.reset_otp !== otp) {
+      throw new Error('Invalid OTP');
+    }
+
+    if (new Date() > new Date(user.reset_otp_expiry)) {
+      throw new Error('OTP has expired. Please request a new one.');
+    }
+
+    return { success: true, message: 'OTP verified successfully' };
+  }
+
+  async resetPassword(phone, otp, newEpin) {
+    // 1. Verify OTP one last time to be safe
+    await this.verifyResetOtp(phone, otp);
+
+    // 2. Hash new PIN
+    const newPinHash = await hashPassword(newEpin);
+
+    // 3. Update DB and clear OTP
+    await query(
+      'UPDATE users SET epin_hash = $1, reset_otp = NULL, reset_otp_expiry = NULL WHERE phone = $2',
+      [newPinHash, phone]
+    );
+
+    return { message: 'PIN has been reset successfully. You can now log in.' };
   }
 }
 

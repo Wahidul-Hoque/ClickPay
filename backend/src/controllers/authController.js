@@ -10,12 +10,21 @@ class AuthController {
   async register(req, res, next) {
     try {
       // Validate input
-      const { name, phone, city, nid, epin, role } = req.body;
+      const { name, phone, email, city, nid, epin, role } = req.body;
 
-      if (!name || !phone || !city || !nid || !epin || !role) {
+      if (!name || !phone || !email || !city || !nid || !epin || !role) {
         return res.status(400).json({
           success: false,
           message: 'All fields are required '
+        });
+      }
+
+      // Validate email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid email address.'
         });
       }
 
@@ -182,6 +191,73 @@ async changePin(req, res, next) {
           success: false,
           message: error.message
         });
+      }
+      next(error);
+    }
+  }
+
+  // ==============================================
+  // FORGOT PASSWORD
+  // ==============================================
+
+  async forgotPassword(req, res, next) {
+    try {
+      const { phone } = req.body;
+      if (!phone) {
+        return res.status(400).json({ success: false, message: 'Phone number is required' });
+      }
+
+      const result = await authService.forgotPassword(phone);
+      return res.status(200).json({ 
+        success: true, 
+        message: result.message, 
+        maskedEmail: result.maskedEmail,
+        previewUrl: result.previewUrl 
+      });
+    } catch (error) {
+      if (error.message.includes('No account found')) {
+        return res.status(404).json({ success: false, message: error.message });
+      }
+      next(error);
+    }
+  }
+
+  async verifyResetOtp(req, res, next) {
+    try {
+      const { phone, otp } = req.body;
+      if (!phone || !otp) {
+        return res.status(400).json({ success: false, message: 'Phone and OTP are required' });
+      }
+
+      const result = await authService.verifyResetOtp(phone, otp);
+      return res.status(200).json(result);
+    } catch (error) {
+      if (error.message.includes('Invalid') || error.message.includes('expired') || error.message.includes('not found')) {
+        return res.status(400).json({ success: false, message: error.message });
+      }
+      next(error);
+    }
+  }
+
+  async resetPassword(req, res, next) {
+    try {
+      const { phone, otp, newEpin } = req.body;
+      if (!phone || !otp || !newEpin) {
+        return res.status(400).json({ success: false, message: 'Phone, OTP, and new ePin are required' });
+      }
+
+      if (newEpin.length !== 5 || !/^\d+$/.test(newEpin)) {
+        return res.status(400).json({
+          success: false,
+          message: 'ePin must be exactly 5 digits'
+        });
+      }
+
+      const result = await authService.resetPassword(phone, otp, newEpin);
+      return res.status(200).json({ success: true, message: result.message });
+    } catch (error) {
+      if (error.message.includes('Invalid') || error.message.includes('expired') || error.message.includes('not found')) {
+        return res.status(400).json({ success: false, message: error.message });
       }
       next(error);
     }
