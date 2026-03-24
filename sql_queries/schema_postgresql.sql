@@ -8,6 +8,9 @@ CREATE TABLE users (
   role        VARCHAR(20)  NOT NULL CHECK (role IN ('user','agent','admin','merchant')),
   status      VARCHAR(30)  NOT NULL,
   city        VARCHAR(100),
+  email       VARCHAR(255) UNIQUE,
+  reset_otp   VARCHAR(6),
+  reset_otp_expiry TIMESTAMP,
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
