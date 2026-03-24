@@ -30,17 +30,6 @@ CREATE TABLE wallets (
   )
 );
 
--- PAYMENT_METHODS
-CREATE TABLE payment_methods (
-  payment_method_id  BIGSERIAL PRIMARY KEY,
-  user_id            BIGINT NOT NULL REFERENCES users(user_id),
-  type               VARCHAR(20) NOT NULL CHECK (type IN ('bank','card')),
-  provider           VARCHAR(60) NOT NULL,
-  masked_identifier  VARCHAR(100) NOT NULL,
-  token              VARCHAR(255) NOT NULL,
-  status             VARCHAR(20) NOT NULL CHECK (status IN ('active','disabled')),
-  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 -- TRANSACTIONS
 CREATE TABLE transactions (
@@ -85,17 +74,6 @@ CREATE TABLE agent_fees (
   created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- EXTERNAL_TOPUPS
-CREATE TABLE external_topups (
-  topup_id            BIGSERIAL PRIMARY KEY,
-  wallet_id           BIGINT NOT NULL REFERENCES wallets(wallet_id),
-  payment_method_id   BIGINT NOT NULL REFERENCES payment_methods(payment_method_id),
-  transaction_id      BIGINT REFERENCES transactions(transaction_id),
-  amount              NUMERIC(18,2) NOT NULL CHECK (amount > 0),
-  provider_reference  VARCHAR(150),
-  status              VARCHAR(20) NOT NULL CHECK (status IN ('initiated','pending','verified','completed','failed')),
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 
 -- BILLERS
 CREATE TABLE billers (
@@ -228,4 +206,43 @@ CREATE TABLE admin_activity_logs (
   target_id       VARCHAR(50),          -- ID of the user or record modified
   description     TEXT,                 -- Detailed explanation of the change
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+--  Create Master Banks Table
+CREATE TABLE banks (
+  bank_id    SERIAL PRIMARY KEY,
+  name       VARCHAR(100) NOT NULL UNIQUE
+);
+
+--  Create Master Card Networks Table
+CREATE TABLE card_networks (
+  network_id SERIAL PRIMARY KEY,
+  name       VARCHAR(50) NOT NULL UNIQUE
+);
+
+-- Create User Payment Methods Table
+CREATE TABLE user_payment_methods (
+  method_id          BIGSERIAL PRIMARY KEY,
+  user_id            BIGINT NOT NULL REFERENCES users(user_id),
+  method_type        VARCHAR(10) NOT NULL CHECK (method_type IN ('bank', 'card')),
+  bank_id            INTEGER REFERENCES banks(bank_id),
+  network_id         INTEGER REFERENCES card_networks(network_id),
+  identifier_info    VARCHAR(50) NOT NULL, 
+  simulated_balance  NUMERIC(18,2) NOT NULL DEFAULT 10000.00 CHECK (simulated_balance >= 0),
+  created_at         TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT chk_method_data CHECK (
+    (method_type = 'bank' AND bank_id IS NOT NULL) OR
+    (method_type = 'card' AND network_id IS NOT NULL)
+  )
+);
+
+-- Create New External Topups Table
+CREATE TABLE external_topups (
+  topup_id            BIGSERIAL PRIMARY KEY,
+  wallet_id           BIGINT NOT NULL REFERENCES wallets(wallet_id),
+  method_id           BIGINT NOT NULL REFERENCES user_payment_methods(method_id),
+  amount              NUMERIC(18,2) NOT NULL CHECK (amount > 0),
+  status              VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
+  transaction_id      BIGINT REFERENCES transactions(transaction_id),
+  created_at          TIMESTAMPTZ DEFAULT NOW()
 );
