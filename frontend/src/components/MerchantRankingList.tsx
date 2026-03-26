@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import api from '@/lib/api';
-import { Trophy, Medal, Loader2, MapPin, Filter, Search, Store } from 'lucide-react';
+import api, { merchantAPI } from '@/lib/api';
+import Link from 'next/link';
+import { ArrowLeft, Trophy, Medal, Loader2, MapPin, Filter, Search, Store } from 'lucide-react';
 import { DatePickerDialog } from '@/components/DatePickerDialog';
 
 // 1. Define the interface for the Merchant object
@@ -68,7 +69,7 @@ export default function MerchantRankingList({ apiPrefix = '/merchant' }: { apiPr
         return;
       }
       try {
-        const res = await api.get(`${apiPrefix}/regions?q=${regionInputValue.trim()}`);
+        const res = await merchantAPI.getRegions(regionInputValue.trim());
         const filterOutSelected = (res.data.data || []).filter((r: string) => !filters.regions.includes(r));
         setRegionSuggestions(filterOutSelected);
       } catch (err) {
@@ -98,20 +99,15 @@ export default function MerchantRankingList({ apiPrefix = '/merchant' }: { apiPr
     const fetchRankings = async () => {
       setLoading(true);
       try {
-        const params = new URLSearchParams();
-        if (activeFilters.regions.length > 0) {
-          params.append('regions', activeFilters.regions.join(','));
-        }
-        if (activeFilters.startDate) params.append('startDate', activeFilters.startDate);
-        if (activeFilters.endDate) params.append('endDate', activeFilters.endDate);
-        if (activeFilters.transactionTypes.length > 0) {
-          params.append('transactionTypes', activeFilters.transactionTypes.join(','));
-        }
-        if (activeFilters.rankBy.length > 0) {
-          params.append('rankBy', activeFilters.rankBy.join(','));
-        }
+        const params = {
+          regions: activeFilters.regions.join(','),
+          startDate: activeFilters.startDate,
+          endDate: activeFilters.endDate,
+          transactionTypes: activeFilters.transactionTypes.join(','),
+          rankBy: activeFilters.rankBy.join(',')
+        };
 
-        const res = await api.get(`${apiPrefix}/rankings?${params.toString()}`);
+        const res = await merchantAPI.getRankings(params);
         setRankings(res.data.data);
       } catch (err) {
         console.error("Failed to fetch rankings", err);
@@ -161,6 +157,17 @@ export default function MerchantRankingList({ apiPrefix = '/merchant' }: { apiPr
 
   return (
     <div className="max-w-4xl mx-auto p-6 animate-fadeIn">
+    {apiPrefix === '/merchant' && (
+    <div className="mb-4">
+      <Link 
+        href="/merchant/page" 
+        className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors group"
+      >
+        <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+        Back to Merchant Dashboard
+      </Link>
+    </div>
+  )}
       <DatePickerDialog
         isOpen={datePickerTarget !== null}
         initDate={datePickerTarget ? (filters as any)[datePickerTarget] : ''}

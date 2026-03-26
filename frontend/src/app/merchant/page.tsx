@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/lib/store';
-import api, { transactionAPI } from '@/lib/api';
+import api, { transactionAPI, merchantAPI } from '@/lib/api';
 import {
   Wallet,
   TrendingUp,
@@ -43,7 +43,7 @@ export default function MerchantDashboard() {
   const fetchDashboardData = async () => {
     try {
       const [dashRes, historyRes] = await Promise.all([
-        api.get('/merchant/dashboard'),
+        merchantAPI.getDashboard(),
         transactionAPI.getHistory({ page: 1, limit: 5 })
       ]);
       

@@ -197,8 +197,11 @@ export const adminApi = {
 };
 
 export const merchantAPI = {
-  getMerchants: () => apiClient.get('/merchants'),
-  getMerchantDetails: (id: string) => apiClient.get(`/merchants/${id}`),
+  getMerchants: () => apiClient.get('/merchant'),
+  getMerchantDetails: (id: string) => apiClient.get(`/merchant/${id}`),
+  getDashboard: () => apiClient.get('/merchant/dashboard'),
+  getRankings: (params: any) => apiClient.get('/merchant/rankings', { params }),
+  getRegions: (q: string) => apiClient.get(`/merchant/regions?q=${q}`),
   getSubscriptionStatus: () => apiClient.get('/merchant/subscription/status'),
   subscribe: (data: { planType: 'monthly' | 'semi-annual'; epin: string }) => 
     apiClient.post('/merchant/subscription/subscribe', data),

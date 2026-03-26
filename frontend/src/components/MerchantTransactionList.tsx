@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import api from '@/lib/api';
+import api, { transactionAPI } from '@/lib/api';
 import { History, Filter, Loader2, ArrowDownLeft, ArrowUpRight, Calendar } from 'lucide-react';
 import { DatePickerDialog } from '@/components/DatePickerDialog';
 
@@ -54,14 +54,15 @@ export default function MerchantTransactionList() {
     const fetchTransactions = async () => {
       setLoading(true);
       try {
-        const params = new URLSearchParams();
-        params.append('page', '1');
-        params.append('limit', '20');
-        if (activeFilters.startDate) params.append('startDate', activeFilters.startDate);
-        if (activeFilters.endDate) params.append('endDate', activeFilters.endDate);
-        if (activeFilters.type !== 'all') params.append('type', activeFilters.type);
+        const params = {
+          page: 1,
+          limit: 20,
+          startDate: activeFilters.startDate,
+          endDate: activeFilters.endDate,
+          type: activeFilters.type !== 'all' ? activeFilters.type : undefined
+        };
 
-        const res = await api.get(`/transactions/history?${params.toString()}`);
+        const res = await transactionAPI.getHistory(params);
         setTransactions(res.data.data);
       } catch (err) {
         console.error("Failed to fetch transaction history", err);

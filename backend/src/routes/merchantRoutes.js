@@ -1,6 +1,6 @@
 import express from 'express';
 import merchantSubscriptionController from '../controllers/merchantSubscriptionController.js';
-import merchantController from '../controllers/marchentController.js';
+import merchantController from '../controllers/merchantController.js';
 import transactionController from '../controllers/transactionController.js';
 import { protect, authorize } from '../middleware/auth.js';
 
