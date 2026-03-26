@@ -24,6 +24,25 @@ class WalletController {
       next(error);
     }
   }
+  // ==============================================
+  // GET CURRENT MONTH EXPENSE
+  // ==============================================
+  // GET /api/v1/wallet/current-month-expense
+  async getCurrentMonthExpense(req,res,next){
+    try{
+      const userId = req.user.userId;
+      const expense = await walletService.getCurrentMonthExpense(userId);
+
+      return res.json({
+        success : true,
+        message : 'Current month expense retrieved successfully',
+        data : expense
+
+      });
+    }catch(error){
+      next(error);
+    }
+  }
 
   // ==============================================
   // EXTERNAL TOP-UP

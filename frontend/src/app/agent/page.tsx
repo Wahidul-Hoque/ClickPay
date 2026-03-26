@@ -112,7 +112,7 @@ export default function AgentDashboard() {
           href="/agent/rankings"
           className="inline-flex items-center gap-2 bg-yellow-50 text-yellow-700 px-4 py-2 rounded-xl border border-yellow-100 hover:bg-yellow-100 transition-colors font-bold text-sm"
         >
-          <Trophy className="w-4 h-4" /> View Rankings
+          <Trophy className="w-4 h-4" /> notifications  
         </Link>
       </div>
 

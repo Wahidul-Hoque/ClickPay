@@ -41,11 +41,25 @@ export default function DashboardPage() {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
   const [balance, setBalance] = useState<number>(user?.wallet?.balance || 0);
+  const [expenses, setExpenses] = useState<number>(0);
 
   useEffect(() => {
     fetchRecentTransactions();
     fetchBalance();
+    fetchCurrentMonthExpense();
   }, []);
+
+  const fetchCurrentMonthExpense = async ()=> {
+    try{
+      const response = await walletAPI.getCurrentMonthExpenses();
+      if( response.data.success){
+        setExpenses(response.data.data);
+      }
+    } catch(error) {
+      console.error('Failed to fetch current month expense:',error);
+    }
+
+  };
 
   const fetchBalance = async () => {
     try {
@@ -105,11 +119,12 @@ export default function DashboardPage() {
       hour12: true
     });
   };
+  const formatCurrency = (val: any) => `৳${(Number(val) || 0).toFixed(2)}`;
 
   const statCards = [
     {
       label: 'Total Balance',
-      value: `৳${balance.toFixed(2)}`,
+      value: formatCurrency(balance),
       sub: 'Available balance',
       icon: Wallet,
       gradient: 'gradient-indigo',
@@ -117,8 +132,8 @@ export default function DashboardPage() {
       iconBg: 'bg-white/20',
     },
     {
-      label: 'This Month',
-      value: '৳0.00',
+      label: 'This Months',
+      value: formatCurrency(expenses),
       sub: '+0% from last month',
       icon: TrendingUp,
       gradient: 'gradient-emerald',
@@ -127,7 +142,7 @@ export default function DashboardPage() {
     },
     {
       label: 'Expenses',
-      value: '৳0.00',
+      value: formatCurrency(expenses),
       sub: '-0% from last month',
       icon: TrendingDown,
       gradient: 'gradient-rose',

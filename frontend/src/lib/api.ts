@@ -79,6 +79,7 @@ export const walletAPI = {
   getPaymentMethods: () => apiClient.get('/wallets/payment-methods'),
   removePaymentMethod: (id: string) => apiClient.delete(`/wallets/payment-methods/${id}`),
   topup: (data: any) => apiClient.post('/wallets/topup', data),
+  getCurrentMonthExpenses : () => apiClient.get('/wallets/current-month-expense'),
 };
 
 export const qrAPI = {

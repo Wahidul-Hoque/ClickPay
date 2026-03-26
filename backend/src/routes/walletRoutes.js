@@ -21,4 +21,9 @@ router.get('/payment-methods', protect, walletController.getPaymentMethods);
 // POST /api/v1/wallet/payment-methods
 router.post('/payment-methods', protect, walletController.addPaymentMethod);
 
+//Get current month expenses
+//GET /api/v1/wallet/current-month-expenses
+
+router.get('/current-month-expense',protect,walletController.getCurrentMonthExpense);
+
 export default router;
