@@ -111,7 +111,7 @@ class AgentService {
     if (regions) {
       const regionsList = regions.split(',').filter(r => r.trim() !== "");
       if (regionsList.length > 0) {
-        regionFilter = `AND LOWER(u.city) IN (${regionsList.map((_, i) => `$${paramIdx + i}`).join(', ')})`;
+        regionFilter = `AND LOWER(TRIM(u.city)) IN (${regionsList.map((_, i) => `$${paramIdx + i}`).join(', ')})`;
         queryParams.push(...regionsList.map(r => r.trim().toLowerCase()));
         paramIdx += regionsList.length;
       }
@@ -131,18 +131,18 @@ class AgentService {
         u.name,
         u.phone,
         u.city,
-        SUM(t.amount) as total_volume,
+        COALESCE(SUM(t.amount), 0) as total_volume,
         COUNT(t.transaction_id) as transaction_count
       FROM users u
-      JOIN wallets w ON u.user_id = w.user_id
-      JOIN transactions t ON (t.from_wallet_id = w.wallet_id OR t.to_wallet_id = w.wallet_id)
-      WHERE 
-        u.role = 'agent' 
+      JOIN wallets w ON u.user_id = w.user_id AND w.wallet_type = 'agent'
+      LEFT JOIN transactions t ON (t.from_wallet_id = w.wallet_id OR t.to_wallet_id = w.wallet_id)
         AND t.status = 'completed'
         ${transactionFilter}
         ${dateFilter}
+      WHERE 
+        u.role = 'agent' 
         ${regionFilter}
-      GROUP BY u.user_id
+      GROUP BY u.user_id, u.name, u.phone, u.city
       ${orderByClause}
       LIMIT 100;
     `;

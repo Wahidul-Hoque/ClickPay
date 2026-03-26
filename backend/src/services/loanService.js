@@ -123,12 +123,15 @@ class LoanService {
       SELECT la.*, u.name, u.phone 
       FROM loan_applications la
       JOIN users u ON la.user_id = u.user_id
-      WHERE la.decision_status = $1
-      ORDER BY la.created_at DESC
     `;
-    const params = [status];
+    const params = [];
+    if (status && status !== 'all') {
+      sql += ` WHERE la.decision_status = $1`;
+      params.push(status);
+    }
+    sql += ` ORDER BY la.created_at DESC`;
     if (limit) {
-      sql += ` LIMIT $2`;
+      sql += ` LIMIT $${params.length + 1}`;
       params.push(limit);
     }
     const res = await query(sql, params);

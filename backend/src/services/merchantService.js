@@ -34,7 +34,7 @@ class MerchantService {
     if (regions) {
       const regionsList = regions.split(',').filter(r => r.trim() !== "");
       if (regionsList.length > 0) {
-        regionFilter = `AND LOWER(u.city) IN (${regionsList.map((_, i) => `$${paramIdx + i}`).join(', ')})`;
+        regionFilter = `AND LOWER(TRIM(u.city)) IN (${regionsList.map((_, i) => `$${paramIdx + i}`).join(', ')})`;
         queryParams.push(...regionsList.map(r => r.trim().toLowerCase()));
         paramIdx += regionsList.length;
       }
@@ -55,20 +55,20 @@ class MerchantService {
         mp.merchant_name as name,
         u.phone,
         u.city,
-        SUM(t.amount) as total_volume,
+        COALESCE(SUM(t.amount), 0) as total_volume,
         COUNT(t.transaction_id) as transaction_count
       FROM users u
       JOIN merchant_profiles mp ON u.user_id = mp.merchant_user_id
-      JOIN wallets w ON u.user_id = w.user_id
-      JOIN transactions t ON t.to_wallet_id = w.wallet_id
-      WHERE 
-        t.status = 'completed'
+      JOIN wallets w ON u.user_id = w.user_id AND w.wallet_type = 'merchant'
+      LEFT JOIN transactions t ON t.to_wallet_id = w.wallet_id 
+        AND t.status = 'completed'
         ${transactionFilter}
         ${dateFilter}
+      WHERE 1=1
         ${regionFilter}
       GROUP BY u.user_id, mp.merchant_name, u.phone, u.city
       ${orderByClause}
-      LIMIT 100;
+      LIMIT 10;
     `;
 
     const result = await query(rankingQuery, queryParams);

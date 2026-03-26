@@ -69,7 +69,7 @@ export default function MerchantRankingList({ apiPrefix = '/merchant' }: { apiPr
         return;
       }
       try {
-        const res = await merchantAPI.getRegions(regionInputValue.trim());
+        const res = await api.get(`${apiPrefix}/regions?q=${regionInputValue.trim()}`);
         const filterOutSelected = (res.data.data || []).filter((r: string) => !filters.regions.includes(r));
         setRegionSuggestions(filterOutSelected);
       } catch (err) {
@@ -99,15 +99,20 @@ export default function MerchantRankingList({ apiPrefix = '/merchant' }: { apiPr
     const fetchRankings = async () => {
       setLoading(true);
       try {
-        const params = {
-          regions: activeFilters.regions.join(','),
-          startDate: activeFilters.startDate,
-          endDate: activeFilters.endDate,
-          transactionTypes: activeFilters.transactionTypes.join(','),
-          rankBy: activeFilters.rankBy.join(',')
-        };
+        const params = new URLSearchParams();
+        if (activeFilters.regions.length > 0) {
+          params.append('regions', activeFilters.regions.join(','));
+        }
+        if (activeFilters.startDate) params.append('startDate', activeFilters.startDate);
+        if (activeFilters.endDate) params.append('endDate', activeFilters.endDate);
+        if (activeFilters.transactionTypes.length > 0) {
+          params.append('transactionTypes', activeFilters.transactionTypes.join(','));
+        }
+        if (activeFilters.rankBy.length > 0) {
+          params.append('rankBy', activeFilters.rankBy.join(','));
+        }
 
-        const res = await merchantAPI.getRankings(params);
+        const res = await api.get(`${apiPrefix}/rankings?${params.toString()}`);
         setRankings(res.data.data);
       } catch (err) {
         console.error("Failed to fetch rankings", err);

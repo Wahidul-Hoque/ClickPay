@@ -28,7 +28,8 @@ class LoanController {
   async adminGetAll(req, res, next) {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit) : null;
-      const applications = await loanService.getAllApplications('submitted', limit);
+      const status = req.query.status || 'submitted';
+      const applications = await loanService.getAllApplications(status, limit);
       res.json({ success: true, data: applications });
     } catch (error) { next(error); }
   }

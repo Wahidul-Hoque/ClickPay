@@ -14,6 +14,7 @@ import {
   Zap,
   Download,
   Phone,
+  Star,
 } from 'lucide-react';
 import { transactionAPI, walletAPI } from '@/lib/api';
 import Link from 'next/link';
@@ -230,6 +231,25 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* ── My ClickPay Banner ──────────────────────────────────────── */}
+      <Link href="/dashboard/my-clickpay" className="block w-full bg-gradient-to-r from-slate-900 to-indigo-900 rounded-[2rem] p-8 shadow-xl relative overflow-hidden group hover:shadow-2xl transition-all hover:-translate-y-1">
+        <div className="absolute right-0 top-0 w-64 h-64 bg-indigo-500/20 blur-3xl rounded-full -mr-10 -mt-20 pointer-events-none transition-all group-hover:bg-indigo-400/30"></div>
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+            <div className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20">
+              <Star className="w-8 h-8 text-yellow-400 fill-current" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-black text-white tracking-tight mb-1">My ClickPay</h2>
+              <p className="text-indigo-200 font-medium text-sm">Manage your favorite numbers, agents, active loans, and payment methods in one place.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-6 py-3 rounded-xl border border-white/20 text-white font-bold group-hover:bg-white/20 transition-all text-sm">
+            Access Hub <ArrowUpRight className="w-4 h-4" />
+          </div>
+        </div>
+      </Link>
 
       {/* ── Two Column ──────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
