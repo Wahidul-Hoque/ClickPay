@@ -6,7 +6,8 @@ import { useToast } from '@/contexts/toastcontext';
 import { useRouter } from 'next/navigation';
 import { merchantAPI } from '@/lib/api';
 import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
-
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 export default function MerchantSendMoneyPage() {
   const router = useRouter();
   const toast = useToast();
@@ -63,8 +64,18 @@ export default function MerchantSendMoneyPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-10rem)] flex items-center justify-center py-6">
-      <div className="w-full max-w-2xl mx-auto space-y-6">
+    <div className="min-h-[calc(100vh-10rem)] flex items-center justify-center py-6">      
+      <div className="w-full max-w-4xl mx-auto space-y-6">
+
+        <div className="mb-4">
+          <Link 
+            href='/merchant'
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            Back to Merchant Dashboard
+          </Link>
+        </div>
         
         {/* Header */}
         <div className="text-center">

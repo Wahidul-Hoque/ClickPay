@@ -160,7 +160,7 @@ export default function MerchantRankingList({ apiPrefix = '/merchant' }: { apiPr
     {apiPrefix === '/merchant' && (
     <div className="mb-4">
       <Link 
-        href="/merchant/page" 
+        href='/merchant'
         className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors group"
       >
         <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
