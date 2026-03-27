@@ -3,6 +3,7 @@ CREATE TABLE users (
   user_id     BIGSERIAL PRIMARY KEY,
   name        VARCHAR(150),
   phone       VARCHAR(30)  NOT NULL UNIQUE,
+  email       VARCHAR(150) UNIQUE,
   nid         VARCHAR(50)  NOT NULL UNIQUE,
   epin_hash   VARCHAR(255) NOT NULL,
   role        VARCHAR(20)  NOT NULL CHECK (role IN ('user','agent','admin')),
@@ -219,4 +220,27 @@ CREATE TABLE notifications (
   user_id          BIGINT NOT NULL REFERENCES users(user_id),
   message          VARCHAR(500) NOT NULL,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- FAVORITES
+CREATE TABLE favorites (
+  id                  BIGSERIAL PRIMARY KEY,
+  user_id             BIGINT NOT NULL REFERENCES users(user_id),
+  type                VARCHAR(20) NOT NULL CHECK (type IN ('number','agent')),
+  name                VARCHAR(150) NOT NULL,
+  phone               VARCHAR(30) NOT NULL,
+  is_favorite         BOOLEAN DEFAULT FALSE,
+  marked_favorite_at  TIMESTAMPTZ,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, phone, type)
+);
+
+-- ADMIN_ACTIVITY_LOGS
+CREATE TABLE admin_activity_logs (
+  log_id         BIGSERIAL PRIMARY KEY,
+  admin_user_id  BIGINT NOT NULL REFERENCES users(user_id),
+  action_type    VARCHAR(50) NOT NULL,
+  target_id      VARCHAR(100),
+  description    TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
