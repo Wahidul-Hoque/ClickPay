@@ -1,6 +1,7 @@
 import adminService from '../services/adminService.js';
 import agentService from '../services/agentService.js';
 import merchantService from '../services/merchantService.js';
+import notificationService from '../services/notificationService.js';
 
 class AdminController {
   async getDashboardData(req, res, next) {
@@ -116,6 +117,28 @@ class AdminController {
       const regions = await merchantService.getRegions(req.query.q);
       res.json({ success: true, data: regions });
     } catch (error) {
+      next(error);
+    }
+  }
+
+  async sendNotification(req, res, next) {
+    try {
+      console.log('[ADMIN NOTIFY] Request received');
+      console.log('[ADMIN NOTIFY] Body:', JSON.stringify(req.body));
+      console.log('[ADMIN NOTIFY] User:', req.user?.userId, req.user?.role);
+      
+      const adminId = req.user.userId;
+      const { message, audience, phone } = req.body;
+      const result = await notificationService.sendAdminNotification({
+        adminId,
+        message,
+        audience,
+        phone,
+      });
+      console.log('[ADMIN NOTIFY] Success:', JSON.stringify(result));
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error('[ADMIN NOTIFY] Error:', error.message);
       next(error);
     }
   }
