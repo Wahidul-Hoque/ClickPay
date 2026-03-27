@@ -24,6 +24,7 @@ import merchantRoutes from './routes/merchantRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import subscriptionRoutes from './routes/subscriptionRoutes.js';
 import paymentMethodRoutes from './routes/paymentMethodRoutes.js';
+import favoriteRoutes from './routes/favoriteRoutes.js';
 // CREATE EXPRESS APP
 const app = express();
 
@@ -99,6 +100,9 @@ app.use(`${API_PREFIX}/subscriptions`, subscriptionRoutes);
 
 // Payment Method routes
 app.use(`${API_PREFIX}/payment-methods`, paymentMethodRoutes);
+
+// Favorite routes
+app.use(`${API_PREFIX}/favorites`, favoriteRoutes);
 // ==============================================
 // ERROR HANDLING
 // ==============================================

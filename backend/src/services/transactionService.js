@@ -113,10 +113,27 @@ class TransactionService {
         throw new Error('Duplicate transaction detected — please wait before retrying');
       }
 
+      // ── Step 4.5: Calculate fee ─────────────────────────────
+      const favRes = await client.query(
+        `SELECT 1 FROM favorites WHERE user_id = $1 AND phone = $2 LIMIT 1`,
+        [fromUserId, toPhone]
+      );
+      const fee = favRes.rows.length > 0 ? 0.00 : 5.00;
+      const totalDeduction = parseFloat(amount) + fee;
+
+      let systemWallet = null;
+      if (fee > 0) {
+        const sysRes = await client.query(
+          "SELECT wallet_id FROM wallets WHERE wallet_type = 'system' AND system_purpose = 'profit' FOR UPDATE"
+        );
+        if (sysRes.rows.length === 0) throw new Error('System revenue wallet not found');
+        systemWallet = sysRes.rows[0];
+      }
+
       // ── Step 5: Balance check ───────────────────────────────
       const currentBalance = parseFloat(senderWallet.balance);
-      if (currentBalance < parseFloat(amount)) {
-        throw new Error(`Insufficient balance. Available: ৳${currentBalance.toFixed(2)}`);
+      if (currentBalance < totalDeduction) {
+        throw new Error(`Insufficient balance. Available: ৳${currentBalance.toFixed(2)}${fee > 0 ? ` (Required: ৳${totalDeduction.toFixed(2)} incl ৳5 fee)` : ''}`);
       }
 
       // ── Step 6: Create transaction record (status = 'initiated') ──
@@ -137,15 +154,28 @@ class TransactionService {
       // ── Step 7: Deduct from sender ──────────────────────────
       await client.query(
         'UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2',
-        [amount, senderWallet.wallet_id]
+        [totalDeduction, senderWallet.wallet_id]
       );
+
+      if (fee > 0 && systemWallet) {
+        await client.query(
+          'UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2',
+          [fee, systemWallet.wallet_id]
+        );
+        await client.query(
+          `INSERT INTO transactions (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
+           VALUES ($1, $2, $3, 'system_profit', 'completed', $4)`,
+          [senderWallet.wallet_id, systemWallet.wallet_id, fee, `FEE-${reference}`]
+        );
+      }
+
       const newBalanceRow = await client.query(
         'SELECT balance FROM wallets WHERE wallet_id = $1',
         [senderWallet.wallet_id]
       );
       const newSenderBalance = parseFloat(newBalanceRow.rows[0].balance);
       await logEvent(client, transactionId, 'amount_deducted', 'info',
-        `৳${amount} deducted from sender. Remaining: ৳${newSenderBalance}`);
+        `৳${totalDeduction} deducted from sender${fee > 0 ? ' (incl ৳5 fee)' : ''}. Remaining: ৳${newSenderBalance}`);
 
       // ── Step 8: Credit receiver ─────────────────────────────
       await client.query(
@@ -169,6 +199,7 @@ class TransactionService {
         transaction_id: transactionId,
         reference,
         amount: parseFloat(amount),
+        charge: fee,
         to: receiverWallet.name,
         to_phone: toPhone,
         new_balance: newSenderBalance,

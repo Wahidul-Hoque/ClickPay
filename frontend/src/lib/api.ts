@@ -239,3 +239,12 @@ export const paymentMethodAPI = {
     apiClient.post('/payment-methods/topup', data),
 };
 
+export const favoriteAPI = {
+  addFavorite: (data: { type: 'number' | 'agent'; phone: string; name: string }) => 
+    apiClient.post('/favorites', data),
+  getFavorites: (type?: 'number' | 'agent') => 
+    apiClient.get('/favorites', { params: { type } }),
+  toggleFavorite: (id: string | number) =>
+    apiClient.patch(`/favorites/${id}/toggle`),
+};
+

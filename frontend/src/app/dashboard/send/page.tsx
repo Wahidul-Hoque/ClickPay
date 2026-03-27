@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { Send, Phone, DollarSign, Lock, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Send, Phone, DollarSign, Lock, AlertCircle, Star, Users } from 'lucide-react';
 import { useToast } from '@/contexts/toastcontext';
 import { useRouter } from 'next/navigation';
-import { transactionAPI } from '@/lib/api';
+import { transactionAPI, favoriteAPI } from '@/lib/api';
 import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
+
 
 export default function SendMoneyPage() {
   const router = useRouter();
@@ -17,6 +18,30 @@ export default function SendMoneyPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [result, setResult] = useState<any>(null);
+  
+  const [savedContacts, setSavedContacts] = useState<any[]>([]);
+
+  // Fetch saved contacts on load
+  useEffect(() => {
+    const fetchContacts = async () => {
+      try {
+        const [numRes, agentRes] = await Promise.all([
+          favoriteAPI.getFavorites('number'),
+          favoriteAPI.getFavorites('agent')
+        ]);
+        const nums = numRes.data.data || [];
+        const agents = agentRes.data.data || [];
+        setSavedContacts([...nums, ...agents]);
+      } catch (err) {
+        console.error("Failed to load saved contacts", err);
+      }
+    };
+    fetchContacts();
+  }, []);
+
+  const isFavorite = savedContacts.some(c => c.phone === recipient);
+  const fee = isFavorite ? 0.00 : 5.00;
+  const totalAmount = parseFloat(amount || '0') + fee;
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +127,32 @@ export default function SendMoneyPage() {
                   required
                 />
               </div>
+              
+              {/* Saved Contacts Quick Pick */}
+              {savedContacts.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide flex items-center gap-1">
+                    <Users className="w-3 h-3" /> Saved Contacts
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {savedContacts.map(contact => (
+                      <button
+                        key={`${contact.id}-${contact.type}`}
+                        type="button"
+                        onClick={() => setRecipient(contact.phone)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+                          recipient === contact.phone 
+                            ? 'bg-primary-50 border-primary-500 text-primary-700' 
+                            : 'bg-white border-gray-200 text-gray-700 hover:border-primary-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {contact.is_favorite && <Star className="w-3 h-3 text-amber-500 fill-amber-500" />}
+                        {contact.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Amount */}
@@ -173,21 +224,25 @@ export default function SendMoneyPage() {
               />
             </div>
 
-            {/* Transaction Summary */}
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-600">Amount</span>
                 <span className="font-semibold text-lg">৳{amount || '0.00'}</span>
               </div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-gray-600">Fee</span>
-                <span className="font-semibold text-green-600">FREE</span>
+                <span className="text-gray-600 flex items-center gap-2">
+                  Fee
+                  {isFavorite && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">SAVED CONTACT</span>}
+                </span>
+                <span className={`font-semibold ${fee === 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                  {fee === 0 ? 'FREE' : `৳${fee.toFixed(2)}`}
+                </span>
               </div>
               <div className="border-t border-gray-300 my-3"></div>
               <div className="flex justify-between items-center">
                 <span className="font-bold text-gray-900">Total</span>
                 <span className="font-bold text-2xl text-primary-600">
-                  ৳{amount || '0.00'}
+                  ৳{totalAmount.toFixed(2)}
                 </span>
               </div>
             </div>

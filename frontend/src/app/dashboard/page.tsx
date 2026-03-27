@@ -16,7 +16,7 @@ import {
   Phone,
   Star,
 } from 'lucide-react';
-import { transactionAPI, walletAPI } from '@/lib/api';
+import { transactionAPI, walletAPI, paymentMethodAPI } from '@/lib/api';
 import Link from 'next/link';
 import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
 
@@ -43,12 +43,25 @@ export default function DashboardPage() {
 
   const [balance, setBalance] = useState<number>(user?.wallet?.balance || 0);
   const [expenses, setExpenses] = useState<number>(0);
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
 
   useEffect(() => {
     fetchRecentTransactions();
     fetchBalance();
     fetchCurrentMonthExpense();
+    fetchPaymentMethods();
   }, []);
+
+  const fetchPaymentMethods = async () => {
+    try {
+      const response = await paymentMethodAPI.getMyMethods();
+      if (response.data.success) {
+        setPaymentMethods(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch payment methods:', error);
+    }
+  };
 
   const fetchCurrentMonthExpense = async ()=> {
     try{
@@ -133,10 +146,14 @@ export default function DashboardPage() {
       iconBg: 'bg-white/20',
     },
     {
-      label: 'This Months',
-      value: formatCurrency(expenses),
-      sub: '+0% from last month',
-      icon: TrendingUp,
+      label: 'Linked Methods',
+      value: paymentMethods.length > 0 ? `${paymentMethods.length} Saved` : 'None',
+      sub: paymentMethods.length > 0 ? paymentMethods.map(m => {
+        const name = m.bank_name || m.network_name || 'Bank';
+        const identifier = m.identifier ? String(m.identifier).slice(-4) : '****';
+        return `${name} ••${identifier}`;
+      }).join(' | ') : 'No cards/banks added',
+      icon: CreditCard,
       gradient: 'gradient-emerald',
       glow: 'shadow-glow-emerald',
       iconBg: 'bg-white/20',
