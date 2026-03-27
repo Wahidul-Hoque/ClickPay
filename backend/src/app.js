@@ -28,7 +28,7 @@ import favoriteRoutes from './routes/favoriteRoutes.js';
 // CREATE EXPRESS APP
 const app = express();
 
-// MIDDLEWARE
+// MIDDLEWARE...
 
 // 1. CORS - Allow frontend to make requests
 app.use(cors({
