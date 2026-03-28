@@ -115,7 +115,7 @@ export default function UserHistoryPage() {
             <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-3xl border-b border-slate-200 supports-[backdrop-filter]:bg-white/60">
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
                     <button onClick={() => router.push('/admin')} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-indigo-600 hover:border-indigo-100 transition-colors font-bold text-sm shadow-sm">
-                        <ArrowLeft className="w-4 h-4" /> Back to Directory
+                        <ArrowLeft className="w-4 h-4" /> Back to Dashboard
                     </button>
                     <div className="flex items-center gap-3">
                         <div className="px-4 py-2 bg-slate-100 text-slate-500 font-bold uppercase tracking-widest text-[10px] rounded-xl">User ID #{id}</div>
