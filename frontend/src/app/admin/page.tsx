@@ -760,7 +760,7 @@ export default function AdminDashboard() {
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
                                     {users.length > 0 ? users.map((u, i) => (
-                                        <UserRow key={i} id={u.user_id} name={u.name} phone={u.phone} nid={u.nid} status={u.status} balance={u.balance} onToggle={toggleUserStatus} onViewHistory={(userId: number) => router.push(`/admin/user`)} />
+                                        <UserRow key={i} id={u.user_id} name={u.name} phone={u.phone} nid={u.nid} status={u.status} balance={u.balance} onToggle={toggleUserStatus} onViewHistory={(userId: number) => router.push(`/admin/user/${userId}`)} />
                                     )) : (
                                         <tr><td colSpan={4} className="px-8 py-6 text-center text-slate-400">Loading users...</td></tr>
                                     )}
