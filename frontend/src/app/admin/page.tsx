@@ -906,30 +906,55 @@ export default function AdminDashboard() {
                         </div>
                     </section>
 
-                    {/* SECTION 10, 12: RECONCILIATION & AUDIT */}
                     <section id="recon" className="scroll-mt-32">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                            <div className="space-y-8">
-                                <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Settlement & Audit</h2>
-                                <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-                                    <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest mb-6">Daily Reconciliation Dashboard</h4>
-                                    <div className="space-y-6">
-                                        <ReconItem label="Inflow (Cash In/Add Money)" value={`+৳${analytics?.reconciliation?.inflow || 0}`} />
-                                        <ReconItem label="Outflow (Cash Out/Payment)" value={`-৳${analytics?.reconciliation?.outflow || 0}`} />
-                                        <div className="h-[1px] bg-slate-100"></div>
-                                        <ReconItem label="Net Cash Flow" value={`৳${parseFloat(analytics?.reconciliation?.inflow || 0) - parseFloat(analytics?.reconciliation?.outflow || 0)}`} success={parseFloat(analytics?.reconciliation?.inflow || 0) - parseFloat(analytics?.reconciliation?.outflow || 0) >= 0} />
+                        <div className="space-y-10">
+                            {/* --- Top Part: Settlement Summary (Now Full Width) --- */}
+                            <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                                    <div>
+                                        <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Settlement & Reconciliation</h2>
+                                        <p className="text-slate-500 font-medium">Daily inflow vs outflow audit</p>
+                                    </div>
+                                    <div className="flex gap-8 bg-slate-50 p-6 rounded-2xl border border-slate-100 flex-1 md:max-w-2xl justify-around">
+                                        <ReconItem label="Inflow" value={`+৳${analytics?.reconciliation?.inflow || 0}`} />
+                                        <div className="w-[1px] h-8 bg-slate-200 hidden md:block"></div>
+                                        <ReconItem label="Outflow" value={`-৳${analytics?.reconciliation?.outflow || 0}`} />
+                                        <div className="w-[1px] h-8 bg-slate-200 hidden md:block"></div>
+                                        <ReconItem 
+                                            label="Net Flow" 
+                                            value={`৳${(parseFloat(analytics?.reconciliation?.inflow || 0) - parseFloat(analytics?.reconciliation?.outflow || 0)).toLocaleString()}`} 
+                                            success={parseFloat(analytics?.reconciliation?.inflow || 0) - parseFloat(analytics?.reconciliation?.outflow || 0) >= 0} 
+                                        />
                                     </div>
                                 </div>
                             </div>
-                            <div id="audit" className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm flex flex-col">
-                                <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest mb-6 flex items-center gap-3">
-                                    <Activity className="text-indigo-600"/> Admin Action History
-                                </h4>
-                                <div className="flex-1 space-y-4 max-h-80 overflow-y-auto pr-4">
+
+                            {/* --- Bottom Part: Admin Action History (Now Full Width) --- */}
+                            <div id="audit" className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm flex flex-col">
+                                <div className="flex justify-between items-center mb-8">
+                                    <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest flex items-center gap-3">
+                                        <Activity className="text-indigo-600"/> Security & Admin Action History
+                                    </h4>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full">
+                                        {audit.length} Recent Logs
+                                    </span>
+                                </div>
+                                
+                                {/* The list now spans the full width */}
+                                <div className="flex-1 space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                                     {audit.length > 0 ? audit.map((a, i) => (
-                                        <AuditLog key={i} admin={a.admin_name || 'System'} action={a.action_type} target={`ID: ${a.target_id}`} time={new Date(a.created_at).toLocaleTimeString()} />
+                                        <AuditLog 
+                                            key={i} 
+                                            admin={a.admin_name || `Admin #${a.admin_user_id}`} 
+                                            action={a.action_type} 
+                                            target={a.target_id} 
+                                            description={a.description} 
+                                            time={new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })} 
+                                        />
                                     )) : (
-                                        <p className="text-slate-400 text-sm">No audit logs found...</p>
+                                        <div className="text-center py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-100">
+                                            <p className="text-slate-400 font-black uppercase text-xs tracking-widest">No activity logs found in the system</p>
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -1010,18 +1035,25 @@ function SegmentRow({ label, value, percent, color }: any) {
     );
 }
 
-function AuditLog({ admin, action, target, time }: any) {
+function AuditLog({ admin, action, target, description, time }: any) {
     return (
-        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-            <div className="flex items-center gap-4">
-                <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-                <div className="text-xs">
-                    <span className="font-black text-slate-800">{admin}</span>
-                    <span className="mx-2 text-indigo-600 font-bold">{action}</span>
-                    <span className="text-slate-400">on {target}</span>
+        <div className="group p-4 bg-slate-50 hover:bg-white hover:shadow-md hover:border-indigo-100 border border-transparent rounded-2xl transition-all">
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${
+                        action.includes('reject') || action.includes('freeze') ? 'bg-rose-500' : 'bg-emerald-500'
+                    }`}></div>
+                    <span className="text-[10px] font-black text-slate-800 uppercase tracking-tighter">{admin}</span>
+                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${
+                        action.includes('loan') ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-600'
+                    }`}>{action.replace('_', ' ')}</span>
                 </div>
+                <span className="text-[9px] font-bold text-slate-400">{time}</span>
             </div>
-            <span className="text-[10px] font-black text-slate-300">{time}</span>
+            <p className="text-xs text-slate-600 font-medium leading-relaxed mb-1">{description}</p>
+            {target && (
+                <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded tracking-widest uppercase">Target ID: {target}</span>
+            )}
         </div>
     );
 }
