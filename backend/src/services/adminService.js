@@ -303,11 +303,39 @@ class AdminService {
 
   async toggleUserStatus(adminId, userId, action) {
     const status = action === 'freeze' ? 'frozen' : 'active';
+    const logActionType = action === 'freeze' ? 'user_freeze' : 'user_activate';
+    
     const client = await getClient();
     try {
       await client.query('BEGIN');
-      await client.query('UPDATE users SET status = $1 WHERE user_id = $2', [status, userId]);
-      await client.query('UPDATE wallets SET status = $1 WHERE user_id = $2', [status, userId]);
+
+      // 1. Update User status
+      const userRes = await client.query(
+        'UPDATE users SET status = $1 WHERE user_id = $2', 
+        [status, userId]
+      );
+      const user = userRes.rows[0];
+
+      // 2. Update all Wallets belonging to this user
+      await client.query(
+        'UPDATE wallets SET status = $1 WHERE user_id = $2', 
+        [status, userId]
+      );
+
+      // 3. Log Admin Activity
+      const description = `${action === 'freeze' ? 'Froze' : 'Activated'} user account and wallets for user ${userId}.`;
+      
+      await client.query(
+        `INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description)
+         VALUES ($1, $2, $3, $4)`,
+        [
+          adminId, 
+          logActionType, 
+          userId.toString(), 
+          description
+        ]
+      );
+
       await client.query('COMMIT');
       return { success: true, status };
     } catch (e) {
