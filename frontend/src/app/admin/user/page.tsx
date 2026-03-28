@@ -50,7 +50,7 @@ export default function UserHistoryPage() {
                     params.append('types', activeFilters.transactionTypes.join(','));
                 }
                 
-                const res = await fetch(`http://localhost:5000/api/v1/admin/users/${id}/transactions?${params.toString()}`, { headers });
+                const res = await fetch(`http://localhost:5000/api/v1/admin/users/transactions?${params.toString()}`, { headers });
                 const json = await res.json();
                 if (json.success) {
                     setTransactions(json.data);
