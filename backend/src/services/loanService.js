@@ -195,7 +195,47 @@ class LoanService {
       await client.query(
         `INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description)
          VALUES ($1, 'loan_approve', $2, $3)`,
-        [adminId, applicationId.toString(), `Approved loan of ৳${app.requested_amount} for User ID ${app.user_id}. Loan ID: ${loanRes.rows[0].loan_id}`]
+        [adminId, loanId.toString(), `Admin #${adminId} approved Loan Application #${applicationId}. Created Loan ID: ${loanId}. Amount: ৳${app.requested_amount}`]
+      );
+
+      await client.query('COMMIT');
+      return { success: true , loanId: loanId};
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async rejectLoan(adminId, applicationId) {
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+
+      // 1. Update Application Status (and verify it exists/is still 'submitted')
+      const res = await client.query(
+        `UPDATE loan_applications 
+         SET decision_status = 'rejected' 
+         WHERE application_id = $1 AND decision_status = 'submitted'
+         RETURNING requested_amount, user_id`,
+        [applicationId]
+      );
+
+      if (res.rows.length === 0) {
+        throw new Error("Application not found or already processed.");
+      }
+      const app = res.rows[0];
+
+      // 2. Log Admin Activity
+      await client.query(
+        `INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description)
+         VALUES ($1, 'loan_reject', $2, $3)`,
+        [
+          adminId, 
+          applicationId.toString(), 
+          `Rejected loan application #${applicationId} for User ID ${app.user_id}. Amount: ৳${app.requested_amount}`
+        ]
       );
 
       await client.query('COMMIT');
@@ -206,14 +246,6 @@ class LoanService {
     } finally {
       client.release();
     }
-  }
-
-  async rejectLoan(applicationId) {
-    await query(
-      `UPDATE loan_applications SET decision_status = 'rejected' WHERE application_id = $1`,
-      [applicationId]
-    );
-    return { success: true };
   }
 
   async getAllLoansDetailed() {

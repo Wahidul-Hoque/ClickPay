@@ -43,7 +43,7 @@ export default function AllLoansPage() {
           <div>
             <Link href="/admin" className="inline-flex items-center gap-2 text-indigo-600 font-black text-[10px] uppercase tracking-widest mb-4 hover:translate-x-[-4px] transition-all group">
               <ArrowLeft size={14} className="group-hover:scale-125 transition-transform" /> 
-              Back to Directory
+              Back to Dashboard
             </Link>
             <h1 className="text-4xl font-black text-slate-950 tracking-tighter">Loan Portfolio</h1>
             <p className="text-slate-500 font-medium">Full historical record of system credit</p>

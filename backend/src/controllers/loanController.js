@@ -43,7 +43,7 @@ class LoanController {
 
   async adminReject(req, res, next) {
     try {
-      await loanService.rejectLoan(req.params.id);
+      await loanService.rejectLoan(req.user.userId,req.params.id);
       res.json({ success: true, message: "Loan application rejected." });
     } catch (error) { next(error); }
   }

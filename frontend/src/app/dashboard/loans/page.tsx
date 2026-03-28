@@ -92,7 +92,7 @@ export default function LoansPage() {
         </div>
       ) : (
         <div className="bg-white border border-slate-200 rounded-[2rem] p-10 shadow-sm">
-            <p className="text-slate-400 font-black uppercase text-xm tracking-widest">Your Credit Limit</p>
+            <p className="text-slate-400 font-black uppercase text-xm tracking-widest">Your Loan Limit</p>
             <h2 className="text-3xl font-black text-gray-800 tracking">৳{data.limit}</h2>
             <div className="mt-8 flex flex-col md:flex-row gap-4">
                 <input 
