@@ -103,7 +103,7 @@ const AllLoanApplications = () => {
         {/* Navigation */}
         <div className="mb-10">
           <Link href="/admin" className="inline-flex items-center gap-2 text-indigo-600 font-black text-xs uppercase tracking-widest hover:translate-x-[-4px] transition-all">
-            <span className="text-lg">←</span> Return to Dashboard
+            <span className="text-lg">←</span> Return to Directory
           </Link>
         </div>
 
