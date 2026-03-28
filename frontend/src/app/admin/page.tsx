@@ -127,11 +127,6 @@ export default function AdminDashboard() {
 
     const [datePickerTarget, setDatePickerTarget] = useState<string | null>(null);
 
-    const [notifyAudience, setNotifyAudience] = useState('all');
-    const [notifyPhone, setNotifyPhone] = useState('');
-    const [notifyMessage, setNotifyMessage] = useState('');
-    const [notifySending, setNotifySending] = useState(false);
-
     const [analytics, setAnalytics] = useState<any>(null);
     const [portfolio, setPortfolio] = useState<any>(null);
     const [audit, setAudit] = useState<any[]>([]);
@@ -264,45 +259,6 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleSendNotification = async () => {
-        if (!notifyMessage.trim()) return toast.error("Message is required");
-        if (notifyAudience === 'phone' && !notifyPhone.trim()) return toast.error("Phone number is required");
-        
-        try {
-            setNotifySending(true);
-            const token = localStorage.getItem('token');
-            console.log('[NOTIFY] Sending...', { audience: notifyAudience, message: notifyMessage, hasToken: !!token });
-            const res = await fetch(`http://localhost:5000/api/v1/admin/notifications/send`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    audience: notifyAudience,
-                    phone: notifyAudience === 'phone' ? notifyPhone : undefined,
-                    message: notifyMessage
-                })
-            });
-            console.log('[NOTIFY] Response status:', res.status);
-            const data = await res.json();
-            console.log('[NOTIFY] Response data:', data);
-            if (data.success) {
-                toast.success(`Notification sent to ${data.sentCount} recipient(s)`);
-                setNotifyMessage('');
-                setNotifyPhone('');
-                setNotifyAudience('all');
-            } else {
-                toast.error(data.error || data.message || "Failed to send notification");
-            }
-        } catch (error) {
-            console.error('[NOTIFY] Error:', error);
-            toast.error("An error occurred");
-        } finally {
-            setNotifySending(false);
-        }
-    };
-
     const methodTotals: Record<string, number> = {};
     if (trendData && trendData.length > 0) {
         trendData.forEach(d => {
@@ -356,8 +312,7 @@ export default function AdminDashboard() {
                     <NavBtn icon={<Users />} label="Agent Performance" active={activeSection === 'agents'} onClick={() => scrollToSection('agents')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Store />} label="Merchant Performance" active={activeSection === 'merchants'} onClick={() => scrollToSection('merchants')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Landmark />} label="Loans & Savings" active={activeSection === 'loans'} onClick={() => scrollToSection('loans')} collapsed={!isSidebarOpen} />
-                    <NavBtn icon={<RefreshCcw />} label="Reconciliation" active={activeSection === 'recon'} onClick={() => scrollToSection('recon')} collapsed={!isSidebarOpen}/>
-                    <NavBtn icon={<Bell />} label="Send Notification" active={activeSection === 'notify'} onClick={() => scrollToSection('notify')} collapsed={!isSidebarOpen} />
+                    <NavBtn icon={<RefreshCcw />} label="Reconciliation" active={activeSection === 'recon'} onClick={() => scrollToSection('recon')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Activity />} label="System Audit" active={activeSection === 'audit'} onClick={() => scrollToSection('audit')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Settings />} label="System Settings" active={activeSection === 'settings'} onClick={() => router.push('/admin/settings')} collapsed={!isSidebarOpen} />
                 </nav>
@@ -796,70 +751,6 @@ export default function AdminDashboard() {
                                     <div>
                                         <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Active Plans</p>
                                         <p className="text-lg font-black">42</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* SECTION: SEND NOTIFICATIONS */}
-                    <section id="notify" className="scroll-mt-32">
-                        <div className="mb-6">
-                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">System Notifications</h2>
-                            <p className="text-slate-500 font-medium">Broadcast messages to users, agents, and merchants</p>
-                        </div>
-                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-6">
-                                    <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-2">Target Audience</label>
-                                        <select 
-                                            value={notifyAudience}
-                                            onChange={(e) => setNotifyAudience(e.target.value)}
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-slate-700 transition-all"
-                                        >
-                                            <option value="all">All Active Users (User, Agent, Merchant)</option>
-                                            <option value="users">Regular Users</option>
-                                            <option value="agents">Agents</option>
-                                            <option value="merchants">Merchants</option>
-                                            <option value="phone">Specific Phone Number</option>
-                                        </select>
-                                    </div>
-                                    
-                                    {notifyAudience === 'phone' && (
-                                        <div className="animate-fadeIn">
-                                            <label className="block text-sm font-bold text-slate-700 mb-2">Recipient Phone</label>
-                                            <input 
-                                                type="text" 
-                                                placeholder="e.g. 017XXXXXXXX"
-                                                value={notifyPhone}
-                                                onChange={(e) => setNotifyPhone(e.target.value)}
-                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-slate-700 transition-all"
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                                
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-2">Message</label>
-                                    <textarea 
-                                        rows={4}
-                                        placeholder="Type your notification message here..."
-                                        value={notifyMessage}
-                                        onChange={(e) => setNotifyMessage(e.target.value)}
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-slate-700 transition-all resize-none"
-                                    ></textarea>
-                                    <div className="text-right mt-2 flex justify-end">
-                                        <button 
-                                            onClick={handleSendNotification}
-                                            disabled={notifySending}
-                                            className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-sm shadow-xl shadow-indigo-600/20 hover:scale-[1.02] transition-all disabled:opacity-50 flex items-center gap-2"
-                                        >
-                                            {notifySending ? (
-                                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                            ) : <Bell size={18} />}
-                                            {notifySending ? 'Sending...' : 'Broadcast Notification'}
-                                        </button>
                                     </div>
                                 </div>
                             </div>

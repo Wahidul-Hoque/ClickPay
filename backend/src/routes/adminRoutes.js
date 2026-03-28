@@ -19,6 +19,5 @@ router.get('/agent/rankings', protect, adminController.getRankings);
 router.get('/agent/regions', protect, adminController.getRegions);
 router.get('/merchant/rankings', protect, adminController.getMerchantRankings);
 router.get('/merchant/regions', protect, adminController.getMerchantRegions);
-router.post('/notifications/send', protect, adminController.sendNotification);
 
 export default router;

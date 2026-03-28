@@ -2,52 +2,41 @@
 
 import { useState, useEffect } from 'react';
 import { Bell, Trash2, RefreshCw } from 'lucide-react';
-import { notificationAPI } from '@/lib/api';
+import { transactionAPI } from '@/lib/api';
 
-interface Notification {
-  notification_id: string;
-  message: string;
+interface Transaction {
+  transaction_id: string;
+  amount: string;
+  transaction_type: string;
+  status: string;
   created_at: string;
+  from_name: string;
+  from_phone: string;
+  to_name: string;
+  to_phone: string;
+  direction: 'credit' | 'debit';
 }
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
-    fetchNotifications();
+    fetchTransactions();
   }, [page]);
 
-  const fetchNotifications = async () => {
+  const fetchTransactions = async () => {
     try {
       setLoading(true);
-      const response = await notificationAPI.getNotifications(page, 10);
-      setNotifications(response.data.data);
+      const response = await transactionAPI.getHistory({ page, limit: 10 });
+      setTransactions(response.data.data);
       setTotalPages(response.data.pagination?.totalPages || 1);
     } catch (error) {
-      console.error('Failed to fetch notifications:', error);
+      console.error('Failed to fetch transactions:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDelete = async (notificationId: string) => {
-    try {
-      await notificationAPI.deleteNotification(notificationId);
-      setNotifications(prev => prev.filter(n => n.notification_id !== notificationId));
-    } catch (error) {
-      console.error('Failed to delete notification:', error);
-    }
-  };
-
-  const handleClearAll = async () => {
-    try {
-      await notificationAPI.clearAll();
-      setNotifications([]);
-    } catch (error) {
-      console.error('Failed to clear notifications:', error);
     }
   };
 
@@ -68,20 +57,11 @@ export default function NotificationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Notifications</h1>
-          <p className="text-gray-600 mt-1">All your notifications</p>
+          <p className="text-gray-600 mt-1">All your activity notifications</p>
         </div>
         <div className="flex items-center space-x-2">
-          {notifications.length > 0 && (
-            <button
-              onClick={handleClearAll}
-              className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors flex items-center space-x-2 text-sm"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>Clear All</span>
-            </button>
-          )}
           <button
-            onClick={fetchNotifications}
+            onClick={fetchTransactions}
             className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center space-x-2 text-sm"
           >
             <RefreshCw className="w-4 h-4" />
@@ -96,43 +76,58 @@ export default function NotificationsPage() {
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : notifications.length === 0 ? (
+        ) : transactions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center mb-4">
               <Bell className="w-7 h-7 text-slate-400" />
             </div>
-            <p className="font-semibold text-slate-700">No notifications yet</p>
+            <p className="font-semibold text-slate-700">No recent notifications</p>
             <p className="text-sm text-slate-400 mt-1">You're all caught up!</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {notifications.map((n) => (
-              <div
-                key={`notif-${n.notification_id}`}
-                className="flex items-start gap-4 p-5 hover:bg-slate-50 transition-colors group cursor-default"
-              >
-                <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-primary-200 transition-colors">
-                  <Bell className="w-5 h-5 text-primary-600" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-semibold text-slate-800">
-                        {n.message}
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-1">{formatTime(n.created_at)}</p>
+            {transactions.map((t) => {
+              const isCredit = t.direction === 'credit';
+              const directionName = isCredit ? t.from_name : t.to_name;
+
+              let displayType = t.transaction_type.replace(/_/g, ' ');
+              displayType = displayType.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+              if (t.transaction_type === 'transfer') {
+                displayType = isCredit ? 'Received Money' : 'Send Money';
+              } else if (t.transaction_type === 'cash_in') {
+                displayType = 'Cash In';
+              }
+
+              return (
+                <div
+                  key={`notif-${t.transaction_id}`}
+                  className="flex items-start gap-4 p-5 hover:bg-slate-50 transition-colors group cursor-default"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-primary-200 transition-colors">
+                    <Bell className="w-5 h-5 text-primary-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-semibold text-slate-800 truncate">
+                          {displayType}
+                        </p>
+                        <p className="text-sm text-slate-500 mt-0.5">
+                          {isCredit ? directionName : `To: ${directionName}`}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0 ml-2">
+                        <p className={`font-bold ${isCredit ? 'text-emerald-600' : 'text-slate-800'}`}>
+                          {isCredit ? '+' : '-'}৳{parseFloat(t.amount).toFixed(2)}
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-1">{formatTime(t.created_at)}</p>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => handleDelete(n.notification_id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500"
-                      title="Delete notification"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

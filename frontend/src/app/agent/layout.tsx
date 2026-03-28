@@ -16,7 +16,6 @@ import {
   Shield,
   Trophy,
   CreditCard,
-  Bell,
 } from 'lucide-react';
 
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
@@ -65,8 +64,8 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
     { name: 'Add Money', href: '/agent/payment_methods', icon: CreditCard },
     { name: 'Transactions', href: '/agent/transactions', icon: FileText },
     { name: 'Ranking', href: '/agent/rankings', icon: Trophy },
-    { name: 'Notifications', href: '/agent/notifications', icon: Bell },
     { name: 'Settings', href: '/agent/settings', icon: Settings },
+
   ];
 
   const isActive = (href: string) =>
