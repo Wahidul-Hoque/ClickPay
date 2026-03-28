@@ -46,7 +46,7 @@ CREATE TABLE transactions (
   to_wallet_id      BIGINT NOT NULL REFERENCES wallets(wallet_id),
   amount            NUMERIC(18,2) NOT NULL CHECK (amount > 0),
   transaction_type  VARCHAR(30) NOT NULL,
-  status            VARCHAR(20) NOT NULL CHECK (status IN ('initiated','pending','on_hold','completed','failed')),
+  status            VARCHAR(20) NOT NULL CHECK (status IN ('initiated','pending','on_hold','completed','failed','reversed')),
   reference         VARCHAR(150),
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
