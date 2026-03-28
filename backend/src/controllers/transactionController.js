@@ -246,6 +246,29 @@ class TransactionController {
     }
   }
 
+    async reverse(req, res, next) {
+    try {
+      const { id } = req.params;
+      
+      if (!id) {
+        return res.status(400).json({ success: false, message: 'Transaction ID is required' });
+      }
+
+      const result = await transactionService.reverseTransaction(id , req.user.userId );
+      return res.json({ 
+        success: true, 
+        message: 'Transaction reversed successfully', 
+        data: result 
+      });
+
+    } catch (error) {
+      if (error.message.includes('not found') || error.message.includes('insufficient')) {
+        return res.status(400).json({ success: false, message: error.message });
+      }
+      next(error);
+    }
+  }
+
   async getIncomingRequests(req, res, next) {
     try {
       const result = await transactionService.getIncomingRequests(req.user.userId);

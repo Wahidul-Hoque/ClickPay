@@ -945,6 +945,103 @@ class TransactionService {
 
     return updateRes.rows[0];
   }
+
+  // REVERSE TRANSACTION (Admin Only)
+  async reverseTransaction(transactionId , adminUserId) {
+    const client = await getClient();
+    let reversalTxnId = null;
+
+    try {
+      await client.query('BEGIN');
+
+      // 1. Fetch original transaction
+      const txnRes = await client.query(
+        `SELECT * FROM transactions WHERE transaction_id = $1 AND status = 'completed'`,
+        [transactionId]
+      );
+      if (txnRes.rows.length === 0) throw new Error('Original completed transaction not found');
+      const originalTxn = txnRes.rows[0];
+
+            const refCheck = await client.query(
+        `SELECT 1 FROM transactions WHERE reference = $1`,
+        [`REV-${originalTxn.reference}`]
+      );
+      if (refCheck.rows.length > 0) {
+        throw new Error('A reversal record already exists for this transaction');
+      }
+
+      const reversibleTypes = ['transfer', 'request_payment'];
+      if (!reversibleTypes.includes(originalTxn.transaction_type)) {
+        throw new Error('Only standard peer-to-peer transfers or paid money requests can be reversed');
+      }
+
+      // 2. Lock wallets (Original Receiver becomes Sender, Original Sender becomes Receiver)
+      const receiverWalletRes = await client.query(
+        `SELECT wallet_id, user_id, balance, status FROM wallets WHERE wallet_id = $1 FOR UPDATE`,
+        [originalTxn.to_wallet_id]
+      );
+      const senderWalletRes = await client.query(
+        `SELECT wallet_id, user_id, balance, status FROM wallets WHERE wallet_id = $1 FOR UPDATE`,
+        [originalTxn.from_wallet_id]
+      );
+
+      const receiverWallet = receiverWalletRes.rows[0];
+      const senderWallet = senderWalletRes.rows[0];
+
+      if (parseFloat(receiverWallet.balance) < parseFloat(originalTxn.amount)) {
+        throw new Error('Receiver has insufficient balance to reverse this transaction');
+      }
+
+      // 3. Create reversal transaction record
+      const reference = `REV-${originalTxn.reference}`;
+      const revRes = await client.query(
+        `INSERT INTO transactions 
+           (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
+         VALUES ($1, $2, $3, 'reversal', 'initiated', $4)
+         RETURNING transaction_id`,
+        [receiverWallet.wallet_id, senderWallet.wallet_id, originalTxn.amount, reference]
+      );
+      reversalTxnId = revRes.rows[0].transaction_id;
+
+      // 4. Update Balances
+      await client.query(
+        'UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2',
+        [originalTxn.amount, receiverWallet.wallet_id]
+      );
+      await client.query(
+        'UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2',
+        [originalTxn.amount, senderWallet.wallet_id]
+      );
+
+      // 5. Finalize
+      await client.query(
+        `UPDATE transactions SET status = 'completed' WHERE transaction_id = $1`,
+        [reversalTxnId]
+      );
+      
+      await client.query('update transactions set status = $1 where transaction_id = $2', ['reversed', transactionId]);
+
+      await client.query(`INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description) VALUES ($1, $2, $3, $4)`, [adminUserId, 'reverse_transaction', transactionId, `Transaction reversed by Admin id ${adminUserId}. Reversal ID: ${reversalTxnId}`]);
+
+      // Update original transaction to link reversal
+      await logEvent(client, originalTxn.transaction_id, 'reversed', 'info', `Transaction reversed by Admin. Reversal ID: ${reversalTxnId}`);
+      await logEvent(client, reversalTxnId, 'completed', 'success', `Reversal of txn #${originalTxn.transaction_id} completed`);
+
+      await client.query(`insert into notifications (user_id, message) values ($1, $2)`, [receiverWallet.user_id, `A transaction of ৳${originalTxn.amount} has been reversed. Your wallet has been debited.`]);
+      await client.query(`insert into notifications (user_id, message) values ($1, $2)`, [senderWallet.user_id, `A transaction of ৳${originalTxn.amount} has been reversed. Your wallet has been credited.`]);
+
+      await client.query('COMMIT');
+      return { success: true, reversal_id: reversalTxnId, amount: originalTxn.amount };
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      if (reversalTxnId) await recordFailure(reversalTxnId, error.message);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
 }
 
 export default new TransactionService();

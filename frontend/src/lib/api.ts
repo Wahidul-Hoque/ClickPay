@@ -70,6 +70,8 @@ export const transactionAPI = {
     apiClient.post('/transactions/cash-out', data),
   getHistory: (params?: any) => apiClient.get('/transactions/history', { params }),
   getDetails: (id: string) => apiClient.get(`/transactions/${id}`),
+  reverse: (transactionId: string) => 
+    apiClient.post(`/transactions/${transactionId}/reverse`),
 };
 
 export const walletAPI = {

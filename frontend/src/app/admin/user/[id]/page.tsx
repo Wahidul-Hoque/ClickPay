@@ -3,7 +3,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { DatePickerDialog } from '@/components/DatePickerDialog';
-import { Search, MapPin, Calendar, ChevronDown, Trophy, ArrowLeft, ArrowUpRight, ArrowDownLeft, Send, Download, History, ArrowRightLeft } from 'lucide-react';
+import { 
+  Search, MapPin, Calendar, ChevronDown, Trophy, ArrowLeft, 
+  ArrowUpRight, ArrowDownLeft, Send, Download, History, 
+  ArrowRightLeft, RotateCcw, Loader2 
+} from 'lucide-react';
+import { transactionAPI } from '@/lib/api';
+import toast from 'react-hot-toast';
 
 function useOnClickOutside(ref: any, handler: any) {
   useEffect(() => {
@@ -18,10 +24,12 @@ function useOnClickOutside(ref: any, handler: any) {
 }
 
 export default function UserHistoryPage() {
-    const { id } = useParams();
+    const params = useParams();
+    const id = params?.id; // Safely get ID from params
     const router = useRouter();
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [reversingId, setReversingId] = useState<string | null>(null);
 
     const [filters, setFilters] = useState({
         startDate: '',
@@ -36,33 +44,56 @@ export default function UserHistoryPage() {
 
     useOnClickOutside(typeDropdownRef, () => setIsTypeDropdownOpen(false));
 
-    useEffect(() => {
-        const fetchHistory = async () => {
-            try {
-                setLoading(true);
-                const token = localStorage.getItem('token');
-                const headers = { Authorization: `Bearer ${token}` };
-                
-                const params = new URLSearchParams();
-                if (activeFilters.startDate) params.append('startDate', activeFilters.startDate);
-                if (activeFilters.endDate) params.append('endDate', activeFilters.endDate);
-                if (activeFilters.transactionTypes.length > 0) {
-                    params.append('types', activeFilters.transactionTypes.join(','));
-                }
-                
-                const res = await fetch(`http://localhost:5000/api/v1/admin/users/${id}/transactions?${params.toString()}`, { headers });
-                const json = await res.json();
-                if (json.success) {
-                    setTransactions(json.data);
-                }
-            } catch (err) {
-                console.error("Failed to fetch transactions", err);
-            } finally {
-                setLoading(false);
+    // Fetch History Logic
+    const fetchHistory = async () => {
+        if (!id || id === 'undefined') return;
+        try {
+            setLoading(true);
+            const token = localStorage.getItem('token');
+            const headers = { Authorization: `Bearer ${token}` };
+            
+            const queryParams = new URLSearchParams();
+            if (activeFilters.startDate) queryParams.append('startDate', activeFilters.startDate);
+            if (activeFilters.endDate) queryParams.append('endDate', activeFilters.endDate);
+            if (activeFilters.transactionTypes.length > 0) {
+                queryParams.append('types', activeFilters.transactionTypes.join(','));
             }
-        };
+            
+            const res = await fetch(`http://localhost:5000/api/v1/admin/users/${id}/transactions?${queryParams.toString()}`, { headers });
+            const json = await res.json();
+            if (json.success) {
+                setTransactions(json.data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch transactions", err);
+            toast.error("Failed to load ledger");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchHistory();
     }, [id, activeFilters]);
+
+    // Reversal Handler
+    const handleReverse = async (transactionId: string) => {
+        if (!confirm('Are you sure you want to reverse this transaction? The receiver will send the exact money back to the sender.')) return;
+        
+        try {
+            setReversingId(transactionId);
+            const res = await transactionAPI.reverse(transactionId);
+            if (res.data.success) {
+                toast.success('Transaction reversed successfully');
+                fetchHistory(); // Refresh the list to show the reversal
+            }
+        } catch (err: any) {
+            const msg = err.response?.data?.message || 'Reversal failed';
+            toast.error(msg);
+        } finally {
+            setReversingId(null);
+        }
+    };
 
     const handleCheckboxChange = (type: string) => {
         setFilters(prev => {
@@ -94,10 +125,12 @@ export default function UserHistoryPage() {
         cash_in: 'Cash In',
         cash_out: 'Cash Out',
         send_money: 'Send Money',
+        transfer: 'Transfer',
         add_money: 'Add Money',
         request_payment: 'Request Money',
         agent_fee: 'Agent Fee',
-        platform_fee: 'Platform Fee'
+        platform_fee: 'Platform Fee',
+        reversal: 'Reversal'
     };
 
     return (
@@ -136,7 +169,7 @@ export default function UserHistoryPage() {
                     </div>
                 </div>
 
-                {/* Filter Block matching AgentRankingList */}
+                {/* Filter Block */}
                 <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 mb-8 flex flex-wrap gap-4 items-end">
                     <div className="flex-1 min-w-[200px] relative" ref={typeDropdownRef}>
                         <label className="block text-[10px] font-black tracking-widest text-slate-400 uppercase mb-2">Transaction Type</label>
@@ -154,7 +187,7 @@ export default function UserHistoryPage() {
                         {isTypeDropdownOpen && (
                             <div className="absolute z-20 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden p-2">
                                 <div className="max-h-64 overflow-y-auto p-2 space-y-2 custom-scrollbar">
-                                    {['cash_in', 'cash_out', 'send_money', 'add_money', 'request_payment', 'agent_fee', 'platform_fee'].map(type => (
+                                    {['cash_in', 'cash_out', 'send_money', 'add_money', 'request_payment', 'agent_fee', 'platform_fee', 'reversal'].map(type => (
                                         <label key={type} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors group">
                                             <div className="relative flex items-center justify-center w-5 h-5 rounded-md border border-slate-300 group-hover:border-indigo-400">
                                                 <input 
@@ -221,20 +254,24 @@ export default function UserHistoryPage() {
                                 <th className="px-8 py-5">Entity Flow</th>
                                 <th className="px-8 py-5 text-right">Amount</th>
                                 <th className="px-8 py-5">Ref / Notes</th>
+                                <th className="px-8 py-5 text-center">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {loading ? (
-                                <tr><td colSpan={5} className="px-8 py-12 text-center text-slate-400 font-bold animate-pulse">Scanning ledgers...</td></tr>
+                                <tr><td colSpan={6} className="px-8 py-12 text-center text-slate-400 font-bold animate-pulse">Scanning ledgers...</td></tr>
                             ) : transactions.length > 0 ? (
                                 transactions.map((t, idx) => {
+                                    // Logic to check if a transaction can be reversed
+                                    const isReversible = ['transfer', 'request_payment'].includes(t.transaction_type);
+
                                     return (
                                         <tr key={idx} className="hover:bg-slate-50/50 transition-all font-medium group">
                                             <td className="px-8 py-5 text-xs font-bold text-slate-500 whitespace-nowrap">
                                                 {new Date(t.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year:'numeric', hour: '2-digit', minute:'2-digit' })}
                                             </td>
                                             <td className="px-8 py-5">
-                                                <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+                                                <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${t.transaction_type === 'reversal' ? 'bg-amber-100 text-amber-600' : 'bg-indigo-50 text-indigo-600'}`}>
                                                     {txTypeLabels[t.transaction_type] || t.transaction_type}
                                                 </span>
                                             </td>
@@ -254,11 +291,29 @@ export default function UserHistoryPage() {
                                                 {t.reference || '-'}
                                                 <div className="text-[9px] uppercase tracking-widest mt-1 opacity-0 group-hover:opacity-100 transition-all text-slate-300">TXN ID: {t.transaction_id}</div>
                                             </td>
+                                            <td className="px-8 py-5 text-center">
+                                                {isReversible ? (
+                                                    <button
+                                                        onClick={() => handleReverse(t.transaction_id)}
+                                                        disabled={reversingId === t.transaction_id}
+                                                        className="p-2 bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white rounded-xl transition-all shadow-sm border border-amber-100 group/btn disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        title="Reverse Transaction"
+                                                    >
+                                                        {reversingId === t.transaction_id ? (
+                                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                                        ) : (
+                                                            <RotateCcw className="w-4 h-4 group-hover/btn:-rotate-45 transition-transform" />
+                                                        )}
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-[10px] text-slate-300 font-bold uppercase tracking-tighter">N/A</span>
+                                                )}
+                                            </td>
                                         </tr>
                                     );
                                 })
                             ) : (
-                                <tr><td colSpan={5} className="px-8 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No transaction history found</td></tr>
+                                <tr><td colSpan={6} className="px-8 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No transaction history found</td></tr>
                             )}
                         </tbody>
                     </table>

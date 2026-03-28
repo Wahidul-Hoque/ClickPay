@@ -65,4 +65,7 @@ router.get('/history', protect, transactionController.getHistory);
 // NOTE: keep this LAST so it doesn't shadow named paths above
 router.get('/:id', protect, transactionController.getDetails);
 
+// POST /api/v1/transactions/:id/reverse
+router.post('/:id/reverse', protect, authorize('admin'), transactionController.reverse);
+
 export default router;
