@@ -347,38 +347,10 @@ class AdminService {
   }
 
   // 12: Audit Logs
-    async getAuditLogs(limit = 20) {
-    const client = await getClient();
-    try {
-      const res = await client.query(`
-        SELECT 
-          log.log_id,
-          log.admin_user_id,
-          admin.name AS admin_name,
-          log.action_type,
-          log.target_id,
-          log.description,
-          log.created_at
-        FROM admin_activity_logs log
-        JOIN users admin ON log.admin_user_id = admin.user_id
-        ORDER BY log.created_at DESC
-        LIMIT $1
-      `, [limit]);
-
-      return res.rows;
-    } catch (error) {
-      console.error("Error fetching audit logs:", error);
-      // Return empty array or system message on failure so the dashboard doesn't crash
-      return [{ 
-        admin_name: 'System', 
-        action_type: 'error', 
-        description: 'Failed to fetch logs', 
-        target_id: 'DB', 
-        created_at: new Date() 
-      }];
-    } finally {
-      client.release();
-    }
+  async getAuditLogs() {
+    return [
+      { admin_name: 'System', action_type: 'System Started', target_id: 'SYSTEM', created_at: new Date() }
+    ];
   }
 
   // Get distinct cities

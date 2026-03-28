@@ -3,7 +3,40 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-    Users,  ShieldCheck,  Search,  Bell, Settings, Menu, X,LogOut,  LayoutDashboard,PieChart, Landmark,Store, UserRound,History, Activity, Lock, Unlock,   Filter,    RefreshCcw,    ArrowRightLeft,    DollarSign,    Percent,ArrowRightLeft as ArrowRightLeftIcon,
+    Users, 
+    TrendingUp, 
+    ShieldCheck, 
+    ArrowRight, 
+    Search, 
+    Bell, 
+    Settings, 
+    Menu, 
+    X, 
+    LogOut, 
+    FileText, 
+    ShieldAlert, 
+    UserCheck, 
+    UserMinus, 
+    Wallet, 
+    LayoutDashboard,
+    PieChart,
+    Calendar,
+    Download,
+    Eye,
+    Landmark,
+    Trophy,
+    Store,
+    UserRound,
+    History,
+    Activity,
+    Lock,
+    Unlock,
+    Filter,
+    RefreshCcw,
+    ArrowRightLeft,
+    DollarSign,
+    Percent,
+    ArrowRightLeft as ArrowRightLeftIcon
 } from 'lucide-react';
 import AgentRankingList from '@/components/AgentRankingList';
 import MerchantRankingList from '@/components/MerchantRankingList';
@@ -126,6 +159,11 @@ export default function AdminDashboard() {
     const [userSearch, setUserSearch] = useState("");
 
     const [datePickerTarget, setDatePickerTarget] = useState<string | null>(null);
+
+    const [notifyAudience, setNotifyAudience] = useState('all');
+    const [notifyPhone, setNotifyPhone] = useState('');
+    const [notifyMessage, setNotifyMessage] = useState('');
+    const [notifySending, setNotifySending] = useState(false);
 
     const [analytics, setAnalytics] = useState<any>(null);
     const [portfolio, setPortfolio] = useState<any>(null);
@@ -259,6 +297,45 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleSendNotification = async () => {
+        if (!notifyMessage.trim()) return toast.error("Message is required");
+        if (notifyAudience === 'phone' && !notifyPhone.trim()) return toast.error("Phone number is required");
+        
+        try {
+            setNotifySending(true);
+            const token = localStorage.getItem('token');
+            console.log('[NOTIFY] Sending...', { audience: notifyAudience, message: notifyMessage, hasToken: !!token });
+            const res = await fetch(`http://localhost:5000/api/v1/admin/notifications/send`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    audience: notifyAudience,
+                    phone: notifyAudience === 'phone' ? notifyPhone : undefined,
+                    message: notifyMessage
+                })
+            });
+            console.log('[NOTIFY] Response status:', res.status);
+            const data = await res.json();
+            console.log('[NOTIFY] Response data:', data);
+            if (data.success) {
+                toast.success(`Notification sent to ${data.sentCount} recipient(s)`);
+                setNotifyMessage('');
+                setNotifyPhone('');
+                setNotifyAudience('all');
+            } else {
+                toast.error(data.error || data.message || "Failed to send notification");
+            }
+        } catch (error) {
+            console.error('[NOTIFY] Error:', error);
+            toast.error("An error occurred");
+        } finally {
+            setNotifySending(false);
+        }
+    };
+
     const methodTotals: Record<string, number> = {};
     if (trendData && trendData.length > 0) {
         trendData.forEach(d => {
@@ -312,7 +389,8 @@ export default function AdminDashboard() {
                     <NavBtn icon={<Users />} label="Agent Performance" active={activeSection === 'agents'} onClick={() => scrollToSection('agents')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Store />} label="Merchant Performance" active={activeSection === 'merchants'} onClick={() => scrollToSection('merchants')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Landmark />} label="Loans & Savings" active={activeSection === 'loans'} onClick={() => scrollToSection('loans')} collapsed={!isSidebarOpen} />
-                    <NavBtn icon={<RefreshCcw />} label="Reconciliation" active={activeSection === 'recon'} onClick={() => scrollToSection('recon')} collapsed={!isSidebarOpen} />
+                    <NavBtn icon={<RefreshCcw />} label="Reconciliation" active={activeSection === 'recon'} onClick={() => scrollToSection('recon')} collapsed={!isSidebarOpen}/>
+                    <NavBtn icon={<Bell />} label="Send Notification" active={activeSection === 'notify'} onClick={() => scrollToSection('notify')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Activity />} label="System Audit" active={activeSection === 'audit'} onClick={() => scrollToSection('audit')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Settings />} label="System Settings" active={activeSection === 'settings'} onClick={() => router.push('/admin/settings')} collapsed={!isSidebarOpen} />
                 </nav>
@@ -347,7 +425,14 @@ export default function AdminDashboard() {
                         </div>
                         <div className="flex gap-2">
                             <IconButton icon={<Bell size={20}/>} badge />
-                            
+                            <div className="h-10 w-[1px] bg-slate-200 mx-2"></div>
+                            <div className="flex items-center gap-3">
+                                <div className="text-right hidden sm:block">
+                                    <p className="text-sm font-black text-slate-800">Wahid Hoque</p>
+                                    <p className="text-[10px] text-indigo-600 font-bold">Super Admin</p>
+                                </div>
+                                <div className="w-12 h-12 rounded-2xl bg-slate-900 border-4 border-white shadow-xl flex items-center justify-center text-white font-black text-lg">W</div>
+                            </div>
                         </div>
                     </div>
                 </header>
@@ -700,7 +785,7 @@ export default function AdminDashboard() {
                                         onChange={(e) => setUserSearch(e.target.value)}
                                     />
                                 </div>
-                                
+                                <button className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 hover:scale-105 transition-all whitespace-nowrap">+ New User</button>
                             </div>
                         </div>
                         <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm">
@@ -757,61 +842,99 @@ export default function AdminDashboard() {
                         </div>
                     </section>
 
-                    {/* SECTION 10, 12: RECONCILIATION & AUDIT */}
-<section id="recon" className="scroll-mt-32">
-    <div className="space-y-10">
-        {/* --- Top Part: Settlement Summary (Now Full Width) --- */}
-        <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm">
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-                <div>
-                    <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Settlement & Reconciliation</h2>
-                    <p className="text-slate-500 font-medium">Daily inflow vs outflow audit</p>
-                </div>
-                <div className="flex gap-8 bg-slate-50 p-6 rounded-2xl border border-slate-100 flex-1 md:max-w-2xl justify-around">
-                    <ReconItem label="Inflow" value={`+৳${analytics?.reconciliation?.inflow || 0}`} />
-                    <div className="w-[1px] h-8 bg-slate-200 hidden md:block"></div>
-                    <ReconItem label="Outflow" value={`-৳${analytics?.reconciliation?.outflow || 0}`} />
-                    <div className="w-[1px] h-8 bg-slate-200 hidden md:block"></div>
-                    <ReconItem 
-                        label="Net Flow" 
-                        value={`৳${(parseFloat(analytics?.reconciliation?.inflow || 0) - parseFloat(analytics?.reconciliation?.outflow || 0)).toLocaleString()}`} 
-                        success={parseFloat(analytics?.reconciliation?.inflow || 0) - parseFloat(analytics?.reconciliation?.outflow || 0) >= 0} 
-                    />
-                </div>
-            </div>
-        </div>
+                    {/* SECTION: SEND NOTIFICATIONS */}
+                    <section id="notify" className="scroll-mt-32">
+                        <div className="mb-6">
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">System Notifications</h2>
+                            <p className="text-slate-500 font-medium">Broadcast messages to users, agents, and merchants</p>
+                        </div>
+                        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Target Audience</label>
+                                        <select 
+                                            value={notifyAudience}
+                                            onChange={(e) => setNotifyAudience(e.target.value)}
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-slate-700 transition-all"
+                                        >
+                                            <option value="all">All Active Users (User, Agent, Merchant)</option>
+                                            <option value="users">Regular Users</option>
+                                            <option value="agents">Agents</option>
+                                            <option value="merchants">Merchants</option>
+                                            <option value="phone">Specific Phone Number</option>
+                                        </select>
+                                    </div>
+                                    
+                                    {notifyAudience === 'phone' && (
+                                        <div className="animate-fadeIn">
+                                            <label className="block text-sm font-bold text-slate-700 mb-2">Recipient Phone</label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="e.g. 017XXXXXXXX"
+                                                value={notifyPhone}
+                                                onChange={(e) => setNotifyPhone(e.target.value)}
+                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-slate-700 transition-all"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">Message</label>
+                                    <textarea 
+                                        rows={4}
+                                        placeholder="Type your notification message here..."
+                                        value={notifyMessage}
+                                        onChange={(e) => setNotifyMessage(e.target.value)}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-slate-700 transition-all resize-none"
+                                    ></textarea>
+                                    <div className="text-right mt-2 flex justify-end">
+                                        <button 
+                                            onClick={handleSendNotification}
+                                            disabled={notifySending}
+                                            className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-sm shadow-xl shadow-indigo-600/20 hover:scale-[1.02] transition-all disabled:opacity-50 flex items-center gap-2"
+                                        >
+                                            {notifySending ? (
+                                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            ) : <Bell size={18} />}
+                                            {notifySending ? 'Sending...' : 'Broadcast Notification'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
 
-        {/* --- Bottom Part: Admin Action History (Now Full Width) --- */}
-        <div id="audit" className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm flex flex-col">
-            <div className="flex justify-between items-center mb-8">
-                <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest flex items-center gap-3">
-                    <Activity className="text-indigo-600"/> Security & Admin Action History
-                </h4>
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full">
-                    {audit.length} Recent Logs
-                </span>
-            </div>
-            
-            {/* The list now spans the full width */}
-            <div className="flex-1 space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                {audit.length > 0 ? audit.map((a, i) => (
-                    <AuditLog 
-                        key={i} 
-                        admin={a.admin_name || `Admin #${a.admin_user_id}`} 
-                        action={a.action_type} 
-                        target={a.target_id} 
-                        description={a.description} 
-                        time={new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })} 
-                    />
-                )) : (
-                    <div className="text-center py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-100">
-                        <p className="text-slate-400 font-black uppercase text-xs tracking-widest">No activity logs found in the system</p>
-                    </div>
-                )}
-            </div>
-        </div>
-    </div>
-</section>
+                    {/* SECTION 10, 12: RECONCILIATION & AUDIT */}
+                    <section id="recon" className="scroll-mt-32">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                            <div className="space-y-8">
+                                <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Settlement & Audit</h2>
+                                <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                                    <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest mb-6">Daily Reconciliation Dashboard</h4>
+                                    <div className="space-y-6">
+                                        <ReconItem label="Inflow (Cash In/Add Money)" value={`+৳${analytics?.reconciliation?.inflow || 0}`} />
+                                        <ReconItem label="Outflow (Cash Out/Payment)" value={`-৳${analytics?.reconciliation?.outflow || 0}`} />
+                                        <div className="h-[1px] bg-slate-100"></div>
+                                        <ReconItem label="Net Cash Flow" value={`৳${parseFloat(analytics?.reconciliation?.inflow || 0) - parseFloat(analytics?.reconciliation?.outflow || 0)}`} success={parseFloat(analytics?.reconciliation?.inflow || 0) - parseFloat(analytics?.reconciliation?.outflow || 0) >= 0} />
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="audit" className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm flex flex-col">
+                                <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest mb-6 flex items-center gap-3">
+                                    <Activity className="text-indigo-600"/> Admin Action History
+                                </h4>
+                                <div className="flex-1 space-y-4 max-h-80 overflow-y-auto pr-4">
+                                    {audit.length > 0 ? audit.map((a, i) => (
+                                        <AuditLog key={i} admin={a.admin_name || 'System'} action={a.action_type} target={`ID: ${a.target_id}`} time={new Date(a.created_at).toLocaleTimeString()} />
+                                    )) : (
+                                        <p className="text-slate-400 text-sm">No audit logs found...</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </section>
 
                 </div>
             </main>
@@ -887,21 +1010,18 @@ function SegmentRow({ label, value, percent, color }: any) {
     );
 }
 
-function AuditLog({ admin, action, target, description, time }: any) {
+function AuditLog({ admin, action, target, time }: any) {
     return (
-        <div className="group p-4 bg-slate-50 hover:bg-white border border-transparent rounded-2xl transition-all">
-            <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                    {/* Status Dot: Red for rejections/freezes, Green for approvals */}
-                    <div className={`w-2 h-2 rounded-full ${action.includes('reject') || action.includes('freeze') ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
-                    <span className="text-[10px] font-black text-slate-800 uppercase tracking-tighter">{admin}</span>
-                    <span className="px-2 py-0.5 bg-slate-200 text-slate-600 rounded-md text-[9px] font-black uppercase tracking-widest">{action.replace('_', ' ')}</span>
+        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+            <div className="flex items-center gap-4">
+                <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                <div className="text-xs">
+                    <span className="font-black text-slate-800">{admin}</span>
+                    <span className="mx-2 text-indigo-600 font-bold">{action}</span>
+                    <span className="text-slate-400">on {target}</span>
                 </div>
-                <span className="text-[9px] font-bold text-slate-400">{time}</span>
             </div>
-            {/* Show the detailed description we added to the database */}
-            <p className="text-xs text-slate-600 font-medium leading-relaxed">{description}</p>
-            {target && <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded mt-2 inline-block">ID: {target}</span>}
+            <span className="text-[10px] font-black text-slate-300">{time}</span>
         </div>
     );
 }

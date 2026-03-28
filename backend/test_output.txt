@@ -1,0 +1,99 @@
+﻿
+=== 1. Check notifications table ===
+Γ£à Connected to PostgreSQL database (Supabase)
+Executed query {
+  text: '\n      SELECT column_name, data_type \n      FROM information...',
+  duration: '2836ms',
+  rows: 4
+}
+Columns: [
+  { column_name: 'notification_id', data_type: 'bigint' },
+  { column_name: 'user_id', data_type: 'bigint' },
+  { column_name: 'message', data_type: 'character varying' },
+  { column_name: 'created_at', data_type: 'timestamp with time zone' }
+]
+
+=== 2. Count existing notifications ===
+Executed query {
+  text: 'SELECT COUNT(*) as cnt FROM notifications...',
+  duration: '116ms',
+  rows: 1
+}
+Current count: 2
+
+=== 3. Find a sample user ===
+Executed query {
+  text: "SELECT user_id, name, phone, role FROM users WHERE role = 'u...",
+  duration: '399ms',
+  rows: 3
+}
+Found users: [
+  {
+    user_id: '2',
+    name: 'Bob Ahmed',
+    phone: '01722222222',
+    role: 'user'
+  },
+  {
+    user_id: '5',
+    name: 'Evan Hossain',
+    phone: '01755555555',
+    role: 'user'
+  },
+  {
+    user_id: '9',
+    name: 'Fahim Siddique',
+    phone: '01234567890',
+    role: 'user'
+  }
+]
+
+=== 4. Insert test notification for user_id=2 ===
+Executed query {
+  text: 'INSERT INTO notifications (user_id, message) VALUES ($1, $2)...',
+  duration: '300ms',
+  rows: 1
+}
+Inserted: {
+  notification_id: '3',
+  user_id: '2',
+  message: 'Test notification from debug script',
+  created_at: 2026-03-27T18:51:18.503Z
+}
+
+=== 5. Verify insertion ===
+Executed query {
+  text: 'SELECT * FROM notifications WHERE user_id = $1 ORDER BY crea...',
+  duration: '309ms',
+  rows: 2
+}
+User notifications: [
+  {
+    notification_id: '3',
+    user_id: '2',
+    message: 'Test notification from debug script',
+    created_at: 2026-03-27T18:51:18.503Z
+  },
+  {
+    notification_id: '2',
+    user_id: '2',
+    message: 'Test notification from debug script',
+    created_at: 2026-03-27T18:51:03.114Z
+  }
+]
+
+=== 6. Users by role ===
+Executed query {
+  text: 'SELECT role, status, COUNT(*) as cnt FROM users GROUP BY rol...',
+  duration: '151ms',
+  rows: 5
+}
+Roles: [
+  { role: 'admin', status: 'active', cnt: '3' },
+  { role: 'agent', status: 'active', cnt: '9' },
+  { role: 'merchant', status: 'active', cnt: '6' },
+  { role: 'user', status: 'active', cnt: '12' },
+  { role: 'user', status: 'frozen', cnt: '1' }
+]
+
+=== DONE ===

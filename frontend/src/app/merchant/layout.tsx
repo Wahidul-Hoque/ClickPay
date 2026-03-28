@@ -17,7 +17,8 @@ import {
   Activity,
   CreditCard,
   Send,
-  History
+  History,
+  Bell
 } from 'lucide-react';
 
 export default function MerchantLayout({ children }: { children: React.ReactNode }) {
@@ -76,6 +77,7 @@ export default function MerchantLayout({ children }: { children: React.ReactNode
     { name: 'Add Money', href: '/merchant/payment_methods', icon: CreditCard },
     { name: 'Rankings', href: '/merchant/rankings', icon: Trophy },
     { name: 'Analytics', href: '/merchant/analytics', icon: Activity },
+    { name: 'Notifications', href: '/merchant/notifications', icon: Bell },
     { name: 'Settings', href: '/merchant/settings', icon: Settings },
   ];
 

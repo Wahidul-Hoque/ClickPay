@@ -3,14 +3,11 @@ CREATE TABLE users (
   user_id     BIGSERIAL PRIMARY KEY,
   name        VARCHAR(150),
   phone       VARCHAR(30)  NOT NULL UNIQUE,
+  email       VARCHAR(150) UNIQUE,
   nid         VARCHAR(50)  NOT NULL UNIQUE,
   epin_hash   VARCHAR(255) NOT NULL,
-  role        VARCHAR(20)  NOT NULL CHECK (role IN ('user','agent','admin','merchant')),
+  role        VARCHAR(20)  NOT NULL CHECK (role IN ('user','agent','admin')),
   status      VARCHAR(30)  NOT NULL,
-  city        VARCHAR(100),
-  email       VARCHAR(255) UNIQUE,
-  reset_otp   VARCHAR(6),
-  reset_otp_expiry TIMESTAMP,
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
@@ -18,7 +15,7 @@ CREATE TABLE users (
 CREATE TABLE wallets (
   wallet_id      BIGSERIAL PRIMARY KEY,
   user_id        BIGINT NOT NULL REFERENCES users(user_id),
-  wallet_type    VARCHAR(20) NOT NULL CHECK (wallet_type IN ('user', 'agent', 'system', 'merchant', 'user_savings')),
+  wallet_type    VARCHAR(20) NOT NULL CHECK (wallet_type IN ('user','agent','system')),
   system_purpose VARCHAR(50),
   balance        NUMERIC(18,2) DEFAULT 0 NOT NULL CHECK (balance >= 0),
   status         VARCHAR(20) NOT NULL CHECK (status IN ('active','frozen','closed')),
@@ -30,29 +27,28 @@ CREATE TABLE wallets (
   )
 );
 
+-- PAYMENT_METHODS
+CREATE TABLE payment_methods (
+  payment_method_id  BIGSERIAL PRIMARY KEY,
+  user_id            BIGINT NOT NULL REFERENCES users(user_id),
+  type               VARCHAR(20) NOT NULL CHECK (type IN ('bank','card')),
+  provider           VARCHAR(60) NOT NULL,
+  masked_identifier  VARCHAR(100) NOT NULL,
+  token              VARCHAR(255) NOT NULL,
+  status             VARCHAR(20) NOT NULL CHECK (status IN ('active','disabled')),
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- TRANSACTIONS
 CREATE TABLE transactions (
   transaction_id    BIGSERIAL PRIMARY KEY,
-  from_wallet_id    BIGINT  REFERENCES wallets(wallet_id),
-  from_bank_account_id BIGINT REFERENCES mock_bank_accounts(account_id),
-  from_card_account_id BIGINT REFERENCES mock_card_accounts(card_id),
+  from_wallet_id    BIGINT NOT NULL REFERENCES wallets(wallet_id),
   to_wallet_id      BIGINT NOT NULL REFERENCES wallets(wallet_id),
   amount            NUMERIC(18,2) NOT NULL CHECK (amount > 0),
   transaction_type  VARCHAR(30) NOT NULL,
   status            VARCHAR(20) NOT NULL CHECK (status IN ('initiated','pending','on_hold','completed','failed')),
   reference         VARCHAR(150),
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-ALTER TABLE transactions
-ADD CONSTRAINT check_transaction_source_logic
-CHECK (
-  (transaction_type = 'bank_transfer' AND from_bank_account_id IS NOT NULL AND from_wallet_id IS NULL AND from_card_account_id IS NULL)
-  OR 
-  (transaction_type = 'card_transfer' AND from_card_account_id IS NOT NULL AND from_wallet_id IS NULL AND from_bank_account_id IS NULL)
-  OR
-  (transaction_type NOT IN ('bank_transfer', 'card_transfer') AND from_wallet_id IS NOT NULL AND from_bank_account_id IS NULL AND from_card_account_id IS NULL)
 );
 
 -- TRANSACTION_EVENTS
@@ -86,6 +82,22 @@ CREATE TABLE agent_fees (
   created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- EXTERNAL_TOPUPS
+-- NOTE: payment_method_id is nullable to support agent cash-ins
+-- (which have no bank/card payment method).
+-- For bank/card top-ups, payment_method_id should always be set.
+-- Migration (if table already exists): 
+--   ALTER TABLE external_topups ALTER COLUMN payment_method_id DROP NOT NULL;
+CREATE TABLE external_topups (
+  topup_id            BIGSERIAL PRIMARY KEY,
+  wallet_id           BIGINT NOT NULL REFERENCES wallets(wallet_id),
+  payment_method_id   BIGINT REFERENCES payment_methods(payment_method_id), -- nullable for agent cash-ins
+  transaction_id      BIGINT REFERENCES transactions(transaction_id),
+  amount              NUMERIC(18,2) NOT NULL CHECK (amount > 0),
+  provider_reference  VARCHAR(150),
+  status              VARCHAR(20) NOT NULL CHECK (status IN ('initiated','pending','verified','completed','failed')),
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- BILLERS
 CREATE TABLE billers (
@@ -144,7 +156,7 @@ CREATE TABLE fixed_savings_accounts (
   savings_wallet_id      BIGINT NOT NULL REFERENCES wallets(wallet_id),
   principal_amount       NUMERIC(18,2) NOT NULL CHECK (principal_amount > 0),
   annual_interest_rate   NUMERIC(6,5) NOT NULL CHECK (annual_interest_rate >= 0),
-  finish_at               TIMESTAMPTZ NOT NULL,
+  start_at               TIMESTAMPTZ NOT NULL,
   status                 VARCHAR(20) NOT NULL CHECK (status IN ('active','broken','closed')),
   created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -210,81 +222,25 @@ CREATE TABLE notifications (
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ADMIN_ACTIVITY_LOGS (Feature #12)
+-- FAVORITES
+CREATE TABLE favorites (
+  id                  BIGSERIAL PRIMARY KEY,
+  user_id             BIGINT NOT NULL REFERENCES users(user_id),
+  type                VARCHAR(20) NOT NULL CHECK (type IN ('number','agent')),
+  name                VARCHAR(150) NOT NULL,
+  phone               VARCHAR(30) NOT NULL,
+  is_favorite         BOOLEAN DEFAULT FALSE,
+  marked_favorite_at  TIMESTAMPTZ,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, phone, type)
+);
+
+-- ADMIN_ACTIVITY_LOGS
 CREATE TABLE admin_activity_logs (
-  log_id          BIGSERIAL PRIMARY KEY,
-  admin_user_id   BIGINT NOT NULL REFERENCES users(user_id),
-  action_type     VARCHAR(50) NOT NULL, -- e.g., 'user_freeze', 'rate_change', 'loan_approve'
-  target_id       VARCHAR(50),          -- ID of the user or record modified
-  description     TEXT,                 -- Detailed explanation of the change
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
---  Create Master Banks Table
-CREATE TABLE banks (
-  bank_id    SERIAL PRIMARY KEY,
-  name       VARCHAR(100) NOT NULL UNIQUE
-);
-
---  Create Master Card Networks Table
-CREATE TABLE card_networks (
-  network_id SERIAL PRIMARY KEY,
-  name       VARCHAR(50) NOT NULL UNIQUE
-);
-
--- 1. Simulated Database of a Real Bank
-CREATE TABLE mock_bank_accounts (
-  account_id          SERIAL PRIMARY KEY,
-  bank_id             INTEGER NOT NULL REFERENCES banks(bank_id),
-  account_holder_name VARCHAR(150) NOT NULL,
-  phone_number        VARCHAR(30) NOT NULL, -- User will enter this to "Link"
-  bank_pin            VARCHAR(10) NOT NULL, -- User will enter this to "Link"
-  current_balance     NUMERIC(18,2) NOT NULL DEFAULT 10000.00 CHECK (current_balance >= 0),
-  UNIQUE(bank_id, phone_number) -- One phone number per bank
-);
-
--- 2. (Optional) Create a similar one for Cards if you want
-CREATE TABLE mock_card_accounts (
-  card_id             SERIAL PRIMARY KEY,
-  network_id          INTEGER NOT NULL REFERENCES card_networks(network_id),
-  card_number         VARCHAR(19) NOT NULL UNIQUE, -- User enters this
-  expiry_date         VARCHAR(5) NOT NULL, -- MM/YY
-  cvv                 VARCHAR(3) NOT NULL, --card verification value
-  current_balance     NUMERIC(18,2) NOT NULL DEFAULT 5000.00 CHECK (current_balance >= 0)
-);
-
-
--- 3. Which User has "Linked" which Mock Account to their MFS profile
-CREATE TABLE user_payment_methods (
-  method_id          BIGSERIAL PRIMARY KEY,
-  user_id            BIGINT NOT NULL REFERENCES users(user_id),
-  method_type        VARCHAR(10) NOT NULL CHECK (method_type IN ('bank', 'card')),
-  
-  -- Link to either a mock bank or a mock card
-  mock_bank_account_id INTEGER REFERENCES mock_bank_accounts(account_id),
-  mock_card_account_id INTEGER REFERENCES mock_card_accounts(card_id),
-  
-  status             VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'disabled')),
-  created_at         TIMESTAMPTZ DEFAULT NOW(),
-
-  -- Logic: ensure it's linked to exactly one mock record
-  CONSTRAINT chk_link_source CHECK (
-    (method_type = 'bank' AND mock_bank_account_id IS NOT NULL) OR
-    (method_type = 'card' AND mock_card_account_id IS NOT NULL)
-  ),
-  -- Prevent linking the same account twice to the same user
-  UNIQUE(user_id, mock_bank_account_id),
-  UNIQUE(user_id, mock_card_account_id)
-);
-
-
--- 4. The actual "Add Money" / Top-up Transaction
-CREATE TABLE external_topups (
-  topup_id            BIGSERIAL PRIMARY KEY,
-  wallet_id           BIGINT NOT NULL REFERENCES wallets(wallet_id),
-  method_id           BIGINT NOT NULL REFERENCES user_payment_methods(method_id),
-  amount              NUMERIC(18,2) NOT NULL CHECK (amount > 0),
-  status              VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
-  transaction_id      BIGINT REFERENCES transactions(transaction_id),
-  created_at          TIMESTAMPTZ DEFAULT NOW()
+  log_id         BIGSERIAL PRIMARY KEY,
+  admin_user_id  BIGINT NOT NULL REFERENCES users(user_id),
+  action_type    VARCHAR(50) NOT NULL,
+  target_id      VARCHAR(100),
+  description    TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
