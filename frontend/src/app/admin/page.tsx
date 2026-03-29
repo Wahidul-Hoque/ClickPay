@@ -425,14 +425,7 @@ export default function AdminDashboard() {
                         </div>
                         <div className="flex gap-2">
                             <IconButton icon={<Bell size={20}/>} badge />
-                            <div className="h-10 w-[1px] bg-slate-200 mx-2"></div>
-                            <div className="flex items-center gap-3">
-                                <div className="text-right hidden sm:block">
-                                    <p className="text-sm font-black text-slate-800">Wahid Hoque</p>
-                                    <p className="text-[10px] text-indigo-600 font-bold">Super Admin</p>
-                                </div>
-                                <div className="w-12 h-12 rounded-2xl bg-slate-900 border-4 border-white shadow-xl flex items-center justify-center text-white font-black text-lg">W</div>
-                            </div>
+                            
                         </div>
                     </div>
                 </header>
@@ -785,7 +778,7 @@ export default function AdminDashboard() {
                                         onChange={(e) => setUserSearch(e.target.value)}
                                     />
                                 </div>
-                                <button className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 hover:scale-105 transition-all whitespace-nowrap">+ New User</button>
+                                
                             </div>
                         </div>
                         <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm">
