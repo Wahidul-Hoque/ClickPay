@@ -12,6 +12,7 @@
 
 import { query, getClient } from '../config/database.js';
 import { comparePassword } from '../middleware/auth.js';
+import fraudDetectionService from './fraudDetectionService.js';
 
 // ──────────────────────────────────────────────────────────────
 // INTERNAL HELPERS
@@ -195,6 +196,11 @@ class TransactionService {
 
       await client.query('COMMIT');
 
+      // Fire-and-forget fraud detection check (non-blocking)
+      fraudDetectionService.checkForRepeatedTransactions(
+        senderWallet.wallet_id, receiverWallet.wallet_id, amount, 'transfer'
+      ).catch(err => console.error('[FRAUD] Non-blocking check error:', err.message));
+
       return {
         transaction_id: transactionId,
         reference,
@@ -298,6 +304,11 @@ class TransactionService {
       await client.query("UPDATE transactions SET status = 'completed' WHERE transaction_id = $1", [transactionId]);
       await client.query('COMMIT');
       console.log('[TX] COMMIT successful');
+
+      // Fire-and-forget fraud detection check
+      fraudDetectionService.checkForRepeatedTransactions(
+        merchantWallet[0].wallet_id, receiverWallet[0].wallet_id, amount, 'merchant_transfer'
+      ).catch(err => console.error('[FRAUD] Non-blocking check error:', err.message));
 
       const { rows: finalBal } = await client.query('SELECT balance FROM wallets WHERE wallet_id = $1', [merchantWallet[0].wallet_id]);
 
@@ -444,6 +455,11 @@ class TransactionService {
 
       await client.query('COMMIT');
 
+      // Fire-and-forget fraud detection check
+      fraudDetectionService.checkForRepeatedTransactions(
+        agentWallet.wallet_id, userWallet.wallet_id, amount, 'cash_in'
+      ).catch(err => console.error('[FRAUD] Non-blocking check error:', err.message));
+
       return {
         transaction_id: transactionId,
         reference,
@@ -568,6 +584,11 @@ class TransactionService {
       await logEvent(client, transactionId, 'completed', 'success', `Cashout successful`);
 
       await client.query('COMMIT');
+
+      // Fire-and-forget fraud detection check
+      fraudDetectionService.checkForRepeatedTransactions(
+        userWallet.wallet_id, agentWallet.wallet_id, amount, 'cash_out'
+      ).catch(err => console.error('[FRAUD] Non-blocking check error:', err.message));
 
       return {
         transaction_id: transactionId,

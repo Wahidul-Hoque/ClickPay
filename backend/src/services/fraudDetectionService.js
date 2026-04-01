@@ -1,0 +1,281 @@
+// ==============================================
+// FRAUD DETECTION SERVICE
+// ==============================================
+// Detects suspicious transaction patterns:
+//   - If the SAME transaction (same sender, receiver, amount, type) occurs
+//     5+ times within a 1-hour window, it is flagged as suspicious.
+//   - A fraud_alerts record is created.
+//   - An automatic notification is sent to the user.
+//   - Admin is notified and can freeze the account.
+
+import { query, getClient } from '../config/database.js';
+
+class FraudDetectionService {
+
+  // ──────────────────────────────────────────────────────────────
+  // CHECK FOR REPEATED TRANSACTIONS (called after each successful txn)
+  // ──────────────────────────────────────────────────────────────
+  async checkForRepeatedTransactions(fromWalletId, toWalletId, amount, transactionType) {
+    try {
+      // Count how many completed transactions with the SAME
+      // (from_wallet, to_wallet, amount, type) exist in the last 1 hour
+      const result = await query(
+        `SELECT COUNT(*) AS repeat_count
+         FROM transactions
+         WHERE from_wallet_id = $1
+           AND to_wallet_id = $2
+           AND amount = $3
+           AND transaction_type = $4
+           AND status = 'completed'
+           AND created_at > NOW() - INTERVAL '1 hour'`,
+        [fromWalletId, toWalletId, amount, transactionType]
+      );
+
+      const repeatCount = parseInt(result.rows[0].repeat_count);
+      console.log(`[FRAUD] Repeat check: ${repeatCount} identical transactions in last hour (threshold: 5)`);
+
+      if (repeatCount >= 5) {
+        // Get the user_id from the sender wallet
+        const walletRes = await query(
+          'SELECT user_id FROM wallets WHERE wallet_id = $1',
+          [fromWalletId]
+        );
+        if (walletRes.rows.length === 0) return;
+        const flaggedUserId = walletRes.rows[0].user_id;
+
+        // Get the receiver info
+        const receiverRes = await query(
+          `SELECT u.name, u.phone FROM wallets w JOIN users u ON w.user_id = u.user_id WHERE w.wallet_id = $1`,
+          [toWalletId]
+        );
+        const receiverName = receiverRes.rows[0]?.name || 'Unknown';
+        const receiverPhone = receiverRes.rows[0]?.phone || 'Unknown';
+
+        // Check if an alert already exists for this pattern in the last hour (avoid duplicate alerts)
+        const existingAlert = await query(
+          `SELECT 1 FROM fraud_alerts
+           WHERE flagged_user_id = $1
+             AND from_wallet_id = $2
+             AND to_wallet_id = $3
+             AND amount = $4
+             AND status IN ('pending', 'reviewed')
+             AND created_at > NOW() - INTERVAL '1 hour'`,
+          [flaggedUserId, fromWalletId, toWalletId, amount]
+        );
+
+        if (existingAlert.rows.length > 0) {
+          console.log('[FRAUD] Alert already exists for this pattern, skipping duplicate.');
+          return;
+        }
+
+        // Create fraud alert
+        const alertDescription = `User made ${repeatCount} identical ${transactionType} transactions of ৳${amount} to ${receiverName} (${receiverPhone}) within the last hour.`;
+
+        const alertRes = await query(
+          `INSERT INTO fraud_alerts 
+             (flagged_user_id, from_wallet_id, to_wallet_id, amount, transaction_type, repeat_count, description, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+           RETURNING alert_id`,
+          [flaggedUserId, fromWalletId, toWalletId, amount, transactionType, repeatCount, alertDescription]
+        );
+
+        const alertId = alertRes.rows[0].alert_id;
+        console.log(`[FRAUD] ⚠️ Alert #${alertId} created for user ${flaggedUserId}`);
+
+        // Send automatic notification to the user
+        await query(
+          `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
+          [
+            flaggedUserId,
+            `⚠️ Security Alert: We detected ${repeatCount} identical transactions of ৳${amount} to ${receiverPhone} within the last hour. If you did not authorize these transactions, please contact support immediately. Your account may be temporarily restricted for safety.`
+          ]
+        );
+
+        // Send notification to ALL admins
+        const adminsRes = await query(
+          `SELECT user_id FROM users WHERE role = 'admin' AND status = 'active'`
+        );
+        for (const admin of adminsRes.rows) {
+          await query(
+            `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
+            [
+              admin.user_id,
+              `🚨 Fraud Alert #${alertId}: User ID ${flaggedUserId} made ${repeatCount} identical ${transactionType} transactions of ৳${amount} to ${receiverPhone}. Review and take action.`
+            ]
+          );
+        }
+
+        console.log(`[FRAUD] Notifications sent to user ${flaggedUserId} and ${adminsRes.rows.length} admin(s)`);
+        return { alert: true, alertId, repeatCount };
+      }
+
+      return { alert: false, repeatCount };
+    } catch (error) {
+      // Fraud check should never block a legitimate transaction
+      console.error('[FRAUD] Error during fraud check (non-blocking):', error.message);
+      return { alert: false, error: error.message };
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  // GET ALL FRAUD ALERTS (Admin)
+  // ──────────────────────────────────────────────────────────────
+  async getFraudAlerts(status = null, limit = 50) {
+    let whereClause = '';
+    const params = [];
+
+    if (status) {
+      params.push(status);
+      whereClause = `WHERE fa.status = $${params.length}`;
+    }
+
+    params.push(limit);
+    const limitIdx = params.length;
+
+    const result = await query(
+      `SELECT 
+         fa.alert_id,
+         fa.flagged_user_id,
+         u.name AS user_name,
+         u.phone AS user_phone,
+         u.status AS user_status,
+         fa.from_wallet_id,
+         fa.to_wallet_id,
+         fa.amount,
+         fa.transaction_type,
+         fa.repeat_count,
+         fa.description,
+         fa.status AS alert_status,
+         fa.resolved_by,
+         fa.resolved_at,
+         fa.resolution_note,
+         fa.created_at,
+         ru.name AS resolved_by_name
+       FROM fraud_alerts fa
+       JOIN users u ON fa.flagged_user_id = u.user_id
+       LEFT JOIN users ru ON fa.resolved_by = ru.user_id
+       ${whereClause}
+       ORDER BY fa.created_at DESC
+       LIMIT $${limitIdx}`,
+      params
+    );
+
+    return result.rows;
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  // RESOLVE FRAUD ALERT (Admin action: freeze or dismiss)
+  // ──────────────────────────────────────────────────────────────
+  async resolveAlert(alertId, adminUserId, action, note = '') {
+    const client = await getClient();
+
+    try {
+      await client.query('BEGIN');
+
+      // 1. Fetch the alert
+      const alertRes = await client.query(
+        'SELECT * FROM fraud_alerts WHERE alert_id = $1 FOR UPDATE',
+        [alertId]
+      );
+      if (alertRes.rows.length === 0) throw new Error('Fraud alert not found');
+      const alert = alertRes.rows[0];
+
+      if (alert.status !== 'pending') {
+        throw new Error(`Alert is already ${alert.status}`);
+      }
+
+      const flaggedUserId = alert.flagged_user_id;
+
+      if (action === 'freeze') {
+        // Freeze the user account
+        await client.query(
+          `UPDATE users SET status = 'frozen' WHERE user_id = $1`,
+          [flaggedUserId]
+        );
+        // Freeze all wallets
+        await client.query(
+          `UPDATE wallets SET status = 'frozen' WHERE user_id = $1`,
+          [flaggedUserId]
+        );
+
+        // Mark alert as resolved
+        await client.query(
+          `UPDATE fraud_alerts 
+           SET status = 'frozen', resolved_by = $1, resolved_at = NOW(), resolution_note = $2
+           WHERE alert_id = $3`,
+          [adminUserId, note || 'Account frozen due to suspicious activity', alertId]
+        );
+
+        // Log admin activity
+        await client.query(
+          `INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description)
+           VALUES ($1, $2, $3, $4)`,
+          [
+            adminUserId,
+            'fraud_freeze',
+            flaggedUserId.toString(),
+            `Froze user account (ID: ${flaggedUserId}) due to fraud alert #${alertId}. ${note || ''}`
+          ]
+        );
+
+        // Notify user
+        await client.query(
+          `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
+          [
+            flaggedUserId,
+            `🔒 Your account has been frozen due to suspicious transaction activity detected by our security system. Please contact support for assistance.`
+          ]
+        );
+
+      } else if (action === 'dismiss') {
+        // Mark alert as dismissed
+        await client.query(
+          `UPDATE fraud_alerts 
+           SET status = 'dismissed', resolved_by = $1, resolved_at = NOW(), resolution_note = $2
+           WHERE alert_id = $3`,
+          [adminUserId, note || 'Alert dismissed after review', alertId]
+        );
+
+        // Log admin activity
+        await client.query(
+          `INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description)
+           VALUES ($1, $2, $3, $4)`,
+          [
+            adminUserId,
+            'fraud_dismiss',
+            flaggedUserId.toString(),
+            `Dismissed fraud alert #${alertId} for user ID ${flaggedUserId}. ${note || ''}`
+          ]
+        );
+      } else {
+        throw new Error('Invalid action. Use "freeze" or "dismiss"');
+      }
+
+      await client.query('COMMIT');
+
+      return { success: true, action, alertId, flaggedUserId };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  // GET FRAUD ALERT STATS (counts by status)
+  // ──────────────────────────────────────────────────────────────
+  async getAlertStats() {
+    const result = await query(
+      `SELECT 
+         COUNT(*) FILTER (WHERE status = 'pending') AS pending,
+         COUNT(*) FILTER (WHERE status = 'frozen') AS frozen,
+         COUNT(*) FILTER (WHERE status = 'dismissed') AS dismissed,
+         COUNT(*) AS total
+       FROM fraud_alerts`
+    );
+    return result.rows[0];
+  }
+}
+
+export default new FraudDetectionService();

@@ -2,6 +2,7 @@ import adminService from '../services/adminService.js';
 import agentService from '../services/agentService.js';
 import merchantService from '../services/merchantService.js';
 import notificationService from '../services/notificationService.js';
+import fraudDetectionService from '../services/fraudDetectionService.js';
 
 class AdminController {
   async getDashboardData(req, res, next) {
@@ -142,6 +143,43 @@ class AdminController {
       next(error);
     }
   }
+
+  // ── FRAUD DETECTION ENDPOINTS ──────────────────────────────
+
+  async getFraudAlerts(req, res, next) {
+    try {
+      const { status } = req.query;
+      const alerts = await fraudDetectionService.getFraudAlerts(status || null);
+      res.json({ success: true, data: alerts });
+    } catch (error) { next(error); }
+  }
+
+  async resolveFraudAlert(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { action, note } = req.body;
+      const adminId = req.user.userId;
+
+      if (!action || !['freeze', 'dismiss'].includes(action)) {
+        return res.status(400).json({ success: false, message: 'Action must be "freeze" or "dismiss"' });
+      }
+
+      const result = await fraudDetectionService.resolveAlert(parseInt(id), adminId, action, note);
+      res.json({ success: true, message: `Alert ${action === 'freeze' ? 'resolved - account frozen' : 'dismissed'}`, ...result });
+    } catch (error) {
+      if (error.message.includes('not found') || error.message.includes('already')) {
+        return res.status(400).json({ success: false, message: error.message });
+      }
+      next(error);
+    }
+  }
+
+  async getFraudStats(req, res, next) {
+    try {
+      const stats = await fraudDetectionService.getAlertStats();
+      res.json({ success: true, data: stats });
+    } catch (error) { next(error); }
+  }
 }
 
-export default new AdminController();
+export default new AdminController();

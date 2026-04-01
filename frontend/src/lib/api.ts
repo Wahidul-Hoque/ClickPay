@@ -196,6 +196,23 @@ export const adminApi = {
       // This maps to /api/v1/loans/admin/detailed in your backend
       const response = await apiClient.get('/loans/admin/detailed');
       return response.data;
+    },
+
+    // Fraud Detection
+    getFraudAlerts: async (status?: string) => {
+      const params = status ? `?status=${status}` : '';
+      const response = await apiClient.get(`/admin/fraud/alerts${params}`);
+      return response.data;
+    },
+
+    resolveFraudAlert: async (alertId: number, action: 'freeze' | 'dismiss', note?: string) => {
+      const response = await apiClient.post(`/admin/fraud/alerts/${alertId}/resolve`, { action, note });
+      return response.data;
+    },
+
+    getFraudStats: async () => {
+      const response = await apiClient.get('/admin/fraud/stats');
+      return response.data;
     }
 };
 

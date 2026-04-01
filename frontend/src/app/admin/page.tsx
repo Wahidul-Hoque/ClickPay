@@ -172,6 +172,13 @@ export default function AdminDashboard() {
     const [cities, setCities] = useState<string[]>([]);
     const router = useRouter();
 
+    // Fraud Detection State
+    const [fraudAlerts, setFraudAlerts] = useState<any[]>([]);
+    const [fraudStats, setFraudStats] = useState<any>(null);
+    const [fraudFilter, setFraudFilter] = useState<string>('');
+    const [fraudLoading, setFraudLoading] = useState(false);
+    const [fraudResolving, setFraudResolving] = useState<number | null>(null);
+
     useEffect(() => {
         const fetchAdminData = async () => {
             try {
@@ -277,6 +284,34 @@ export default function AdminDashboard() {
         return () => clearTimeout(delay);
     }, [userSearch]);
 
+    // Fetch Fraud Alerts
+    useEffect(() => {
+        const fetchFraudData = async () => {
+            try {
+                setFraudLoading(true);
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                const headers = { Authorization: `Bearer ${token}` };
+
+                const alertsUrl = `http://localhost:5000/api/v1/admin/fraud/alerts${fraudFilter ? `?status=${fraudFilter}` : ''}`;
+                const [alertsRes, statsRes] = await Promise.all([
+                    fetch(alertsUrl, { headers }),
+                    fetch('http://localhost:5000/api/v1/admin/fraud/stats', { headers })
+                ]);
+                const alertsData = await alertsRes.json();
+                const statsData = await statsRes.json();
+
+                if (alertsData.success) setFraudAlerts(alertsData.data);
+                if (statsData.success) setFraudStats(statsData.data);
+            } catch (error) {
+                console.error('Failed to fetch fraud data', error);
+            } finally {
+                setFraudLoading(false);
+            }
+        };
+        fetchFraudData();
+    }, [fraudFilter]);
+
     const toggleUserStatus = async (id: number, currentStatus: string) => {
         const action = currentStatus === 'active' ? 'freeze' : 'unfreeze';
         try {
@@ -336,6 +371,49 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleResolveFraudAlert = async (alertId: number, action: 'freeze' | 'dismiss') => {
+        const confirmMsg = action === 'freeze'
+            ? 'Are you sure you want to FREEZE this user\'s account? They will not be able to transact.'
+            : 'Are you sure you want to DISMISS this alert? The user\'s account will remain active.';
+        if (!confirm(confirmMsg)) return;
+
+        try {
+            setFraudResolving(alertId);
+            const token = localStorage.getItem('token');
+            const res = await fetch(`http://localhost:5000/api/v1/admin/fraud/alerts/${alertId}/resolve`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ action })
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success(data.message);
+                // Refresh alerts
+                setFraudAlerts(prev => prev.map(a => a.alert_id === alertId ? { ...a, alert_status: action === 'freeze' ? 'frozen' : 'dismissed' } : a));
+                // Refresh stats
+                const statsRes = await fetch('http://localhost:5000/api/v1/admin/fraud/stats', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const statsData = await statsRes.json();
+                if (statsData.success) setFraudStats(statsData.data);
+                // Also refresh user list
+                if (action === 'freeze') {
+                    setUsers(prev => prev.map(u => u.user_id === data.flaggedUserId ? { ...u, status: 'frozen' } : u));
+                }
+            } else {
+                toast.error(data.message || 'Failed to resolve alert');
+            }
+        } catch (error) {
+            console.error('Failed to resolve fraud alert', error);
+            toast.error('An error occurred while resolving the alert');
+        } finally {
+            setFraudResolving(null);
+        }
+    };
+
     const methodTotals: Record<string, number> = {};
     if (trendData && trendData.length > 0) {
         trendData.forEach(d => {
@@ -390,6 +468,7 @@ export default function AdminDashboard() {
                     <NavBtn icon={<Store />} label="Merchant Performance" active={activeSection === 'merchants'} onClick={() => scrollToSection('merchants')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Landmark />} label="Loans & Savings" active={activeSection === 'loans'} onClick={() => scrollToSection('loans')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<RefreshCcw />} label="Reconciliation" active={activeSection === 'recon'} onClick={() => scrollToSection('recon')} collapsed={!isSidebarOpen}/>
+                    <NavBtn icon={<ShieldAlert />} label="Fraud Alerts" active={activeSection === 'fraud'} onClick={() => scrollToSection('fraud')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Bell />} label="Send Notification" active={activeSection === 'notify'} onClick={() => scrollToSection('notify')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Activity />} label="System Audit" active={activeSection === 'audit'} onClick={() => scrollToSection('audit')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Settings />} label="System Settings" active={activeSection === 'settings'} onClick={() => router.push('/admin/settings')} collapsed={!isSidebarOpen} />
@@ -896,6 +975,157 @@ export default function AdminDashboard() {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </section>
+
+                    {/* SECTION: FRAUD DETECTION ALERTS */}
+                    <section id="fraud" className="scroll-mt-32">
+                        <div className="mb-6">
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Fraud Detection Center</h2>
+                            <p className="text-slate-500 font-medium">Monitor suspicious transaction patterns & take action</p>
+                        </div>
+
+                        {/* Fraud Stats Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+                            <div onClick={() => setFraudFilter('')} className={`bg-white p-6 rounded-2xl border cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 ${!fraudFilter ? 'border-indigo-300 ring-2 ring-indigo-100' : 'border-slate-200'}`}>
+                                <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center mb-4"><ShieldCheck className="text-indigo-600" size={22} /></div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Alerts</p>
+                                <p className="text-3xl font-black text-slate-900 mt-1">{fraudStats?.total || 0}</p>
+                            </div>
+                            <div onClick={() => setFraudFilter('pending')} className={`bg-white p-6 rounded-2xl border cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 ${fraudFilter === 'pending' ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-200'}`}>
+                                <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center mb-4"><ShieldAlert className="text-amber-600" size={22} /></div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending Review</p>
+                                <p className="text-3xl font-black text-amber-600 mt-1">{fraudStats?.pending || 0}</p>
+                            </div>
+                            <div onClick={() => setFraudFilter('frozen')} className={`bg-white p-6 rounded-2xl border cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 ${fraudFilter === 'frozen' ? 'border-rose-300 ring-2 ring-rose-100' : 'border-slate-200'}`}>
+                                <div className="w-12 h-12 bg-rose-50 rounded-xl flex items-center justify-center mb-4"><Lock className="text-rose-600" size={22} /></div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Accounts Frozen</p>
+                                <p className="text-3xl font-black text-rose-600 mt-1">{fraudStats?.frozen || 0}</p>
+                            </div>
+                            <div onClick={() => setFraudFilter('dismissed')} className={`bg-white p-6 rounded-2xl border cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5 ${fraudFilter === 'dismissed' ? 'border-emerald-300 ring-2 ring-emerald-100' : 'border-slate-200'}`}>
+                                <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center mb-4"><UserCheck className="text-emerald-600" size={22} /></div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dismissed</p>
+                                <p className="text-3xl font-black text-emerald-600 mt-1">{fraudStats?.dismissed || 0}</p>
+                            </div>
+                        </div>
+
+                        {/* Fraud Alerts List */}
+                        <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm">
+                            <div className="px-8 py-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                <div className="flex items-center gap-3">
+                                    <ShieldAlert className="text-rose-500" size={20} />
+                                    <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest">
+                                        {fraudFilter ? `${fraudFilter} alerts` : 'All Fraud Alerts'}
+                                    </h4>
+                                    <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-3 py-1 rounded-full uppercase tracking-widest">
+                                        {fraudAlerts.length} alerts
+                                    </span>
+                                </div>
+                                {fraudFilter && (
+                                    <button onClick={() => setFraudFilter('')} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all">
+                                        Show All
+                                    </button>
+                                )}
+                            </div>
+
+                            {fraudLoading ? (
+                                <div className="p-16 text-center">
+                                    <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Scanning for fraud alerts...</p>
+                                </div>
+                            ) : fraudAlerts.length === 0 ? (
+                                <div className="p-16 text-center">
+                                    <ShieldCheck className="mx-auto text-emerald-300 mb-4" size={48} />
+                                    <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No fraud alerts found</p>
+                                    <p className="text-xs text-slate-300 mt-2">System is monitoring all transactions in real-time</p>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-slate-50 max-h-[600px] overflow-y-auto">
+                                    {fraudAlerts.map((alert: any) => (
+                                        <div key={alert.alert_id} className={`px-8 py-6 hover:bg-slate-50/80 transition-all ${
+                                            alert.alert_status === 'pending' ? 'border-l-4 border-l-amber-400' :
+                                            alert.alert_status === 'frozen' ? 'border-l-4 border-l-rose-400' :
+                                            'border-l-4 border-l-emerald-400'
+                                        }`}>
+                                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                                                <div className="flex-1">
+                                                    <div className="flex flex-wrap items-center gap-3 mb-2">
+                                                        <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-tighter ${
+                                                            alert.alert_status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                                            alert.alert_status === 'frozen' ? 'bg-rose-100 text-rose-700' :
+                                                            'bg-emerald-100 text-emerald-700'
+                                                        }`}>
+                                                            {alert.alert_status}
+                                                        </span>
+                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                            Alert #{alert.alert_id}
+                                                        </span>
+                                                        <span className="px-2 py-0.5 bg-rose-50 text-rose-600 rounded-md text-[10px] font-black">
+                                                            {alert.repeat_count}× in 1 hour
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-400 text-sm">
+                                                            {alert.user_name ? alert.user_name[0] : '?'}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-black text-slate-800 text-sm">{alert.user_name || 'Unknown User'}</p>
+                                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                                                {alert.user_phone} • Account: <span className={alert.user_status === 'active' ? 'text-emerald-600' : 'text-rose-600'}>{alert.user_status}</span>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <p className="text-xs text-slate-600 leading-relaxed">{alert.description}</p>
+
+                                                    <div className="flex flex-wrap gap-3 mt-3">
+                                                        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">
+                                                            💰 ৳{alert.amount}
+                                                        </span>
+                                                        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">
+                                                            📋 {alert.transaction_type}
+                                                        </span>
+                                                        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">
+                                                            🕐 {new Date(alert.created_at).toLocaleString()}
+                                                        </span>
+                                                    </div>
+
+                                                    {alert.resolved_by_name && (
+                                                        <p className="text-[10px] text-slate-400 mt-2 italic">
+                                                            Resolved by {alert.resolved_by_name} on {new Date(alert.resolved_at).toLocaleString()}
+                                                            {alert.resolution_note && ` — "${alert.resolution_note}"`}
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                {alert.alert_status === 'pending' && (
+                                                    <div className="flex gap-2 shrink-0">
+                                                        <button
+                                                            onClick={() => handleResolveFraudAlert(alert.alert_id, 'freeze')}
+                                                            disabled={fraudResolving === alert.alert_id}
+                                                            className="px-5 py-2.5 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/20 disabled:opacity-50 flex items-center gap-2"
+                                                        >
+                                                            {fraudResolving === alert.alert_id ? (
+                                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                            ) : <Lock size={14} />}
+                                                            Freeze Account
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleResolveFraudAlert(alert.alert_id, 'dismiss')}
+                                                            disabled={fraudResolving === alert.alert_id}
+                                                            className="px-5 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all disabled:opacity-50 flex items-center gap-2"
+                                                        >
+                                                            <UserCheck size={14} />
+                                                            Dismiss
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </section>
 
