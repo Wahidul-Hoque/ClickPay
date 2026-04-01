@@ -156,7 +156,7 @@ class NotificationService {
       FROM notifications
       WHERE user_id = $1
       ORDER BY created_at DESC
-      LIMIT 10
+      LIMIT 3
       `,
       [userId]
     );
