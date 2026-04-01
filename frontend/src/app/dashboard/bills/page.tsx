@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { billAPI } from '@/lib/api';
 import { useToast } from '@/contexts/toastcontext';
 import {
@@ -42,6 +42,7 @@ export default function BillsPage() {
   // ── State ──────────────────────────────────────────
   const toast = useToast();
   const [view, setView] = useState<'categories' | 'billers' | 'pay'>('categories');
+  const [step, setStep] = useState(1); // 1: Info, 2: Review
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [billers, setBillers] = useState<Biller[]>([]);
   const [selectedBiller, setSelectedBiller] = useState<Biller | null>(null);
@@ -102,6 +103,7 @@ export default function BillsPage() {
     setSelectedBiller(biller);
     setFormData({ reference: '', amount: '', epin: '' });
     setPaySuccess(null);
+    setStep(1);
     setView('pay');
   };
 
@@ -109,6 +111,7 @@ export default function BillsPage() {
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedBiller) return;
+    
     setPaying(true);
     setPaySuccess(null);
 
@@ -140,7 +143,10 @@ export default function BillsPage() {
 
   // ── Go back ────────────────────────────────────────
   const goBack = () => {
-    if (view === 'pay') { setView('billers'); setPaySuccess(null); }
+    if (view === 'pay') { 
+      if (step === 2) setStep(1);
+      else { setView('billers'); setPaySuccess(null); }
+    }
     else if (view === 'billers') setView('categories');
   };
 
@@ -244,8 +250,8 @@ export default function BillsPage() {
         </div>
       )}
 
-      {/* ═════���════════════════════════════════════════ */}
-      {/* VIEW: Pay form                                */}
+      {/* ══════════════════════════════════════════════ */}
+      {/* VIEW: Pay Multi-Step Flow                      */}
       {/* ══════════════════════════════════════════════ */}
       {view === 'pay' && selectedBiller && (
         <div className="max-w-lg mx-auto space-y-5">
@@ -253,7 +259,10 @@ export default function BillsPage() {
           {paySuccess && (
             <TransactionSummaryModal
               isOpen={true}
-              onClose={() => setPaySuccess(null)}
+              onClose={() => {
+                setPaySuccess(null);
+                setView('categories');
+              }}
               title="Bill Paid Successfully"
               accountLabel="Biller"
               account={paySuccess.biller_name || selectedBiller.name}
@@ -265,86 +274,158 @@ export default function BillsPage() {
             />
           )}
 
-          {/* Payment form */}
-          <form onSubmit={handlePay} className="card space-y-5 shadow-sm">
-            {/* Biller info header */}
-            <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-              {(() => {
-                const catConf = getCatConfig(selectedBiller.category);
-                const Icon = catConf.icon;
-                return (
-                  <div className={`w-12 h-12 ${catConf.bgColor} rounded-xl flex items-center justify-center`}>
-                    <Icon className={`w-6 h-6 ${catConf.color}`} />
+          {/* Stepper Indicator */}
+          {!paySuccess && (
+            <div className="flex items-center justify-between px-4 mb-2">
+              {[1, 2].map((s) => (
+                <div key={s} className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
+                    step >= s ? 'bg-primary-600 text-white shadow-lg scale-110' : 'bg-slate-200 text-slate-500'
+                  }`}>
+                    {s}
                   </div>
-                );
-              })()}
-              <div>
-                <p className="font-bold text-slate-800">{selectedBiller.name}</p>
-                <p className="text-xs text-slate-500 capitalize">{getCatConfig(selectedBiller.category).label}</p>
+                  <span className={`text-xs font-bold uppercase tracking-widest ${
+                    step >= s ? 'text-primary-600' : 'text-slate-400'
+                  }`}>
+                    {s === 1 ? 'Information' : 'Review'}
+                  </span>
+                  {s === 1 && <div className={`w-12 h-1 mx-2 rounded-full transition-colors ${step > 1 ? 'bg-primary-600' : 'bg-slate-200'}`} />}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!paySuccess && (
+            <div className="card space-y-5 shadow-sm overflow-hidden animate-slideIn">
+              {/* Biller info header */}
+              <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+                {(() => {
+                  const catConf = getCatConfig(selectedBiller.category);
+                  const Icon = catConf.icon;
+                  return (
+                    <div className={`w-12 h-12 ${catConf.bgColor} rounded-xl flex items-center justify-center`}>
+                      <Icon className={`w-6 h-6 ${catConf.color}`} />
+                    </div>
+                  );
+                })()}
+                <div>
+                  <p className="font-bold text-slate-800">{selectedBiller.name}</p>
+                  <p className="text-xs text-slate-500 capitalize">{getCatConfig(selectedBiller.category).label}</p>
+                </div>
               </div>
-            </div>
 
-            {/* Reference / Bill Number */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Bill Reference / Account Number
-              </label>
-              <input
-                required
-                type="text"
-                placeholder="Enter your bill reference number"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                value={formData.reference}
-                onChange={(e) => setFormData({ ...formData, reference: e.target.value })}
-              />
-            </div>
+              {step === 1 ? (
+                <div className="space-y-5 animate-fadeIn">
+                  {/* Step 1: Input information */}
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Bill Reference / Account Number
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      placeholder="Enter your bill reference number"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                      value={formData.reference}
+                      onChange={(e) => setFormData({ ...formData, reference: e.target.value })}
+                    />
+                  </div>
 
-            {/* Amount */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Amount (৳)</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">৳</span>
-                <input
-                  required
-                  type="number"
-                  min="1"
-                  step="0.01"
-                  placeholder="0.00"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg font-semibold"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                />
-              </div>
-            </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Amount (৳)</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">৳</span>
+                      <input
+                        required
+                        type="number"
+                        min="1"
+                        step="0.01"
+                        placeholder="0.00"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg font-semibold outline-none"
+                        value={formData.amount}
+                        onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      />
+                    </div>
+                  </div>
 
-            {/* ePin */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Your 5-Digit ePin</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  required
-                  type="password"
-                  maxLength={5}
-                  pattern="\d{5}"
-                  placeholder="•••••"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-xl tracking-[0.3em] font-mono"
-                  value={formData.epin}
-                  onChange={(e) => setFormData({ ...formData, epin: e.target.value.replace(/\D/g, '') })}
-                />
-              </div>
-            </div>
+                  <button
+                    onClick={() => {
+                      if (formData.reference && formData.amount) setStep(2);
+                      else toast.error('Please fill in all fields');
+                    }}
+                    className="w-full btn btn-primary py-4 text-lg flex items-center justify-center gap-2 group"
+                  >
+                    Continue to Review
+                    <div className="w-5 h-5 flex items-center justify-center">
+                      <ArrowLeft className="w-5 h-5 rotate-180 transition-transform group-hover:translate-x-1" />
+                    </div>
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handlePay} className="space-y-5 animate-fadeIn">
+                  {/* Step 2: Confirm Execution */}
+                  <div className="bg-slate-50 rounded-xl p-5 space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Biller</span>
+                      <span className="font-bold text-slate-900">{selectedBiller.name}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Reference</span>
+                      <span className="font-bold text-slate-900">{formData.reference}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Bill Amount</span>
+                      <span className="font-bold text-slate-900">৳{parseFloat(formData.amount).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Charge</span>
+                      <span className="font-bold text-emerald-600">৳0.00</span>
+                    </div>
+                    <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
+                      <span className="text-slate-900 font-bold">Total Deduction</span>
+                      <span className="text-xl font-black text-primary-600">৳{parseFloat(formData.amount).toFixed(2)}</span>
+                    </div>
+                  </div>
 
-            {/* Submit */}
-            <button
-              disabled={paying}
-              type="submit"
-              className="w-full btn btn-primary py-4 text-lg flex items-center justify-center gap-2"
-            >
-              {paying ? <Loader2 className="w-5 h-5 animate-spin" /> : <CreditCard className="w-5 h-5" />}
-              {paying ? 'Processing...' : `Pay ৳${formData.amount || '0.00'}`}
-            </button>
-          </form>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2 text-center">Confirm with 5-Digit ePin</label>
+                    <div className="relative max-w-[240px] mx-auto">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        required
+                        autoFocus
+                        type="password"
+                        maxLength={5}
+                        pattern="\d{5}"
+                        placeholder="•••••"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-xl tracking-[0.3em] font-mono outline-none"
+                        value={formData.epin}
+                        onChange={(e) => setFormData({ ...formData, epin: e.target.value.replace(/\D/g, '') })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setStep(1)}
+                      className="flex-1 py-4 border border-slate-200 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-colors"
+                    >
+                      Back
+                    </button>
+                    <button
+                      disabled={paying || formData.epin.length !== 5}
+                      type="submit"
+                      className="flex-[2] btn btn-primary py-4 text-lg flex items-center justify-center gap-2"
+                    >
+                      {paying ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                      {paying ? 'Processing...' : 'Confirm Payment'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
         </div>
       )}
 
