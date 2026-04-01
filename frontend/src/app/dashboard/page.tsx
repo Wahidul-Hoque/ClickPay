@@ -269,10 +269,6 @@ export default function DashboardPage() {
             Here&apos;s what&apos;s happening with your wallet today.
           </p>
         </div>
-        <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 shadow-sm text-sm text-slate-600">
-          <span className="w-2 h-2 rounded-full bg-emerald-400" />
-          All systems normal
-        </div>
       </div>
 
 
