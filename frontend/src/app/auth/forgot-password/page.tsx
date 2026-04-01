@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Mail, ArrowLeft, Key, Lock, CheckCircle2 } from 'lucide-react';
 import { authAPI } from '@/lib/api';
-import toast from 'react-hot-toast';
+import { useToast } from '@/contexts/toastcontext';
 
 type Step = 'REQUEST' | 'VERIFY' | 'RESET' | 'SUCCESS';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
+  const toast = useToast();
   const [step, setStep] = useState<Step>('REQUEST');
   const [loading, setLoading] = useState(false);
   
@@ -30,15 +31,20 @@ export default function ForgotPasswordPage() {
       setMaskedEmail(res.data.maskedEmail);
       toast.success(res.data.message || 'OTP Sent!');
       if (res.data.previewUrl) {
-        toast((t) => (
+          toast.info(
           <span>
-            Dev Preview URL: <a href={res.data.previewUrl} target="_blank" className="text-blue-500 underline">View OTP Email</a>
+            Dev Preview URL: <a href={res.data.previewUrl} target="_blank" className="text-white underline font-bold">View OTP Email</a>
           </span>
-        ), { duration: 10000 });
+        , 10000 );
       }
       setStep('VERIFY');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to request OTP');
+      if (error.response?.data?.errors) {
+        error.response.data.errors.forEach((err: any) => {
+          toast.error(err.message || 'Validation error');
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -54,6 +60,11 @@ export default function ForgotPasswordPage() {
       setStep('RESET');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Invalid OTP');
+      if (error.response?.data?.errors) {
+        error.response.data.errors.forEach((err: any) => {
+          toast.error(err.message || 'Validation error');
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -78,6 +89,11 @@ export default function ForgotPasswordPage() {
       setStep('SUCCESS');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to reset PIN');
+      if (error.response?.data?.errors) {
+        error.response.data.errors.forEach((err: any) => {
+          toast.error(err.message || 'Validation error');
+        });
+      }
     } finally {
       setLoading(false);
     }

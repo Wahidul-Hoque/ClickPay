@@ -1,26 +1,27 @@
 'use client';
 
 import { useState } from 'react';
+import { useToast } from '@/contexts/toastcontext';
 import { Settings, User, Lock, CreditCard, HelpCircle, Shield, X } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { authAPI } from '@/lib/api';
 
 export default function SharedSettings() {
   const { user } = useAuthStore();
+  const toast = useToast();
   const [isChangingPin, setIsChangingPin] = useState(false);
   const [oldPin, setOldPin] = useState('');
   const [newPin, setNewPin] = useState('');
-  const [message, setMessage] = useState('');
 
   const handleChangePin = async (e: React.FormEvent) => {
   e.preventDefault();
   
   if (oldPin.length !== 5 || newPin.length !== 5) {
-    setMessage('PINs must be exactly 5 digits.');
+    toast.error('PINs must be exactly 5 digits.');
     return;
   }
 
-  setMessage('Processing...');
+  toast.info('Processing...');
 
   try {
     // 2. Use the central API utility
@@ -28,18 +29,17 @@ export default function SharedSettings() {
 
     // With axios (apiClient), a successful request returns response.data
     if (response.data.success) {
-      setMessage('PIN changed successfully!');
+      toast.success('PIN changed successfully!');
       setTimeout(() => {
         setIsChangingPin(false);
         setOldPin('');
         setNewPin('');
-        setMessage('');
       }, 2000);
     }
   } catch (error: any) {
     // 3. Handle errors from the backend
     const errorMessage = error.response?.data?.message || 'Failed to change PIN';
-    setMessage(errorMessage);
+    toast.error(errorMessage);
   }
 };
 
@@ -185,7 +185,7 @@ export default function SharedSettings() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 relative">
             <button
-              onClick={() => { setIsChangingPin(false); setMessage(''); }}
+              onClick={() => { setIsChangingPin(false); }}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
             >
               <X className="w-6 h-6" />
@@ -223,17 +223,7 @@ export default function SharedSettings() {
                 />
               </div>
 
-              {message && (
-                <div className={`p-3 rounded-lg text-sm ${
-                  message.includes('success') 
-                    ? 'bg-green-50 text-green-700 border border-green-200' 
-                    : message.includes('Processing')
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                    : 'bg-red-50 text-red-700 border border-red-200'
-                }`}>
-                  {message}
-                </div>
-              )}
+
 
               <div className="mt-6 flex gap-3">
                 <button

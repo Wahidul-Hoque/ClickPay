@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { transactionAPI } from '@/lib/api';
 import { HandCoins, Check, X, Loader2, AlertCircle, Inbox, Lock } from 'lucide-react';
+import { useToast } from '@/contexts/toastcontext';
 
 interface MoneyRequest {
   request_id: string;
@@ -14,6 +15,7 @@ interface MoneyRequest {
 }
 
 export default function IncomingRequests() {
+  const toast = useToast();
   const [requests, setRequests] = useState<MoneyRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -65,11 +67,13 @@ export default function IncomingRequests() {
 
     try {
       await transactionAPI.approveRequest(epinModal.requestId, epin); // ✅ Now passes ePin!
+      toast.success('Payment approved successfully');
       setRequests(requests.filter(r => r.request_id !== epinModal.requestId));
       setEpinModal({ open: false, requestId: null });
       setEpin('');
     } catch (error: any) {
       setEpinError(error.response?.data?.message || 'Transaction failed');
+      toast.error(error.response?.data?.message || 'Transaction failed');
     } finally {
       setActionLoading(null);
     }
@@ -80,9 +84,10 @@ export default function IncomingRequests() {
     setActionLoading(id);
     try {
       await transactionAPI.updateRequestStatus(id, 'declined');
+      toast.success('Request declined');
       setRequests(requests.filter(r => r.request_id !== id));
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to decline');
+      toast.error(error.response?.data?.message || 'Failed to decline');
     } finally {
       setActionLoading(null);
     }

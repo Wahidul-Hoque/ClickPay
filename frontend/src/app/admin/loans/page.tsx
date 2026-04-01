@@ -1,12 +1,13 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import toast from 'react-hot-toast';
+import { useToast } from '@/contexts/toastcontext';
 import { DatePickerDialog } from '@/components/DatePickerDialog';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 const AllLoanApplications = () => {
+  const toast = useToast();
   const [apps, setApps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -57,7 +58,7 @@ const AllLoanApplications = () => {
   useEffect(() => { fetchApps(); }, []);
 
   const handleAction = async (id: number, action: 'approve' | 'reject') => {
-    const loadingToast = toast.loading(`Processing ${action}...`);
+    toast.info(`Processing ${action}...`);
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_BASE}/loans/admin/${action}/${id}`, {
@@ -71,12 +72,12 @@ const AllLoanApplications = () => {
 
       if (result.success) {
         setApps(prev => prev.filter((a: any) => a.application_id !== id));
-        toast.success(`Loan ${action}ed successfully!`, { id: loadingToast });
+        toast.success(`Loan ${action}ed successfully!`);
       } else {
-        toast.error(result.message || `Failed to ${action} loan.`, { id: loadingToast });
+        toast.error(result.message || `Failed to ${action} loan.`);
       }
     } catch (err: any) {
-      toast.error("System connection error", { id: loadingToast });
+      toast.error("System connection error");
     } finally {
       setSelectedApp(null); // Close modal after action
     }

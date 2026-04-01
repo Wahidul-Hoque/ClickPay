@@ -3,9 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle, Clock, History, AlertCircle, X, Loader2, ArrowRightLeft } from 'lucide-react';
 import { loanAPI } from '@/lib/api';
-import toast from 'react-hot-toast';
+import { useToast } from '@/contexts/toastcontext';
 
 export default function LoansPage() {
+  const toast = useToast();
   const [data, setData] = useState<any>(null);
   const [amount, setAmount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -34,16 +35,16 @@ export default function LoansPage() {
     if (!repayModal.loanId) return;
     
     setIsProcessing(true);
-    const tid = toast.loading("Processing repayment...");
+    toast.info("Processing repayment...");
 
     try {
       await (loanAPI as any).repay(repayModal.loanId);
-      toast.success("Repaid Successfully!", { id: tid });
+      toast.success("Repaid Successfully!");
       setRepayModal({ open: false, loanId: null });
       loadData();
     } catch (err: any) {
       const msg = err.response?.data?.message || "Repayment failed";
-      toast.error(msg, { id: tid });
+      toast.error(msg);
     } finally {
       setIsProcessing(false);
     }
@@ -103,11 +104,11 @@ export default function LoansPage() {
                 />
                 <button 
                   onClick={() => {
-                    const t = toast.loading("Submitting...");
+                    toast.info("Submitting...");
                     loanAPI.apply({amount}).then(() => {
-                        toast.success("Submitted!", {id: t});
+                        toast.success("Submitted!");
                         loadData();
-                    }).catch(e => toast.error(e.response?.data?.message || "Failed", {id: t}));
+                    }).catch(e => toast.error(e.response?.data?.message || "Failed"));
                   }} 
                   disabled={amount < 500 || amount > data.limit} 
                   className="bg-indigo-600 text-white px-12 py-4 rounded-2xl font-black text-sm uppercase tracking-widest disabled:bg-slate-200"

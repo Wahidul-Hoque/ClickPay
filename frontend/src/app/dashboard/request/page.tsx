@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { transactionAPI } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import IncomingRequests from '@/components/IncomingRequests';
+import { useToast } from '@/contexts/toastcontext';
 import { 
   HandCoins, 
   Hash, 
@@ -24,9 +25,9 @@ interface PendingRequest {
 
 export default function RequestMoneyPage() {
   const { user } = useAuthStore();
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const [success, setSuccess] = useState(false);
   const [sentRequests, setSentRequests] = useState<PendingRequest[]>([]);
   
   const [formData, setFormData] = useState({
@@ -62,12 +63,11 @@ export default function RequestMoneyPage() {
         amount: parseFloat(formData.amount),
         message: formData.message
       });
-      setSuccess(true);
+      toast.success('Request sent successfully!');
       setFormData({ recipientPhone: '', amount: '', message: '' });
       loadSentRequests(); // Refresh list
-      setTimeout(() => setSuccess(false), 3000);
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to send request');
+      toast.error(error.response?.data?.message || 'Failed to send request');
     } finally {
       setLoading(false);
     }
@@ -93,13 +93,6 @@ export default function RequestMoneyPage() {
               <p className="text-slate-500 text-sm">Ask another user to send money to your wallet.</p>
             </div>
           </div>
-
-          {success && (
-            <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5" />
-              <p className="text-sm font-medium">Request sent successfully!</p>
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="card space-y-5 shadow-sm border-slate-200">
             <div>

@@ -6,10 +6,11 @@ import { useRouter } from 'next/navigation';
 import { Wallet, ArrowLeft } from 'lucide-react';
 import { authAPI } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
-import toast from 'react-hot-toast';
+import { useToast } from '@/contexts/toastcontext';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const toast = useToast();
   const setAuth = useAuthStore((state) => state.setAuth);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({

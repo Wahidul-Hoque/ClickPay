@@ -9,7 +9,7 @@ import {
   ArrowRightLeft, RotateCcw, Loader2 
 } from 'lucide-react';
 import { transactionAPI } from '@/lib/api';
-import toast from 'react-hot-toast';
+import { useToast } from '@/contexts/toastcontext';
 
 function useOnClickOutside(ref: any, handler: any) {
   useEffect(() => {
@@ -27,6 +27,7 @@ export default function UserHistoryPage() {
     const params = useParams();
     const id = params?.id; // Safely get ID from params
     const router = useRouter();
+    const toast = useToast();
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [reversingId, setReversingId] = useState<string | null>(null);

@@ -6,10 +6,11 @@ import { useRouter } from 'next/navigation';
 import { Wallet, ArrowLeft } from 'lucide-react';
 import { authAPI } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
-import toast from 'react-hot-toast';
+import { useToast } from '@/contexts/toastcontext';
 
 export default function LoginPage() {
   const router = useRouter();
+  const toast = useToast();
   const setAuth = useAuthStore((state) => state.setAuth);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -26,6 +27,18 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Client-side validation
+    if (!/^(\+?88)?01[3-9]\d{8}$/.test(formData.phone)) {
+      toast.error('Please enter a valid phone number');
+      return;
+    }
+
+    if (formData.epin.length !== 5) {
+      toast.error('ePin must be 5 digits');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -53,6 +66,13 @@ export default function LoginPage() {
     } catch (error: any) {
       const message = error.response?.data?.message || 'Login failed';
       toast.error(message);
+
+      // Show additional validation errors from backend if any
+      if (error.response?.data?.errors) {
+        error.response.data.errors.forEach((err: any) => {
+          toast.error(err.message || 'Validation error');
+        });
+      }
     } finally {
       setLoading(false);
     }

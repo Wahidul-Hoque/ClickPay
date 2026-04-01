@@ -42,7 +42,7 @@ import AgentRankingList from '@/components/AgentRankingList';
 import MerchantRankingList from '@/components/MerchantRankingList';
 import { DatePickerDialog } from '@/components/DatePickerDialog';
 import Link from 'next/link';
-import toast from 'react-hot-toast';
+import { useToast } from '@/contexts/toastcontext';
 
 function useOnClickOutside(ref: any, handler: any) {
   useEffect(() => {
@@ -135,6 +135,7 @@ const LoanSummaryWidget = () => {
 };
 
 export default function AdminDashboard() {
+    const toast = useToast();
     const [activeSection, setActiveSection] = useState('dashboard');
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [selectedCity, setSelectedCity] = useState("");
@@ -435,7 +436,6 @@ export default function AdminDashboard() {
     };
 
     const handleLogout = () => {
-        toast.dismiss();
         localStorage.removeItem('token');
         router.push('/auth/login');
     };

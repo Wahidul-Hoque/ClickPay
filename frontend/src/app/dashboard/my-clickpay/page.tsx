@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { ShieldAlert, Plus, Phone, Users, CreditCard, Landmark, Coins, TrendingUp, CheckCircle2, ChevronRight, ChevronDown, Star, X, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { transactionAPI, favoriteAPI, paymentMethodAPI, loanAPI } from '@/lib/api';
-import toast from 'react-hot-toast';
+import { useToast } from '@/contexts/toastcontext';
 
 // Mock Data
 // Removed MOCK_FAVORITE data since we use API now
@@ -56,6 +56,7 @@ const Gauge = ({ value, max, label }: { value: number; max: number; label: strin
 
 
 export default function MyClickPayPage() {
+  const toast = useToast();
   const [favoriteNumbers, setFavoriteNumbers] = useState<any[]>([]);
   const [favoriteAgents, setFavoriteAgents] = useState<any[]>([]);
   const [topupMethods, setTopupMethods] = useState<any[]>([]);
