@@ -208,8 +208,14 @@ export default function AdminDashboard() {
                 if (citiesJson.success) {
                     setCities(citiesJson.data);
                 }
-            } catch (error) {
-                console.error("Failed to fetch admin data", error);
+            } catch (err: any) {
+                console.error("Failed to fetch admin data", err);
+                toast.error("Failed to load dashboard data");
+                if (err.response?.data?.errors) {
+                  err.response.data.errors.forEach((e: any) => {
+                    toast.error(e.message || 'Validation error');
+                  });
+                }
             }
         };
         fetchAdminData();
@@ -232,8 +238,13 @@ export default function AdminDashboard() {
                 if (data.success) {
                     setTrendData(data.data);
                 }
-            } catch (error) {
-                console.error("Failed to fetch trend data", error);
+            } catch (err: any) {
+                console.error("Failed to fetch trend data", err);
+                if (err.response?.data?.errors) {
+                  err.response.data.errors.forEach((e: any) => {
+                    toast.error(e.message || 'Validation error');
+                  });
+                }
             }
         };
         fetchTrendData();
@@ -304,8 +315,13 @@ export default function AdminDashboard() {
 
                 if (alertsData.success) setFraudAlerts(alertsData.data);
                 if (statsData.success) setFraudStats(statsData.data);
-            } catch (error) {
-                console.error('Failed to fetch fraud data', error);
+            } catch (err: any) {
+                console.error('Failed to fetch fraud data', err);
+                if (err.response?.data?.errors) {
+                  err.response.data.errors.forEach((e: any) => {
+                    toast.error(e.message || 'Validation error');
+                  });
+                }
             } finally {
                 setFraudLoading(false);
             }
@@ -364,9 +380,14 @@ export default function AdminDashboard() {
             } else {
                 toast.error(data.error || data.message || "Failed to send notification");
             }
-        } catch (error) {
-            console.error('[NOTIFY] Error:', error);
-            toast.error("An error occurred");
+        } catch (err: any) {
+            console.error('[NOTIFY] Error:', err);
+            toast.error(err.response?.data?.message || err.message || "An error occurred");
+            if (err.response?.data?.errors) {
+              err.response.data.errors.forEach((e: any) => {
+                toast.error(e.message || 'Validation error');
+              });
+            }
         } finally {
             setNotifySending(false);
         }
@@ -407,9 +428,14 @@ export default function AdminDashboard() {
             } else {
                 toast.error(data.message || 'Failed to resolve alert');
             }
-        } catch (error) {
-            console.error('Failed to resolve fraud alert', error);
-            toast.error('An error occurred while resolving the alert');
+        } catch (err: any) {
+            console.error('Failed to resolve fraud alert', err);
+            toast.error(err.response?.data?.message || err.message || 'An error occurred while resolving the alert');
+            if (err.response?.data?.errors) {
+              err.response.data.errors.forEach((e: any) => {
+                toast.error(e.message || 'Validation error');
+              });
+            }
         } finally {
             setFraudResolving(null);
         }

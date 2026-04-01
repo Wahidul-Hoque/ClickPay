@@ -62,9 +62,13 @@ export default function CashoutPage() {
         setSuccess(true);
         toast.success(`৳${data.amount} cashed out successfully!`);
       }
-    } catch (error: any) {
-      console.error('Cashout error:', error);
-      toast.error(error.response?.data?.message || 'Failed to process cashout.');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to process cashout.');
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setLoading(false);
     }

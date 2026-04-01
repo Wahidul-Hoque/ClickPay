@@ -66,8 +66,13 @@ export default function RequestMoneyPage() {
       toast.success('Request sent successfully!');
       setFormData({ recipientPhone: '', amount: '', message: '' });
       loadSentRequests(); // Refresh list
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to send request');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to send request');
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setLoading(false);
     }

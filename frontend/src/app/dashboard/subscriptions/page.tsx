@@ -55,8 +55,13 @@ export default function SubscriptionsPage() {
       const res = await subscriptionAPI.getDashboard();
       setMySubs(res.data.data.mySubscriptions || []);
       setAvailable(res.data.data.availableMerchants || []);
-    } catch (error) {
+    } catch (err: any) {
       toast.error('Failed to load subscriptions');
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -67,8 +72,13 @@ export default function SubscriptionsPage() {
       await subscriptionAPI.toggleRenew(subId);
       toast.success('Auto-renewal updated');
       fetchDashboard();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Update failed');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Update failed');
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     }
   };
 
@@ -86,8 +96,13 @@ export default function SubscriptionsPage() {
       setShowPayModal(null);
       setEpin('');
       fetchDashboard();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Subscription failed');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Subscription failed');
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setSubscribing(false);
     }

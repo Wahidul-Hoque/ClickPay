@@ -84,8 +84,13 @@ export default function BillsPage() {
     try {
       const response = await billAPI.getBillersByCategory(category);
       setBillers(response.data?.data || []);
-    } catch (error) {
+    } catch (err: any) {
       toast.error('Failed to load billers');
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
       setView('categories');
     } finally {
       setLoadingBillers(false);
@@ -121,8 +126,13 @@ export default function BillsPage() {
         setFormData({ reference: '', amount: '', epin: '' });
         fetchHistory();
       }
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Bill payment failed');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Bill payment failed');
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setPaying(false);
     }

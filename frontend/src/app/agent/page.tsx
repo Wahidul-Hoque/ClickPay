@@ -19,6 +19,7 @@ import {
   Landmark // Added Landmark
 } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/contexts/toastcontext';
 
 interface DashboardStats {
   profile: {
@@ -32,6 +33,7 @@ interface DashboardStats {
 }
 
 export default function AgentDashboard() {
+  const toast = useToast();
   const { user } = useAuthStore();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -53,8 +55,13 @@ export default function AgentDashboard() {
       if (dashRes.data.success) setStats(dashRes.data.data);
       if (historyRes.data.success) setTransactions(historyRes.data.data);
       if (methodsRes.data.success) setLinkedCount(methodsRes.data.data.length);
-    } catch (error) {
-      console.error('Dashboard Load Error:', error);
+    } catch (err: any) {
+      console.error('Dashboard Load Error:', err);
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setLoading(false);
     }

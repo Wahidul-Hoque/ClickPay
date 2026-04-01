@@ -22,8 +22,13 @@ export default function LoansPage() {
     try {
       const res = await (loanAPI as any).getStatus();
       setData(res.data.data);
-    } catch (err) {
+    } catch (err: any) {
       toast.error("Failed to load loan data");
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -45,6 +50,11 @@ export default function LoansPage() {
     } catch (err: any) {
       const msg = err.response?.data?.message || "Repayment failed";
       toast.error(msg);
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -103,12 +113,20 @@ export default function LoansPage() {
                   onChange={e => setAmount(Number(e.target.value))} 
                 />
                 <button 
-                  onClick={() => {
+                  onClick={async () => {
                     toast.info("Submitting...");
-                    loanAPI.apply({amount}).then(() => {
-                        toast.success("Submitted!");
-                        loadData();
-                    }).catch(e => toast.error(e.response?.data?.message || "Failed"));
+                    try {
+                      await (loanAPI as any).apply({amount});
+                      toast.success("Submitted!");
+                      loadData();
+                    } catch (err: any) {
+                      toast.error(err.response?.data?.message || "Failed");
+                      if (err.response?.data?.errors) {
+                        err.response.data.errors.forEach((e: any) => {
+                          toast.error(e.message || 'Validation error');
+                        });
+                      }
+                    }
                   }} 
                   disabled={amount < 500 || amount > data.limit} 
                   className="bg-indigo-600 text-white px-12 py-4 rounded-2xl font-black text-sm uppercase tracking-widest disabled:bg-slate-200"

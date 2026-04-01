@@ -17,6 +17,7 @@ import {
   History
 } from 'lucide-react';
 import Link from 'next/link';
+import { useToast } from '@/contexts/toastcontext';
 
 interface DashboardStats {
   profile: {
@@ -31,6 +32,7 @@ interface DashboardStats {
 }
 
 export default function MerchantDashboard() {
+  const toast = useToast();
   const { user } = useAuthStore();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -49,8 +51,13 @@ export default function MerchantDashboard() {
       
       if (dashRes.data.success) setStats(dashRes.data.data);
       if (historyRes.data.success) setTransactions(historyRes.data.data);
-    } catch (error) {
-      console.error('Merchant Dashboard Load Error:', error);
+    } catch (err: any) {
+      console.error('Merchant Dashboard Load Error:', err);
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setLoading(false);
     }

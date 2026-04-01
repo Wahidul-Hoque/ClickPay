@@ -65,9 +65,13 @@ export default function UserHistoryPage() {
             if (json.success) {
                 setTransactions(json.data);
             }
-        } catch (err) {
-            console.error("Failed to fetch transactions", err);
+        } catch (err: any) {
             toast.error("Failed to load ledger");
+            if (err.response?.data?.errors) {
+              err.response.data.errors.forEach((e: any) => {
+                toast.error(e.message || 'Validation error');
+              });
+            }
         } finally {
             setLoading(false);
         }
@@ -89,8 +93,13 @@ export default function UserHistoryPage() {
                 fetchHistory(); // Refresh the list to show the reversal
             }
         } catch (err: any) {
-            const msg = err.response?.data?.message || 'Reversal failed';
+            const msg = err.response?.data?.message || err.message || "Reversal failed";
             toast.error(msg);
+            if (err.response?.data?.errors) {
+              err.response.data.errors.forEach((e: any) => {
+                toast.error(e.message || 'Validation error');
+              });
+            }
         } finally {
             setReversingId(null);
         }

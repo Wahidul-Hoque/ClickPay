@@ -73,6 +73,11 @@ export default function MerchantSubscriptionPage() {
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Subscription failed');
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setLoading(false);
     }

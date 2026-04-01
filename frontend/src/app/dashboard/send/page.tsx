@@ -54,9 +54,13 @@ export default function SendMoneyPage() {
         setSuccess(true);
         toast.success(`৳${data.amount} sent successfully!`);
       }
-    } catch (error: any) {
-      console.error('Send money error:', error);
-      toast.error(error.response?.data?.message || 'Failed to send money. Please try again.');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to send money. Please try again.');
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setLoading(false);
     }

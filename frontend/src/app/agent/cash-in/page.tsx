@@ -30,8 +30,13 @@ export default function CashInPage() {
         setSuccess(true);
         toast.success(`৳${data.amount} deposited successfully!`);
       }
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Cash-in failed. Please check user phone and ePin.');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Cash-in failed. Please check user phone and ePin.');
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setLoading(false);
     }

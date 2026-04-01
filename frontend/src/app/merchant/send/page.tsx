@@ -43,6 +43,11 @@ export default function MerchantSendMoneyPage() {
       console.error('Merchant Send Error:', error);
       const msg = error.response?.data?.message || error.message || 'Failed to process transfer';
       toast.error(msg);
+      if (error.response?.data?.errors) {
+        error.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setLoading(false);
     }

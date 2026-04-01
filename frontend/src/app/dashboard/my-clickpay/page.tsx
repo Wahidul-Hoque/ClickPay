@@ -125,6 +125,11 @@ export default function MyClickPayPage() {
       });
     } catch (err: any) {
       toast.error('Failed to load dashboard data');
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -148,6 +153,11 @@ export default function MyClickPayPage() {
       fetchFavorites();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to add favorite');
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -160,6 +170,11 @@ export default function MyClickPayPage() {
       toast.success("Favorite status updated");
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to update status");
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     }
   };
 

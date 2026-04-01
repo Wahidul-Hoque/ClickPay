@@ -77,7 +77,12 @@ const AllLoanApplications = () => {
         toast.error(result.message || `Failed to ${action} loan.`);
       }
     } catch (err: any) {
-      toast.error("System connection error");
+      toast.error(err.response?.data?.message || err.message || "System connection error");
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setSelectedApp(null); // Close modal after action
     }

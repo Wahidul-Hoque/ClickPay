@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { transactionAPI, walletAPI, paymentMethodAPI, notificationAPI } from '@/lib/api';
 import Link from 'next/link';
+import { useToast } from '@/contexts/toastcontext';
 import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
 
 interface Transaction {
@@ -36,6 +37,7 @@ interface Transaction {
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
+  const toast = useToast();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [txnStats, setTxnStats] = useState({ total: 0, types: {} as Record<string, number> });
   const [loading, setLoading] = useState(true);
@@ -62,8 +64,13 @@ export default function DashboardPage() {
       if (response.data.success) {
         setNotifications(response.data.data);
       }
-    } catch (error) {
-      console.error('Failed to fetch notifications:', error);
+    } catch (err: any) {
+      console.error('Failed to fetch notifications:', err);
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setNotifLoading(false);
     }
@@ -75,8 +82,13 @@ export default function DashboardPage() {
       if (response.data.success) {
         setPaymentMethods(response.data.data);
       }
-    } catch (error) {
-      console.error('Failed to fetch payment methods:', error);
+    } catch (err: any) {
+      console.error('Failed to fetch payment methods:', err);
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     }
   };
 
@@ -86,8 +98,13 @@ export default function DashboardPage() {
       if( response.data.success){
         setExpenses(response.data.data);
       }
-    } catch(error) {
-      console.error('Failed to fetch current month expense:',error);
+    } catch (err: any) {
+      console.error('Failed to fetch current month expense:', err);
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     }
 
   };
@@ -98,8 +115,13 @@ export default function DashboardPage() {
       if (response.data.success) {
         setBalance(response.data.data);
       }
-    } catch (error) {
-      console.error('Failed to fetch balance:', error);
+    } catch (err: any) {
+      console.error('Failed to fetch balance:', err);
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     }
   };
 
@@ -130,8 +152,13 @@ export default function DashboardPage() {
 
         setTxnStats({ total, types });
       }
-    } catch (error) {
-      console.error('Failed to fetch transactions:', error);
+    } catch (err: any) {
+      console.error('Failed to fetch transactions:', err);
+      if (err.response?.data?.errors) {
+        err.response.data.errors.forEach((e: any) => {
+          toast.error(e.message || 'Validation error');
+        });
+      }
     } finally {
       setLoading(false);
     }
