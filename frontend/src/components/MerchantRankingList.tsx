@@ -14,6 +14,7 @@ interface MerchantRank {
   city: string;
   total_volume: string | number;
   transaction_count: number;
+  rank: number;
 }
 
 // Custom hook to close dropdown when clicking outside
@@ -364,14 +365,14 @@ export default function MerchantRankingList({ apiPrefix = '/merchant' }: { apiPr
             {rankings.length > 0 ? (
               rankings.map((merchant, index) => (
                 <tr key={merchant.user_id} className={`transition-colors hover:bg-slate-50 ${index < 3 ? "bg-blue-50/20" : ""}`}>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full">
-                      {index === 0 && <Medal className="w-6 h-6 text-yellow-500" />}
-                      {index === 1 && <Medal className="w-6 h-6 text-slate-400" />}
-                      {index === 2 && <Medal className="w-6 h-6 text-amber-600" />}
-                      {index > 2 && <span className="font-mono text-slate-400 font-bold">#{index + 1}</span>}
-                    </div>
-                  </td>
+                   <td className="px-6 py-4">
+                     <div className="flex items-center justify-center w-8 h-8 rounded-full">
+                       {merchant.rank === 1 && <Medal className="w-6 h-6 text-yellow-500" />}
+                       {merchant.rank === 2 && <Medal className="w-6 h-6 text-slate-400" />}
+                       {merchant.rank === 3 && <Medal className="w-6 h-6 text-amber-600" />}
+                       {merchant.rank > 3 && <span className="font-mono text-slate-400 font-bold">#{merchant.rank}</span>}
+                     </div>
+                   </td>
                   <td className="px-6 py-4">
                     <p className="font-bold text-slate-900">{merchant.name}</p>
                     <div className="flex items-center gap-2 text-xs text-slate-500">

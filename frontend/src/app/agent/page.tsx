@@ -30,6 +30,7 @@ interface DashboardStats {
     total_tx: string;
     total_volume: string;
   };
+  rank?: string | number;
 }
 
 export default function AgentDashboard() {
@@ -83,11 +84,11 @@ export default function AgentDashboard() {
       color: 'bg-blue-500',
     },
     {
-      label: 'Fees Earned',
-      value: `৳${(parseFloat(stats?.todayStats.total_volume || '0') * 0.015).toFixed(2)}`,
-      sub: 'Estimated commission (1.5%)',
-      icon: TrendingUp,
-      color: 'bg-amber-500',
+      label: 'Monthly Standings',
+      value: stats?.rank ? `#${stats.rank}` : '#--',
+      sub: stats?.rank ? 'Your performance rank' : 'Calculating rank...',
+      icon: Trophy,
+      color: 'bg-amber-600',
     },
     {
       label: 'Linked Methods', // Replaced Rank with Payment Methods info
@@ -95,7 +96,7 @@ export default function AgentDashboard() {
       sub: linkedCount > 0 ? 'Ready for Float' : 'Link Bank/Card',
       icon: Landmark,
       color: linkedCount > 0 ? 'bg-indigo-500' : 'bg-rose-500',
-      link: '/dashboard/payment_methods'
+      link: '/agent/payment_methods'
     },
   ];
 
@@ -115,12 +116,12 @@ export default function AgentDashboard() {
           </h1>
           <p className="text-slate-500 text-sm mt-1">Manage your agent station and track daily performance.</p>
         </div>
-        <Link 
-          href="/agent/rankings"
-          className="inline-flex items-center gap-2 bg-yellow-50 text-yellow-700 px-4 py-2 rounded-xl border border-yellow-100 hover:bg-yellow-100 transition-colors font-bold text-sm"
-        >
-          <Trophy className="w-4 h-4" /> notifications  
-        </Link>
+        <div className="flex items-center gap-2">
+            <div className="bg-amber-50 text-amber-700 px-4 py-2 rounded-xl border border-amber-100 flex items-center gap-2 font-black text-sm">
+                <Trophy className="w-4 h-4" />
+                Station Rank: {stats?.rank ? `#${stats.rank}` : '--'}
+            </div>
+        </div>
       </div>
 
       {/* Stat Cards */}

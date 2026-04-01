@@ -13,6 +13,7 @@ interface AgentRank {
   city: string;
   total_volume: string | number;
   transaction_count: number;
+  rank: number;
 }
 
 // Custom hook to close dropdown when clicking outside
@@ -358,14 +359,14 @@ export default function AgentRankingList({ apiPrefix = '/agent' }: { apiPrefix?:
             {rankings.length > 0 ? (
               rankings.map((agent, index) => (
                 <tr key={agent.user_id} className={`transition-colors hover:bg-slate-50 ${index < 3 ? "bg-emerald-50/20" : ""}`}>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full">
-                      {index === 0 && <Medal className="w-6 h-6 text-yellow-500" />}
-                      {index === 1 && <Medal className="w-6 h-6 text-slate-400" />}
-                      {index === 2 && <Medal className="w-6 h-6 text-amber-600" />}
-                      {index > 2 && <span className="font-mono text-slate-400 font-bold">#{index + 1}</span>}
-                    </div>
-                  </td>
+                   <td className="px-6 py-4">
+                     <div className="flex items-center justify-center w-8 h-8 rounded-full">
+                       {agent.rank === 1 && <Medal className="w-6 h-6 text-yellow-500" />}
+                       {agent.rank === 2 && <Medal className="w-6 h-6 text-slate-400" />}
+                       {agent.rank === 3 && <Medal className="w-6 h-6 text-amber-600" />}
+                       {agent.rank > 3 && <span className="font-mono text-slate-400 font-bold">#{agent.rank}</span>}
+                     </div>
+                   </td>
                   <td className="px-6 py-4">
                     <p className="font-bold text-slate-900">{agent.name}</p>
                     <div className="flex items-center gap-2 text-xs text-slate-500">

@@ -81,7 +81,7 @@ class AgentService {
   }
 
   async getAgentRankings(filters = {}) {
-    const { regions, startDate, endDate, transactionTypes, rankBy } = filters;
+    const { regions, startDate, endDate, transactionTypes, rankBy, agentId } = filters;
     let queryParams = [];
     let paramIdx = 1;
 
@@ -118,37 +118,53 @@ class AgentService {
     }
 
     let orderByClause = "ORDER BY total_volume DESC";
+    let rankOverClause = "ORDER BY COALESCE(SUM(t.amount), 0) DESC";
     if (rankBy) {
       const ranksList = rankBy.split(',').filter(r => ['total_volume', 'transaction_count'].includes(r));
       if (ranksList.length > 0) {
         orderByClause = `ORDER BY ${ranksList.map(r => `${r} DESC`).join(', ')}`;
+        rankOverClause = `ORDER BY ${ranksList.map(r => `${r === 'total_volume' ? 'COALESCE(SUM(t.amount), 0)' : 'COUNT(t.transaction_id)'} DESC`).join(', ')}`;
       }
     }
 
+    let finalAgentIdParam = "";
+    if (agentId) {
+      finalAgentIdParam = `$${paramIdx++}`;
+      queryParams.push(agentId);
+    }
+
     const rankingQuery = `
-      SELECT 
-        u.user_id,
-        u.name,
-        u.phone,
-        u.city,
-        COALESCE(SUM(t.amount), 0) as total_volume,
-        COUNT(t.transaction_id) as transaction_count
-      FROM users u
-      JOIN wallets w ON u.user_id = w.user_id AND w.wallet_type = 'agent'
-      LEFT JOIN transactions t ON (t.from_wallet_id = w.wallet_id OR t.to_wallet_id = w.wallet_id)
-        AND t.status = 'completed'
-        ${transactionFilter}
-        ${dateFilter}
-      WHERE 
-        u.role = 'agent' 
-        ${regionFilter}
-      GROUP BY u.user_id, u.name, u.phone, u.city
-      ${orderByClause}
-      LIMIT 100;
+      WITH ranking_table AS (
+        SELECT 
+          u.user_id,
+          u.name,
+          u.phone,
+          u.city,
+          COALESCE(SUM(t.amount), 0) as total_volume,
+          COUNT(t.transaction_id) as transaction_count,
+          RANK() OVER (${rankOverClause}) as rank
+        FROM users u
+        JOIN wallets w ON u.user_id = w.user_id AND w.wallet_type = 'agent'
+        LEFT JOIN transactions t ON (t.from_wallet_id = w.wallet_id OR t.to_wallet_id = w.wallet_id)
+          AND t.status = 'completed'
+          ${transactionFilter}
+          ${dateFilter}
+        WHERE 
+          u.role = 'agent' 
+          ${regionFilter}
+        GROUP BY u.user_id, u.name, u.phone, u.city
+      )
+      SELECT * FROM ranking_table
+      ${agentId ? `WHERE user_id = ${finalAgentIdParam}` : `ORDER BY rank ASC, total_volume DESC LIMIT 10`}
     `;
 
     const result = await query(rankingQuery, queryParams);
     return result.rows;
+  }
+
+  async getAgentRank(agentId, filters = {}) {
+    const results = await this.getAgentRankings({ ...filters, agentId });
+    return results[0] || null;
   }
 
   async getRegions(searchQuery) {

@@ -3,8 +3,16 @@ import agentService from '../services/agentService.js';
 class AgentController {
   async getDashboard(req, res, next) {
     try {
-      const data = await agentService.getDashboard(req.user.userId);
-      res.json({ success: true, data });
+      const dashboardData = await agentService.getDashboard(req.user.userId);
+      const rankingData = await agentService.getAgentRank(req.user.userId);
+      
+      res.json({ 
+        success: true, 
+        data: {
+          ...dashboardData,
+          rank: rankingData ? rankingData.rank : 'N/A'
+        }
+      });
     } catch (error) {
       next(error);
     }
@@ -41,6 +49,11 @@ class AgentController {
         transactionTypes: req.query.transactionTypes,
         rankBy: req.query.rankBy
       };
+
+      if (req.user.role === 'agent') {
+        const myRank = await agentService.getAgentRank(req.user.userId, filters);
+        return res.json({ success: true, data: myRank ? [myRank] : [] });
+      }
 
       const rankings = await agentService.getAgentRankings(filters);
       res.json({ success: true, data: rankings });

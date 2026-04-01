@@ -75,11 +75,15 @@ class MerchantController {
         [merchantId]
       );
 
+      // Get rank for the current month
+      const rankingInfo = await merchantService.getMerchantRank(merchantId);
+
       res.json({
         success: true,
         data: {
           profile: result.rows[0] || {},
-          todayStats: stats.rows[0] || { total_tx: 0, total_volume: 0 }
+          todayStats: stats.rows[0] || { total_tx: 0, total_volume: 0 },
+          rank: rankingInfo?.rank || 'N/A'
         }
       });
     } catch (error) { next(error); }
@@ -94,6 +98,11 @@ class MerchantController {
         transactionTypes: req.query.transactionTypes,
         rankBy: req.query.rankBy
       };
+
+      // For security and privacy, merchants should only see their own rank
+      if (req.user.role === 'merchant') {
+        filters.merchantId = req.user.userId;
+      }
 
       const rankings = await merchantService.getMerchantRankings(filters);
       res.json({ success: true, data: rankings });

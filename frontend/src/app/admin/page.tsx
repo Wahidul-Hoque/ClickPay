@@ -43,6 +43,8 @@ import MerchantRankingList from '@/components/MerchantRankingList';
 import { DatePickerDialog } from '@/components/DatePickerDialog';
 import Link from 'next/link';
 import { useToast } from '@/contexts/toastcontext';
+import { ConfirmModal } from '@/components/ConfirmModal';
+
 
 function useOnClickOutside(ref: any, handler: any) {
   useEffect(() => {
@@ -329,26 +331,6 @@ export default function AdminDashboard() {
         fetchFraudData();
     }, [fraudFilter]);
 
-    const toggleUserStatus = async (id: number, currentStatus: string) => {
-        const action = currentStatus === 'active' ? 'freeze' : 'unfreeze';
-        try {
-            const res = await fetch(`http://localhost:5000/api/v1/admin/users/${id}/status`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({ action })
-            });
-            const data = await res.json();
-            if (data.success) {
-                setUsers(users.map(u => u.user_id === id ? { ...u, status: data.status } : u));
-            }
-        } catch (error) {
-            console.error("Failed to toggle status", error);
-        }
-    };
-
     const handleSendNotification = async () => {
         if (!notifyMessage.trim()) return toast.error("Message is required");
         if (notifyAudience === 'phone' && !notifyPhone.trim()) return toast.error("Phone number is required");
@@ -356,7 +338,6 @@ export default function AdminDashboard() {
         try {
             setNotifySending(true);
             const token = localStorage.getItem('token');
-            console.log('[NOTIFY] Sending...', { audience: notifyAudience, message: notifyMessage, hasToken: !!token });
             const res = await fetch(`http://localhost:5000/api/v1/admin/notifications/send`, {
                 method: 'POST',
                 headers: {
@@ -369,9 +350,7 @@ export default function AdminDashboard() {
                     message: notifyMessage
                 })
             });
-            console.log('[NOTIFY] Response status:', res.status);
             const data = await res.json();
-            console.log('[NOTIFY] Response data:', data);
             if (data.success) {
                 toast.success(`Notification sent to ${data.sentCount} recipient(s)`);
                 setNotifyMessage('');
@@ -383,22 +362,44 @@ export default function AdminDashboard() {
         } catch (err: any) {
             console.error('[NOTIFY] Error:', err);
             toast.error(err.response?.data?.message || err.message || "An error occurred");
-            if (err.response?.data?.errors) {
-              err.response.data.errors.forEach((e: any) => {
-                toast.error(e.message || 'Validation error');
-              });
-            }
         } finally {
             setNotifySending(false);
         }
     };
 
-    const handleResolveFraudAlert = async (alertId: number, action: 'freeze' | 'dismiss') => {
-        const confirmMsg = action === 'freeze'
-            ? 'Are you sure you want to FREEZE this user\'s account? They will not be able to transact.'
-            : 'Are you sure you want to DISMISS this alert? The user\'s account will remain active.';
-        if (!confirm(confirmMsg)) return;
+    const [confirmConfig, setConfirmConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        type: 'danger' | 'warning' | 'info';
+        confirmText: string;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => {},
+        type: 'warning',
+        confirmText: 'Confirm'
+    });
 
+    const handleResolveFraudAlert = async (alertId: number, action: 'freeze' | 'dismiss') => {
+        const title = action === 'freeze' ? 'Freeze User Account' : 'Dismiss Fraud Alert';
+        const message = action === 'freeze'
+            ? 'Are you sure you want to FREEZE this user\'s account? All transactions will be blocked immediately.'
+            : 'Are you sure you want to DISMISS this alert? The account will remain active and this alert record will be archived.';
+        
+        setConfirmConfig({ 
+            isOpen: true, 
+            title, 
+            message, 
+            onConfirm: () => executeFraudAction(alertId, action),
+            type: action === 'freeze' ? 'danger' : 'warning',
+            confirmText: action === 'freeze' ? 'Freeze Now' : 'Dismiss Alert'
+        });
+    };
+
+    const executeFraudAction = async (alertId: number, action: 'freeze' | 'dismiss') => {
         try {
             setFraudResolving(alertId);
             const token = localStorage.getItem('token');
@@ -413,15 +414,12 @@ export default function AdminDashboard() {
             const data = await res.json();
             if (data.success) {
                 toast.success(data.message);
-                // Refresh alerts
                 setFraudAlerts(prev => prev.map(a => a.alert_id === alertId ? { ...a, alert_status: action === 'freeze' ? 'frozen' : 'dismissed' } : a));
-                // Refresh stats
                 const statsRes = await fetch('http://localhost:5000/api/v1/admin/fraud/stats', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const statsData = await statsRes.json();
                 if (statsData.success) setFraudStats(statsData.data);
-                // Also refresh user list
                 if (action === 'freeze') {
                     setUsers(prev => prev.map(u => u.user_id === data.flaggedUserId ? { ...u, status: 'frozen' } : u));
                 }
@@ -431,13 +429,51 @@ export default function AdminDashboard() {
         } catch (err: any) {
             console.error('Failed to resolve fraud alert', err);
             toast.error(err.response?.data?.message || err.message || 'An error occurred while resolving the alert');
-            if (err.response?.data?.errors) {
-              err.response.data.errors.forEach((e: any) => {
-                toast.error(e.message || 'Validation error');
-              });
-            }
         } finally {
             setFraudResolving(null);
+            setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+        }
+    };
+
+    const toggleUserStatus = async (id: number, currentStatus: string) => {
+        const action = currentStatus === 'active' ? 'freeze' : 'unfreeze';
+        const title = action === 'freeze' ? 'Freeze Account' : 'Unfreeze Account';
+        const message = action === 'freeze' 
+            ? 'Are you sure you want to freeze this user? They will lose access to all funds.' 
+            : 'Are you sure you want to unfreeze this user and restore their access?';
+
+        setConfirmConfig({
+            isOpen: true,
+            title,
+            message,
+            confirmText: action === 'freeze' ? 'Freeze Member' : 'Restore Member',
+            type: action === 'freeze' ? 'danger' : 'info',
+            onConfirm: () => executeToggleStatus(id, action)
+        });
+    };
+
+    const executeToggleStatus = async (id: number, action: 'freeze' | 'unfreeze') => {
+        try {
+            const res = await fetch(`http://localhost:5000/api/v1/admin/users/${id}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ action })
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success(`User successfully ${action}d`);
+                setUsers(users.map(u => u.user_id === id ? { ...u, status: data.status } : u));
+            } else {
+                toast.error(data.message || 'Toggle failed');
+            }
+        } catch (error) {
+            console.error("Failed to toggle status", error);
+            toast.error('An error occurred during status update');
+        } finally {
+            setConfirmConfig(prev => ({ ...prev, isOpen: false }));
         }
     };
 
@@ -489,14 +525,14 @@ export default function AdminDashboard() {
 
                 <nav className="flex-1 overflow-y-auto p-4 space-y-1 mt-4">
                     <NavBtn icon={<LayoutDashboard />} label="Financial Analytics" active={activeSection === 'dashboard'} onClick={() => scrollToSection('dashboard')} collapsed={!isSidebarOpen} />
+                    <NavBtn icon={<Users />} label="Agent Ranking" active={activeSection === 'agents'} onClick={() => scrollToSection('agents')} collapsed={!isSidebarOpen} />
+                    <NavBtn icon={<Store />} label="Merchant Ranking" active={activeSection === 'merchants'} onClick={() => scrollToSection('merchants')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<UserRound />} label="User Management" active={activeSection === 'users'} onClick={() => scrollToSection('users')} collapsed={!isSidebarOpen} />
-                    <NavBtn icon={<Users />} label="Agent Performance" active={activeSection === 'agents'} onClick={() => scrollToSection('agents')} collapsed={!isSidebarOpen} />
-                    <NavBtn icon={<Store />} label="Merchant Performance" active={activeSection === 'merchants'} onClick={() => scrollToSection('merchants')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Landmark />} label="Loans & Savings" active={activeSection === 'loans'} onClick={() => scrollToSection('loans')} collapsed={!isSidebarOpen} />
-                    <NavBtn icon={<RefreshCcw />} label="Reconciliation" active={activeSection === 'recon'} onClick={() => scrollToSection('recon')} collapsed={!isSidebarOpen}/>
-                    <NavBtn icon={<ShieldAlert />} label="Fraud Alerts" active={activeSection === 'fraud'} onClick={() => scrollToSection('fraud')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Bell />} label="Send Notification" active={activeSection === 'notify'} onClick={() => scrollToSection('notify')} collapsed={!isSidebarOpen} />
-                    <NavBtn icon={<Activity />} label="System Audit" active={activeSection === 'audit'} onClick={() => scrollToSection('audit')} collapsed={!isSidebarOpen} />
+                    <NavBtn icon={<ShieldAlert />} label="Fraud Alerts" active={activeSection === 'fraud'} onClick={() => scrollToSection('fraud')} collapsed={!isSidebarOpen} />
+                    <NavBtn icon={<RefreshCcw />} label="Reconciliation" active={activeSection === 'recon'} onClick={() => scrollToSection('recon')} collapsed={!isSidebarOpen}/>
+                    <NavBtn icon={<Activity />} label="Admin Action History" active={activeSection === 'audit'} onClick={() => scrollToSection('audit')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Settings />} label="System Settings" active={activeSection === 'settings'} onClick={() => router.push('/admin/settings')} collapsed={!isSidebarOpen} />
                 </nav>
 
@@ -548,8 +584,8 @@ export default function AdminDashboard() {
                     {/* SECTION 1, 3, 5: ANALYTICS, CHURN & TRENDS */}
                     <section id="dashboard" className="scroll-mt-32">
                         <div className="mb-6">
-                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Financial Intelligence</h2>
-                            <p className="text-slate-500 font-medium">Real-time revenue & user behavior analysis</p>
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Financial Analytics</h2>
+                            <p className="text-slate-500 font-medium">Real-time revenue & user transaction analysis</p>
                         </div>
 
                         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-8 flex flex-wrap gap-4 items-end">
@@ -869,7 +905,7 @@ export default function AdminDashboard() {
                     <section id="users" className="scroll-mt-32">
                         <div className="flex flex-col md:flex-row justify-between md:items-end mb-8 gap-4">
                             <div>
-                                <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Account Lifecycle</h2>
+                                <h2 className="text-3xl font-black text-slate-900 tracking-tighter">User Management</h2>
                                 <p className="text-slate-500 font-medium">Freeze/Unfreeze & Detailed Directory</p>
                             </div>
                             <div className="flex flex-wrap gap-4 items-center">
@@ -910,7 +946,7 @@ export default function AdminDashboard() {
                     {/* SECTION 3: LOANS & SAVINGS (INTEGRATED WIDGET) */}
                     <section id="loans" className="scroll-mt-32">
                         <div className="mb-8">
-                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Credit & Interest Portfolios</h2>
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Loans & Savings</h2>
                             <p className="text-slate-500 font-medium">Review loan requests and savings maturity</p>
                         </div>
                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
@@ -943,7 +979,7 @@ export default function AdminDashboard() {
                     {/* SECTION: SEND NOTIFICATIONS */}
                     <section id="notify" className="scroll-mt-32">
                         <div className="mb-6">
-                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">System Notifications</h2>
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Send Notifications</h2>
                             <p className="text-slate-500 font-medium">Broadcast messages to users, agents, and merchants</p>
                         </div>
                         <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
@@ -1007,8 +1043,8 @@ export default function AdminDashboard() {
                     {/* SECTION: FRAUD DETECTION ALERTS */}
                     <section id="fraud" className="scroll-mt-32">
                         <div className="mb-6">
-                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Fraud Detection Center</h2>
-                            <p className="text-slate-500 font-medium">Monitor suspicious transaction patterns & take action</p>
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Fraud Alerts</h2>
+                            <p className="text-slate-500 font-medium">Monitor suspicious transactions & take action</p>
                         </div>
 
                         {/* Fraud Stats Cards */}
@@ -1107,13 +1143,13 @@ export default function AdminDashboard() {
 
                                                     <div className="flex flex-wrap gap-3 mt-3">
                                                         <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">
-                                                            💰 ৳{alert.amount}
+                                                             ৳{alert.amount}
                                                         </span>
                                                         <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">
-                                                            📋 {alert.transaction_type}
+                                                             {alert.transaction_type}
                                                         </span>
                                                         <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">
-                                                            🕐 {new Date(alert.created_at).toLocaleString()}
+                                                             {new Date(alert.created_at).toLocaleString()}
                                                         </span>
                                                     </div>
 
@@ -1161,7 +1197,7 @@ export default function AdminDashboard() {
                             <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm">
                                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                                     <div>
-                                        <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Settlement & Reconciliation</h2>
+                                        <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Reconciliation</h2>
                                         <p className="text-slate-500 font-medium">Daily inflow vs outflow audit</p>
                                     </div>
                                     <div className="flex gap-8 bg-slate-50 p-6 rounded-2xl border border-slate-100 flex-1 md:max-w-2xl justify-around">
@@ -1180,10 +1216,10 @@ export default function AdminDashboard() {
 
                             {/* --- Bottom Part: Admin Action History (Now Full Width) --- */}
                             <div id="audit" className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm flex flex-col">
+                                <div>
+                                        <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Admin Action History</h2>
+                                    </div>
                                 <div className="flex justify-between items-center mb-8">
-                                    <h4 className="font-black text-slate-800 uppercase text-xs tracking-widest flex items-center gap-3">
-                                        <Activity className="text-indigo-600"/> Security & Admin Action History
-                                    </h4>
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full">
                                         {audit.length} Recent Logs
                                     </span>
@@ -1211,6 +1247,15 @@ export default function AdminDashboard() {
                     </section>
 
                 </div>
+                <ConfirmModal 
+                    isOpen={confirmConfig.isOpen}
+                    title={confirmConfig.title}
+                    message={confirmConfig.message}
+                    confirmText={confirmConfig.confirmText}
+                    type={confirmConfig.type}
+                    onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+                    onConfirm={confirmConfig.onConfirm}
+                />
             </main>
         </div>
     );
