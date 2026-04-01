@@ -1013,15 +1013,24 @@ class TransactionService {
         [originalTxn.amount, senderWallet.wallet_id]
       );
 
+      const senderNumberRes = await client.query(`select phone from users where user_id = $1`, [senderWallet.user_id]);
+      const receiverNumberRes = await client.query(`select phone from users where user_id = $1`, [receiverWallet.user_id]);
+
+      const senderPhone = senderNumberRes.rows[0].phone;
+      const receiverPhone = receiverNumberRes.rows[0].phone;
+
+
+
+
       // 5. Finalize
       await client.query(
         `UPDATE transactions SET status = 'completed' WHERE transaction_id = $1`,
         [reversalTxnId]
       );
       
-      await client.query('update transactions set status = $1 where transaction_id = $2', ['reversed', transactionId]);
+      await client.query('update transactions set status = $1, transaction_type = $2 where transaction_id = $3', ['reversed', 'reversal', transactionId]);
 
-      await client.query(`INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description) VALUES ($1, $2, $3, $4)`, [adminUserId, 'reverse_transaction', transactionId, `Transaction reversed by Admin id ${adminUserId}. Reversal ID: ${reversalTxnId}`]);
+      await client.query(`INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description) VALUES ($1, $2, $3, $4)`, [adminUserId, 'reverse_transaction', transactionId, `Transaction reversed by Admin id ${adminUserId}. Amount: ৳${originalTxn.amount} reversed From: ${senderPhone}, To: ${receiverPhone}`]);
 
       // Update original transaction to link reversal
       await logEvent(client, originalTxn.transaction_id, 'reversed', 'info', `Transaction reversed by Admin. Reversal ID: ${reversalTxnId}`);
