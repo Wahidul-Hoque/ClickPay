@@ -5,6 +5,7 @@ interface User {
   user_id: number;
   name: string;
   phone: string;
+  city: string;
   nid: string;
   role: 'user' | 'agent' | 'admin' | 'merchant';
   status: string;

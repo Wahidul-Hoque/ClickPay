@@ -92,7 +92,7 @@ class AuthService {
       //Find user by phone with wallet
       const userQuery = `
         SELECT 
-          u.user_id, u.name, u.phone, u.nid, u.epin_hash, u.role, u.status, u.created_at,
+          u.user_id, u.name, u.phone, u.city, u.nid, u.epin_hash, u.role, u.status, u.created_at,
           w.wallet_id, w.wallet_type, w.balance, w.status as wallet_status,
           mp.status as merchant_status, mp.subscription_expiry
         FROM users u
@@ -131,6 +131,7 @@ class AuthService {
           user_id: userData.user_id,
           name: userData.name,
           phone: userData.phone,
+          city: userData.city,
           nid: userData.nid,
           role: userData.role,
           status: userData.status,
@@ -160,7 +161,7 @@ class AuthService {
     try {
       const profileQuery = `
         SELECT 
-          u.user_id, u.name, u.phone, u.nid, u.role, u.status, u.created_at,
+          u.user_id, u.name, u.phone, u.city, u.nid, u.role, u.status, u.created_at,
           w.wallet_id, w.wallet_type, w.balance, w.status as wallet_status,
           mp.status as merchant_status, mp.subscription_expiry
         FROM users u
@@ -181,6 +182,7 @@ class AuthService {
         user_id: user.user_id,
         name: user.name,
         phone: user.phone,
+        city: user.city,
         nid: user.nid,
         role: user.role,
         status: user.status,

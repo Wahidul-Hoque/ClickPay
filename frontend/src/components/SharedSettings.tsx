@@ -1,19 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useToast } from '@/contexts/toastcontext';
 import {
   Settings, User, Lock, Shield, Bell, Moon, Sun, ChevronRight,
-  X, Eye, EyeOff, Smartphone, HelpCircle, FileText, LogOut, CheckCircle, ArrowLeft
+  X, Eye, EyeOff, Smartphone, HelpCircle, FileText, LogOut, CheckCircle, ArrowLeft, CreditCard, TrendingUp
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
-import { authAPI } from '@/lib/api';
+import { authAPI, paymentMethodAPI, transactionAPI } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
 export default function SharedSettings() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, updateUser } = useAuthStore();
   const toast = useToast();
   const router = useRouter();
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await authAPI.getProfile();
+        if (response.data.success) {
+          updateUser(response.data.data);
+        }
+      } catch (error) {
+        console.error('Failed to sync profile:', error);
+      }
+    };
+    fetchProfile();
+  }, [updateUser]);
 
   // PIN change state
   const [showPinModal, setShowPinModal] = useState(false);
@@ -23,11 +37,34 @@ export default function SharedSettings() {
   const [showOld, setShowOld] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
+  const [connectedMethods, setConnectedMethods] = useState<any[]>([]);
+  const [stats, setStats] = useState({ totalTopups: 0, totalTopupAmount: 0 });
 
-  // Preferences
-  const [darkMode, setDarkMode] = useState(false);
-  const [notifications, setNotifications] = useState(true);
-  const [transactionAlerts, setTransactionAlerts] = useState(true);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [methodsRes, transRes] = await Promise.all([
+          paymentMethodAPI.getMyMethods(),
+          transactionAPI.getHistory({ page: 1, limit: 100 })
+        ]);
+        
+        if (methodsRes.data.success) {
+          setConnectedMethods(methodsRes.data.data);
+        }
+        
+        if (transRes.data.success) {
+          const topups = transRes.data.transactions.filter((t: any) => 
+            t.transaction_type === 'bank_transfer' || t.transaction_type === 'cash_in'
+          );
+          const totalAmount = topups.reduce((sum: number, t: any) => sum + parseFloat(t.amount), 0);
+          setStats({ totalTopups: topups.length, totalTopupAmount: totalAmount });
+        }
+      } catch (error) {
+        console.error('Error fetching settings stats:', error);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleChangePin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,7 +128,7 @@ export default function SharedSettings() {
       </div>
 
       {/* Profile Card */}
-      <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-3xl p-8 text-white relative overflow-hidden">
+      <div className="bg-gradient-to-br from-indigo-500 to-violet-600 rounded-3xl p-8 text-white relative overflow-hidden shadow-lg border border-indigo-500/30 hover:shadow-xl transition-all">
         <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/5 rounded-full" />
         <div className="absolute -bottom-6 -left-6 w-28 h-28 bg-white/5 rounded-full" />
         <div className="flex items-center gap-5 relative z-10">
@@ -109,13 +146,45 @@ export default function SharedSettings() {
         <div className="mt-6 grid grid-cols-2 gap-4 relative z-10">
           <div className="bg-white/10 rounded-2xl p-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-indigo-200 mb-1">NID</p>
-            <p className="font-black text-sm truncate">{(user as any)?.nid || '—'}</p>
+            <p className="font-black text-sm truncate">{user?.nid || '—'}</p>
           </div>
           <div className="bg-white/10 rounded-2xl p-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-indigo-200 mb-1">City</p>
-            <p className="font-black text-sm truncate">{(user as any)?.city || '—'}</p>
+            <p className="font-black text-sm truncate">{user?.city || '—'}</p>
           </div>
         </div>
+      </div>
+
+      
+      {/* Connected TopUp Methods */}
+      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+          <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
+            <CreditCard className="w-4 h-4 text-blue-600" />
+          </div>
+          <h2 className="font-black text-slate-800 uppercase text-xs tracking-widest">Connected TopUp Methods</h2>
+        </div>
+        
+        {connectedMethods.length === 0 ? (
+          <div className="px-6 py-8 text-center">
+            <p className="text-sm text-slate-400 font-medium">No bank accounts or cards linked yet.</p>
+          </div>
+        ) : (
+          connectedMethods.map((method) => (
+            <div key={method.method_id} className="flex items-center justify-between px-6 py-4 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
+              <div className="flex items-center gap-4">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${method.method_type === 'bank' ? 'bg-amber-50 text-amber-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                  {method.method_type === 'bank' ? <HelpCircle className="w-5 h-5" /> : <CreditCard className="w-5 h-5" />}
+                </div>
+                <div>
+                  <p className="font-black text-slate-800 text-sm">{method.bank_name || method.network_name}</p>
+                  <p className="text-xs text-slate-400 font-medium">{method.identifier}</p>
+                </div>
+              </div>
+              <div className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-wider">Linked</div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Security */}
@@ -141,62 +210,6 @@ export default function SharedSettings() {
           </div>
           <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-400 transition-colors" />
         </button>
-      </div>
-
-      {/* Preferences */}
-      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center">
-            <Bell className="w-4 h-4 text-amber-600" />
-          </div>
-          <h2 className="font-black text-slate-800 uppercase text-xs tracking-widest">Preferences</h2>
-        </div>
-
-        {[
-          { label: 'Push Notifications', desc: 'Receive app notifications', state: notifications, setter: setNotifications },
-          { label: 'Transaction Alerts', desc: 'Get notified on every transaction', state: transactionAlerts, setter: setTransactionAlerts },
-        ].map((pref) => (
-          <div key={pref.label} className="flex items-center justify-between px-6 py-4 border-b border-slate-50 last:border-0">
-            <div>
-              <p className="font-black text-slate-800 text-sm">{pref.label}</p>
-              <p className="text-xs text-slate-400 font-medium">{pref.desc}</p>
-            </div>
-            <button
-              onClick={() => pref.setter(!pref.state)}
-              className={`relative w-12 h-6 rounded-full transition-all duration-300 ${pref.state ? 'bg-indigo-600' : 'bg-slate-200'}`}
-            >
-              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-300 ${pref.state ? 'left-7' : 'left-1'}`} />
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {/* Support */}
-      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center">
-            <HelpCircle className="w-4 h-4 text-emerald-600" />
-          </div>
-          <h2 className="font-black text-slate-800 uppercase text-xs tracking-widest">Support</h2>
-        </div>
-        {[
-          { icon: HelpCircle, label: 'Help & Support', desc: 'FAQs and contact options' },
-          { icon: FileText, label: 'Terms of Service', desc: 'Read our T&C' },
-          { icon: Shield, label: 'Privacy Policy', desc: 'How we handle your data' },
-        ].map((item) => (
-          <button key={item.label} className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors group border-b border-slate-50 last:border-0">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center group-hover:bg-emerald-50 transition-colors">
-                <item.icon className="w-5 h-5 text-slate-500 group-hover:text-emerald-600 transition-colors" />
-              </div>
-              <div className="text-left">
-                <p className="font-black text-slate-800 text-sm">{item.label}</p>
-                <p className="text-xs text-slate-400 font-medium">{item.desc}</p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-400 transition-colors" />
-          </button>
-        ))}
       </div>
 
       {/* Logout */}
