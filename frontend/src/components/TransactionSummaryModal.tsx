@@ -81,7 +81,7 @@ export function TransactionSummaryModal({
                     <div className="p-4 border-r border-slate-100">
                         <p className="text-xs text-slate-500 mb-1">Transaction ID</p>
                         <div className="flex items-center gap-2">
-                            <p className="text-[15px] font-medium text-slate-800 uppercase tracking-wide truncate">{transactionId}</p>
+                            <p className="text-[15px] font-medium text-slate-800 uppercase tracking-wide truncate">{'---'}</p>
                             <button onClick={handleCopy} className="text-slate-400 hover:text-slate-600 flex-shrink-0">
                                 {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
                             </button>
