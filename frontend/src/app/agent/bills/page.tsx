@@ -7,6 +7,7 @@ import {
   CreditCard, Zap, Droplet, Wifi, Phone, Tv, Flame,
   ArrowLeft, Loader2, Lock, CheckCircle2,
 } from 'lucide-react';
+import Link from 'next/link';
 import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
 
 // ── Types ────────────────────────────────────────────
@@ -177,6 +178,15 @@ export default function AgentBillsPage() {
           </button>
         )}
         <div>
+            <div className="mb-4">
+          <Link 
+            href='/agent'
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-emerald-600 transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            Back to Agent Dashboard
+          </Link>
+        </div>
           <h1 className="text-3xl font-bold text-gray-900">Pay Bills (Agent)</h1>
           <p className="text-gray-600 mt-1">
             {view === 'categories' && 'Select a category to get started'}

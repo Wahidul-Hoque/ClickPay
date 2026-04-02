@@ -17,6 +17,7 @@ import {
   Trophy,
   CreditCard,
   Bell,
+  Phone,
 } from 'lucide-react';
 
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
@@ -63,6 +64,8 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
     { name: 'Overview', href: '/agent', icon: Wallet },
     { name: 'Cash In', href: '/agent/cash-in', icon: Download },
     { name: 'Add Money', href: '/agent/payment_methods', icon: CreditCard },
+    { name: 'Mobile Recharge', href: '/agent/mobile-recharge', icon: Phone },
+    { name: 'Bills', href: '/agent/bills', icon: FileText },
     { name: 'Transactions', href: '/agent/transactions', icon: FileText },
     { name: 'Notifications', href: '/agent/notifications', icon: Bell },
     { name: 'Settings', href: '/agent/settings', icon: Settings },

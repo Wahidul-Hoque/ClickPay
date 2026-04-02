@@ -183,7 +183,7 @@ export default function AgentDashboard() {
                    <div className="p-2 bg-white rounded-lg text-emerald-600 shadow-sm group-hover:scale-110 transition-transform">
                       <Plus className="w-5 h-5" />
                    </div>
-                   <span className="font-bold text-emerald-900">Add Float</span>
+                   <span className="font-bold text-emerald-900">Add Money</span>
                 </div>
                 <p className="text-[10px] text-emerald-600 ml-11">Transfer from Bank to Agent Wallet</p>
               </Link>
@@ -191,7 +191,7 @@ export default function AgentDashboard() {
               <Link href="/agent/cash-in" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-emerald-500 hover:text-white transition-all font-bold">
                 <Download className="w-5 h-5" /> Cash In
               </Link>
-              <Link href="/agent/bills" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-rose-500 hover:text-white transition-all font-bold group/recalc">
+              <Link href="/agent/mobile-recharge" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-rose-500 hover:text-white transition-all font-bold group/recalc">
                 <Phone className="w-5 h-5 text-rose-500 group-hover/recalc:text-white transition-colors" /> Mobile Recharge
               </Link>
               <Link href="/agent/bills" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-emerald-600 hover:text-white transition-all font-bold group/bills">
