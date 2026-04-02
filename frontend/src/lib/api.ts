@@ -267,3 +267,7 @@ export const favoriteAPI = {
     apiClient.patch(`/favorites/${id}/toggle`),
 };
 
+
+export const systemAPI = {
+  getSettings: () => apiClient.get('/system/settings'),
+};

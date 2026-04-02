@@ -136,6 +136,172 @@ const LoanSummaryWidget = () => {
     );
 };
 
+const DefaultedLoansWidget = () => {
+    const [loans, setLoans] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchDefaulted = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(`${API_BASE}/loans/admin/detailed`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await res.json();
+                if (result.success) {
+                    // Filter for defaulted loans OR loans that are past due but still active
+                    setLoans(result.data.filter((l: any) => 
+                        l.status === 'defaulted' || 
+                        (l.status !== 'repaid' && new Date(l.due_at) <= new Date())
+                    ));
+                }
+            } catch (error) {
+                console.error("Failed to fetch defaulted loans:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchDefaulted();
+    }, []);
+
+    if (loading) return <div className="p-10 text-center text-xs font-black text-slate-400 uppercase tracking-widest italic">Scanning defaults...</div>;
+
+    return (
+        <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200">
+            <div className="flex justify-between items-center mb-8">
+                <div>
+                    <h4 className="font-black text-rose-600 uppercase text-xs tracking-widest">Defaulted & Past Due</h4>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Immediate action or auto-deduction pending</p>
+                </div>
+                <div className="px-3 py-1 bg-rose-100 text-rose-600 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                    {loans.length} Overdue
+                </div>
+            </div>
+
+            <div className="space-y-3">
+                {loans.length > 0 ? loans.map((loan: any) => (
+                    <div key={loan.loan_id} className="flex items-center justify-between p-4 bg-rose-50/50 rounded-2xl border border-rose-100 hover:bg-rose-50 transition-all group">
+                        <div className="flex items-center space-x-4">
+                            <div className="w-10 h-10 bg-rose-100 rounded-xl flex items-center justify-center text-rose-600 font-black group-hover:bg-rose-600 group-hover:text-white transition-all">
+                                {loan.user_name ? loan.user_name[0] : 'U'}
+                            </div>
+                            <div>
+                                <p className="text-sm font-black text-slate-800">{loan.user_name}</p>
+                                <p className="text-[10px] text-rose-500 font-bold uppercase tracking-wider">৳{(loan.principal_amount * 1.09).toFixed(2)} OVERDUE SINCE {new Date(loan.due_at).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                        <button className="p-2.5 bg-white rounded-xl text-rose-400 hover:text-rose-600 shadow-sm border border-rose-100 transition-colors">
+                            <ShieldAlert size={16} />
+                        </button>
+                    </div>
+                )) : (
+                    <div className="text-center py-12 bg-emerald-50 rounded-[1.5rem] border-2 border-dashed border-emerald-100">
+                        <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest italic">All portfolios are healthy</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const SystemSettingsWidget = () => {
+    const [settings, setSettings] = useState<{setting_key: string; setting_value: number; description: string}[]>([]);
+    const [inputValues, setInputValues] = useState<Record<string, string>>({});
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState<string | null>(null);
+    const toast = useToast();
+
+    const fetchSettings = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_BASE}/admin/settings`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await res.json();
+            if (result.success) {
+                setSettings(result.data);
+                const vals: Record<string, string> = {};
+                result.data.forEach((s: any) => { vals[s.setting_key] = String(s.setting_value); });
+                setInputValues(vals);
+            }
+        } catch (e) { console.error(e); }
+        finally { setLoading(false); }
+    };
+
+    useEffect(() => { fetchSettings(); }, []);
+
+    const handleSave = async (key: string) => {
+        const val = parseFloat(inputValues[key]);
+        if (isNaN(val)) { toast.error('Invalid value'); return; }
+        setSaving(key);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_BASE}/admin/settings`, {
+                method: 'PATCH',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key, value: val })
+            });
+            const result = await res.json();
+            if (result.success) { toast.success(`${key.replace(/_/g, ' ')} updated!`); fetchSettings(); }
+            else { toast.error(result.message || 'Update failed'); }
+        } catch { toast.error('Network error'); }
+        finally { setSaving(null); }
+    };
+
+    if (loading) return <div className="p-10 text-center text-xs font-black text-slate-400 uppercase tracking-widest">Loading settings...</div>;
+
+    return (
+        <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
+                <Settings size={140} className="text-slate-800" />
+            </div>
+            <div className="flex justify-between items-start mb-8 relative z-10">
+                <div>
+                    <h4 className="font-black text-indigo-600 uppercase text-xs tracking-widest mb-1">Global Protocol Settings</h4>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase">Edit a value then click Save to apply it instantly across all services.</p>
+                </div>
+                <div className="p-3 bg-indigo-100 rounded-xl border border-indigo-200">
+                    <Activity className="text-indigo-600" size={20} />
+                </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 relative z-10">
+                {settings.map((s) => (
+                    <div key={s.setting_key} className="bg-slate-50 p-6 rounded-2xl border border-slate-100 hover:border-indigo-200 transition-all group">
+                        <div className="flex items-center justify-between mb-3">
+                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{s.setting_key.replace(/_/g, ' ')}</p>
+                            {s.setting_key.includes('rate') || s.setting_key.includes('fee') ? <Percent size={13} className="text-slate-300 group-hover:text-indigo-600 transition-colors" /> : <DollarSign size={13} className="text-slate-300 group-hover:text-indigo-600 transition-colors" />}
+                        </div>
+                        <p className="text-[11px] text-slate-500 mb-4 leading-tight capitalize">{s.description}</p>
+                        <div className="flex gap-2">
+                            <input
+                                type="number"
+                                step="any"
+                                value={inputValues[s.setting_key] ?? ''}
+                                onChange={(e) => setInputValues(prev => ({ ...prev, [s.setting_key]: e.target.value }))}
+                                className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 font-black text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/50 transition-all placeholder-slate-300"
+                            />
+                            <button
+                                onClick={() => handleSave(s.setting_key)}
+                                disabled={saving === s.setting_key}
+                                className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-black hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-sm shadow-indigo-600/10 whitespace-nowrap"
+                            >
+                                {saving === s.setting_key ? '...' : 'Save'}
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+            <div className="mt-8 pt-6 border-t border-slate-200 flex items-center justify-between">
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Changes are applied immediately to all new transactions</p>
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-emerald-600">Live Sync</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function AdminDashboard() {
     const toast = useToast();
     const [activeSection, setActiveSection] = useState('dashboard');
@@ -533,10 +699,14 @@ export default function AdminDashboard() {
                     <NavBtn icon={<ShieldAlert />} label="Fraud Alerts" active={activeSection === 'fraud'} onClick={() => scrollToSection('fraud')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<RefreshCcw />} label="Reconciliation" active={activeSection === 'recon'} onClick={() => scrollToSection('recon')} collapsed={!isSidebarOpen}/>
                     <NavBtn icon={<Activity />} label="Admin Action History" active={activeSection === 'audit'} onClick={() => scrollToSection('audit')} collapsed={!isSidebarOpen} />
-                    <NavBtn icon={<Settings />} label="System Settings" active={activeSection === 'settings'} onClick={() => router.push('/admin/settings')} collapsed={!isSidebarOpen} />
+                    <NavBtn icon={<Settings />} label="System Settings" active={activeSection === 'settings'} onClick={() => scrollToSection('settings')} collapsed={!isSidebarOpen} />
                 </nav>
 
-                <div className="p-4 border-t border-slate-900">
+                <div className="p-4 border-t border-slate-900 space-y-1">
+                    <button onClick={() => router.push('/admin/settings')} className="flex items-center gap-3 w-full p-3 hover:bg-white/5 text-slate-400 hover:text-white rounded-xl transition-all">
+                        <UserRound size={18} />
+                        {isSidebarOpen && <span className="font-bold text-sm">Account Settings</span>}
+                    </button>
                     <button onClick={handleLogout} className="flex items-center gap-3 w-full p-3 hover:bg-rose-500/10 hover:text-rose-500 rounded-xl transition-all">
                         <LogoutIcon />
                         {isSidebarOpen && <span className="font-bold text-sm">Exit System</span>}
@@ -872,7 +1042,7 @@ export default function AdminDashboard() {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mt-2 items-center">
+                                    <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mt-2 items-center">
                                         <div>
                                             <SegmentRow label="Active Wallets" value={segData?.wallets?.active_wallets || '0'} percent={(segData?.wallets?.active_wallets / (segData?.wallets?.total_wallets || 1)) * 100 || 0} color="bg-emerald-500" />
                                         </div>
@@ -881,6 +1051,9 @@ export default function AdminDashboard() {
                                         </div>
                                         <div>
                                             <SegmentRow label="Disabled Wallets" value={segData?.wallets?.disabled_wallets || '0'} percent={(segData?.wallets?.disabled_wallets / (segData?.wallets?.total_wallets || 1)) * 100 || 0} color="bg-rose-500" />
+                                        </div>
+                                        <div>
+                                            <SegmentRow label="Loan Defaults" value={segData?.wallets?.loan_defaults || '0'} percent={(segData?.wallets?.loan_defaults / (segData?.wallets?.total_wallets || 1)) * 100 || 0} color="bg-rose-600" />
                                         </div>
                                         <div>
                                             <SegmentRow label="Total Wallets" value={segData?.wallets?.total_wallets || '0'} percent={100} color="bg-indigo-600" />
@@ -934,7 +1107,7 @@ export default function AdminDashboard() {
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
                                     {users.length > 0 ? users.map((u, i) => (
-                                        <UserRow key={i} id={u.user_id} name={u.name} phone={u.phone} nid={u.nid} status={u.status} balance={u.balance} onToggle={toggleUserStatus} onViewHistory={(userId: number) => router.push(`/admin/user/${userId}`)} />
+                                        <UserRow key={i} id={u.user_id} name={u.name} phone={u.phone} nid={u.nid} status={u.status} balance={u.balance} isDefaulted={u.has_loan_default} onToggle={toggleUserStatus} onViewHistory={(userId: number) => router.push(`/admin/user/${userId}`)} />
                                     )) : (
                                         <tr><td colSpan={4} className="px-8 py-6 text-center text-slate-400">Loading users...</td></tr>
                                     )}
@@ -950,11 +1123,13 @@ export default function AdminDashboard() {
                             <p className="text-slate-500 font-medium">Review loan requests and savings maturity</p>
                         </div>
                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                            {/* Loan Applications Summary */}
                             <LoanSummaryWidget />
-
+                            <DefaultedLoansWidget />
+                        </div>
+                        
+                        <div className="mt-8 grid grid-cols-1 xl:grid-cols-1 gap-8">
                             {/* Existing Savings Overview */}
-                            <div className="bg-slate-900 rounded-[2rem] p-10 text-white relative overflow-hidden flex flex-col justify-center">
+                            <div className="bg-slate-900 rounded-[2rem] p-10 text-white relative overflow-hidden flex flex-col justify-center min-h-[300px]">
                                 <div className="absolute top-0 right-0 p-10 opacity-10"><Landmark size={150}/></div>
                                 <h4 className="font-black text-indigo-400 uppercase text-xs tracking-widest mb-10">Fixed Savings Pool</h4>
                                 <div className="flex items-end gap-3 mb-4">
@@ -974,6 +1149,15 @@ export default function AdminDashboard() {
                                 </div>
                             </div>
                         </div>
+                    </section>
+
+                    {/* SECTION: SYSTEM PROTOCOL SETTINGS */}
+                    <section id="settings" className="scroll-mt-32">
+                        <div className="mb-8">
+                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">System Settings</h2>
+                            <p className="text-slate-500 font-medium">Configure global interest rates and transaction fees</p>
+                        </div>
+                        <SystemSettingsWidget />
                     </section>
 
                     {/* SECTION: SEND NOTIFICATIONS */}
@@ -1285,14 +1469,21 @@ function StatCard({ title, value, trend, up, icon, bg }: any) {
     );
 }
 
-function UserRow({ id, name, phone, nid, status, balance, onToggle, onViewHistory }: any) {
+function UserRow({ id, name, phone, nid, status, balance, isDefaulted, onToggle, onViewHistory }: any) {
     return (
         <tr className="hover:bg-slate-50/80 transition-all group border-b border-slate-50 last:border-0">
             <td className="px-8 py-6">
                 <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all">{name ? name[0] : '?'}</div>
-                    <div>
-                        <p className="font-black text-slate-800 text-sm">{name}</p>
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <p className="font-black text-slate-800 text-sm">{name}</p>
+                            {isDefaulted && (
+                                <span className="bg-rose-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-1 animate-pulse">
+                                    <ShieldAlert size={10} /> Loan Default
+                                </span>
+                            )}
+                        </div>
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{phone}</p>
                     </div>
                 </div>

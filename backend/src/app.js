@@ -7,6 +7,7 @@ import cors from 'cors';
 import cron from 'node-cron';
 import subscriptionService from './services/subscriptionService.js';
 import './schedulers/subscriptionScheduler.js'; // Import the scheduler to start it
+import './schedulers/loanScheduler.js'; // Import the loan scheduler
 
 // Import middleware
 import { errorHandler, notFound } from './middleware/errorHandler.js';
@@ -26,6 +27,7 @@ import subscriptionRoutes from './routes/subscriptionRoutes.js';
 import paymentMethodRoutes from './routes/paymentMethodRoutes.js';
 import favoriteRoutes from './routes/favoriteRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import systemRoutes from './routes/systemRoutes.js';
 // CREATE EXPRESS APP
 const app = express();
 
@@ -107,6 +109,9 @@ app.use(`${API_PREFIX}/favorites`, favoriteRoutes);
 
 // Notification routes
 app.use(`${API_PREFIX}/notifications`, notificationRoutes);
+
+// System Settings routes 
+app.use(`${API_PREFIX}/system`, systemRoutes);
 // ==============================================
 // ERROR HANDLING
 // ==============================================

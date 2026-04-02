@@ -198,6 +198,7 @@ class AdminService {
         COUNT(*) FILTER (WHERE w.status = 'active') as active_wallets,
         COUNT(*) FILTER (WHERE w.status = 'frozen') as frozen_wallets,
         COUNT(*) FILTER (WHERE w.status = 'disabled') as disabled_wallets,
+        COUNT(*) FILTER (WHERE EXISTS(SELECT 1 FROM loans l WHERE l.user_id = u.user_id AND l.status = 'defaulted')) as loan_defaults,
         COUNT(*) as total_wallets
       FROM users u
       JOIN wallets w ON u.user_id = w.user_id
@@ -252,7 +253,8 @@ class AdminService {
     const params = search ? [`%${search}%`] : [];
     
     const res = await query(`
-      SELECT u.user_id, u.name, u.phone, u.nid, u.role, u.status, w.balance
+      SELECT u.user_id, u.name, u.phone, u.nid, u.role, u.status, w.balance,
+             EXISTS(SELECT 1 FROM loans l WHERE l.user_id = u.user_id AND (l.status = 'defaulted' OR (l.status IN ('active', 'overdue') AND l.due_at <= NOW()))) as has_loan_default
       FROM users u
       JOIN wallets w ON u.user_id = w.user_id
       WHERE w.wallet_type != 'system' ${searchFilter}
@@ -385,6 +387,26 @@ class AdminService {
   async getAllCities() {
     const res = await query(`SELECT DISTINCT city FROM users WHERE city IS NOT NULL ORDER BY city ASC`);
     return res.rows.map(row => row.city);
+  }
+
+  async getSystemSettings() {
+    const res = await query('SELECT * FROM system_settings ORDER BY setting_key');
+    return res.rows;
+  }
+
+  async updateSystemSetting(key, value, adminId) {
+    await query(
+      'UPDATE system_settings SET setting_value = $1, updated_at = NOW() WHERE setting_key = $2',
+      [value, key]
+    );
+
+    await query(
+      `INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description)
+       VALUES ($1, 'update_setting', $2, $3)`,
+      [adminId, key, `Updated ${key} to ${value}`]
+    );
+
+    return { success: true };
   }
 }
 

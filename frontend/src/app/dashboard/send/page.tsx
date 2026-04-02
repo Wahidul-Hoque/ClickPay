@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Send } from 'lucide-react';
 import { useToast } from '@/contexts/toastcontext';
 import { useRouter } from 'next/navigation';
-import { transactionAPI, favoriteAPI } from '@/lib/api';
+import { transactionAPI, favoriteAPI, systemAPI } from '@/lib/api';
 import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
 import { TransactionWizard } from '@/components/TransactionWizard';
 
@@ -15,18 +15,24 @@ export default function SendMoneyPage() {
   const [success, setSuccess] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [savedContacts, setSavedContacts] = useState<any[]>([]);
+  const [sendMoneyFee, setSendMoneyFee] = useState<number>(5.00);
 
   // Fetch saved contacts on load
   useEffect(() => {
     const fetchContacts = async () => {
       try {
-        const [numRes, agentRes] = await Promise.all([
+        const [numRes, agentRes, settingsRes] = await Promise.all([
           favoriteAPI.getFavorites('number'),
-          favoriteAPI.getFavorites('agent')
+          favoriteAPI.getFavorites('agent'),
+          systemAPI.getSettings()
         ]);
         const nums = numRes.data?.data || [];
         const agents = agentRes.data?.data || [];
         setSavedContacts([...nums, ...agents]);
+        
+        if (settingsRes.data.success && settingsRes.data.settings.send_money_fee) {
+          setSendMoneyFee(settingsRes.data.settings.send_money_fee);
+        }
       } catch (err) {
         console.error("Failed to load saved contacts", err);
       }
@@ -35,7 +41,7 @@ export default function SendMoneyPage() {
   }, []);
 
   const calculateFee = (amount: number, target: string, isFavorite: boolean) => {
-    return isFavorite ? 0.00 : 5.00;
+    return isFavorite ? 0.00 : sendMoneyFee;
   };
 
   const handleExecute = async (data: { target: string; amount: number; epin: string; note: string }) => {

@@ -245,6 +245,14 @@ CREATE TABLE admin_activity_logs (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE system_settings (
+    setting_key     VARCHAR(100) PRIMARY KEY,
+    setting_value   NUMERIC(10,5) NOT NULL,
+    description      TEXT,
+    updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+
 -- FRAUD_ALERTS
 CREATE TABLE fraud_alerts (
   alert_id          BIGSERIAL PRIMARY KEY,
@@ -265,4 +273,4 @@ CREATE TABLE fraud_alerts (
 
 CREATE INDEX idx_fraud_alerts_status ON fraud_alerts(status);
 CREATE INDEX idx_fraud_alerts_user ON fraud_alerts(flagged_user_id);
-CREATE INDEX idx_fraud_alerts_created ON fraud_alerts(created_at DESC);
+CREATE INDEX idx_fraud_alerts_created ON fraud_alerts(created_at DESC);

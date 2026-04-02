@@ -180,6 +180,22 @@ class AdminController {
       res.json({ success: true, data: stats });
     } catch (error) { next(error); }
   }
+
+  async getSettings(req, res, next) {
+    try {
+      const settings = await adminService.getSystemSettings();
+      res.json({ success: true, data: settings });
+    } catch (error) { next(error); }
+  }
+
+  async updateSetting(req, res, next) {
+    try {
+      const { key, value } = req.body;
+      const adminId = req.user.userId;
+      const result = await adminService.updateSystemSetting(key, value, adminId);
+      res.json({ success: true, ...result });
+    } catch (error) { next(error); }
+  }
 }
 
 export default new AdminController();

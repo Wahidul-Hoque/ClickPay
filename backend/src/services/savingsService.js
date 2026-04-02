@@ -13,7 +13,8 @@ class SavingsService {
 
   async createSavingsAccount(userId, amount, durationMonths, epin) {
     const client = await getClient();
-    const ANNUAL_RATE = 0.07;
+    const settings = await client.query("SELECT setting_value FROM system_settings WHERE setting_key = 'savings_interest_rate'");
+    const ANNUAL_RATE = settings.rows.length > 0 ? parseFloat(settings.rows[0].setting_value) : 0.07;
 
     try {
       await client.query('BEGIN');

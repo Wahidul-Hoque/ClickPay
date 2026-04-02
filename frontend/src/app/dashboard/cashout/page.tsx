@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Download } from 'lucide-react';
 import { useToast } from '@/contexts/toastcontext';
 import { useRouter } from 'next/navigation';
-import { transactionAPI, walletAPI } from '@/lib/api';
+import { transactionAPI, walletAPI, systemAPI } from '@/lib/api';
 import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
 import { TransactionWizard } from '@/components/TransactionWizard';
 
@@ -17,12 +17,26 @@ export default function CashoutPage() {
   const [success, setSuccess] = useState(false);
   const [result, setResult] = useState<any>(null);
 
-  // Fee constants
-  const FEE_PERCENT = 0.015; // 1.5% total
+  // Fee rate (will be fetched from system settings)
+  const [feeRate, setFeeRate] = useState<number>(0.015); // 1.5% default fallback
 
   useEffect(() => {
     fetchBalance();
+    fetchSettings();
   }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const res = await systemAPI.getSettings();
+      if (res.data.success) {
+        const sys = res.data.settings.cashout_system_fee || 0.01;
+        const agt = res.data.settings.cashout_agent_fee || 0.005;
+        setFeeRate(sys + agt);
+      }
+    } catch (err) {
+      console.error('Failed to fetch cashout settings');
+    }
+  };
 
   const fetchBalance = async () => {
     try {
@@ -36,14 +50,14 @@ export default function CashoutPage() {
   };
 
   const calculateFee = (amount: number, target: string, isFavorite: boolean) => {
-    return amount * FEE_PERCENT;
+    return amount * feeRate;
   };
 
   const handleExecute = async (data: { target: string; amount: number; epin: string; note: string }) => {
     const totalDeduction = data.amount + calculateFee(data.amount, data.target, false);
     
     if (totalDeduction > balance) {
-      toast.error('Insufficient balance including 1.5% fee.');
+      toast.error(`Insufficient balance including ${(feeRate * 100).toFixed(1)}% fee.`);
       return;
     }
 
@@ -75,7 +89,7 @@ export default function CashoutPage() {
   };
 
   if (success && result) {
-    const totalFee = result.numAmount * FEE_PERCENT;
+    const totalFee = result.numAmount * feeRate;
     return (
       <div className="min-h-[calc(100vh-8rem)] flex items-center flex-col justify-center py-8">
         <TransactionSummaryModal

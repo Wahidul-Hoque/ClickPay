@@ -2,249 +2,261 @@
 
 import { useState } from 'react';
 import { useToast } from '@/contexts/toastcontext';
-import { Settings, User, Lock, CreditCard, HelpCircle, Shield, X } from 'lucide-react';
+import {
+  Settings, User, Lock, Shield, Bell, Moon, Sun, ChevronRight,
+  X, Eye, EyeOff, Smartphone, HelpCircle, FileText, LogOut, CheckCircle
+} from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { authAPI } from '@/lib/api';
+import { useRouter } from 'next/navigation';
 
 export default function SharedSettings() {
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const toast = useToast();
-  const [isChangingPin, setIsChangingPin] = useState(false);
+  const router = useRouter();
+
+  // PIN change state
+  const [showPinModal, setShowPinModal] = useState(false);
   const [oldPin, setOldPin] = useState('');
   const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [showOld, setShowOld] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [pinLoading, setPinLoading] = useState(false);
+
+  // Preferences
+  const [darkMode, setDarkMode] = useState(false);
+  const [notifications, setNotifications] = useState(true);
+  const [transactionAlerts, setTransactionAlerts] = useState(true);
 
   const handleChangePin = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  if (oldPin.length !== 5 || newPin.length !== 5) {
-    toast.error('PINs must be exactly 5 digits.');
-    return;
-  }
-
-  toast.info('Processing...');
-
-  try {
-    // 2. Use the central API utility
-    const response = await authAPI.changePin({ oldPin, newPin });
-
-    // With axios (apiClient), a successful request returns response.data
-    if (response.data.success) {
-      toast.success('PIN changed successfully!');
-      setTimeout(() => {
-        setIsChangingPin(false);
-        setOldPin('');
-        setNewPin('');
-      }, 2000);
+    e.preventDefault();
+    if (oldPin.length !== 5 || newPin.length !== 5) {
+      toast.error('PINs must be exactly 5 digits.');
+      return;
     }
-  } catch (error: any) {
-    // 3. Handle errors from the backend
-    const errorMessage = error.response?.data?.message || 'Failed to change PIN';
-    toast.error(errorMessage);
-  }
-};
-
-  type SettingsItem = {
-    label: string;
-    value: string;
-    onClick?: () => void;
+    if (newPin !== confirmPin) {
+      toast.error('New PINs do not match.');
+      return;
+    }
+    setPinLoading(true);
+    try {
+      const response = await authAPI.changePin({ oldPin, newPin });
+      if (response.data.success) {
+        toast.success('PIN changed successfully!');
+        setShowPinModal(false);
+        setOldPin(''); setNewPin(''); setConfirmPin('');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to change PIN');
+    } finally {
+      setPinLoading(false);
+    }
   };
 
-  const settingsSections = [
-    {
-      title: 'Account',
-      icon: User,
-      items: [
-        { label: 'Name', value: user?.name || 'Not set' },
-        { label: 'NID', value: user?.nid || 'Not set' },
-        { label: 'Phone Number', value: user?.phone || 'Not set' },
-        { label: 'City', value: (user as any)?.city || 'Not set' },
-      ] as SettingsItem[],
-    },
-    {
-      title: 'Security',
-      icon: Lock,
-      items: [
-        { 
-          label: 'Change PIN', 
-          value: 'Update your security PIN',
-          onClick: () => setIsChangingPin(true)
-        },
-      ] as SettingsItem[],
-    },
-    {
-      title: 'Payment Methods',
-      icon: CreditCard,
-      items: [
-        { label: 'Linked Bank Accounts', value: '0 accounts' },
-        { label: 'Cards', value: '0 cards' },
-      ] as SettingsItem[],
-    },
-  ];
+  const handleLogout = () => {
+    logout();
+    router.push('/auth/login');
+  };
+
+  const roleColor: Record<string, string> = {
+    user: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
+    agent: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    merchant: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+    admin: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6 pb-12">
+      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600 mt-1">Manage your account and preferences</p>
+        <h1 className="text-3xl font-black text-slate-900 tracking-tighter">Settings</h1>
+        <p className="text-slate-500 font-medium mt-1">Manage your account and preferences</p>
       </div>
 
-      {/* User Profile Card */}
-      <div className="card">
-        <div className="flex items-center space-x-4">
-          <div className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center">
-            <User className="w-10 h-10 text-primary-600" />
+      {/* Profile Card */}
+      <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-3xl p-8 text-white relative overflow-hidden">
+        <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/5 rounded-full" />
+        <div className="absolute -bottom-6 -left-6 w-28 h-28 bg-white/5 rounded-full" />
+        <div className="flex items-center gap-5 relative z-10">
+          <div className="w-20 h-20 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center text-3xl font-black border border-white/20">
+            {user?.name?.charAt(0).toUpperCase() || 'U'}
           </div>
           <div className="flex-1">
-            <h2 className="text-xl font-bold text-gray-900">{user?.name || 'User'}</h2>
-            <p className="text-gray-600">{user?.phone || 'No phone number'}</p>
-            {user?.role && (
-              <span className="inline-block mt-2 px-3 py-1 text-xs font-medium rounded-full bg-primary-100 text-primary-800">
-                {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-              </span>
-            )}
+            <p className="text-xl font-black tracking-tight">{user?.name || 'User'}</p>
+            <p className="text-indigo-200 text-sm">{user?.phone || '—'}</p>
+            <span className={`mt-2 inline-flex items-center px-3 py-0.5 rounded-full text-xs font-black uppercase tracking-wider border bg-white/10 text-white border-white/20`}>
+              {user?.role || 'user'}
+            </span>
           </div>
-          <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium">
-            Edit Profile
-          </button>
+        </div>
+        <div className="mt-6 grid grid-cols-2 gap-4 relative z-10">
+          <div className="bg-white/10 rounded-2xl p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-indigo-200 mb-1">NID</p>
+            <p className="font-black text-sm truncate">{(user as any)?.nid || '—'}</p>
+          </div>
+          <div className="bg-white/10 rounded-2xl p-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-indigo-200 mb-1">City</p>
+            <p className="font-black text-sm truncate">{(user as any)?.city || '—'}</p>
+          </div>
         </div>
       </div>
 
-      {/* Settings Sections */}
-      {settingsSections.map((section) => (
-        <div key={section.title} className="card">
-          <div className="flex items-center space-x-3 mb-4">
-            <section.icon className="w-6 h-6 text-primary-600" />
-            <h2 className="text-xl font-bold">{section.title}</h2>
+      {/* Security */}
+      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+          <div className="w-9 h-9 bg-indigo-50 rounded-xl flex items-center justify-center">
+            <Lock className="w-4 h-4 text-indigo-600" />
           </div>
-          <div className="space-y-3">
-            {section.items.map((item, index) => (
-              <button
-                key={index}
-                onClick={item.onClick}
-                className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
-              >
-                <div>
-                  <p className="font-medium text-gray-900">{item.label}</p>
-                  <p className="text-sm text-gray-600 mt-1">{item.value}</p>
-                </div>
-                <svg
-                  className="w-5 h-5 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            ))}
+          <h2 className="font-black text-slate-800 uppercase text-xs tracking-widest">Security</h2>
+        </div>
+        <button
+          onClick={() => setShowPinModal(true)}
+          className="w-full flex items-center justify-between px-6 py-5 hover:bg-slate-50 transition-colors group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center group-hover:bg-indigo-50 transition-colors">
+              <Shield className="w-5 h-5 text-slate-500 group-hover:text-indigo-600 transition-colors" />
+            </div>
+            <div className="text-left">
+              <p className="font-black text-slate-800 text-sm">Change PIN</p>
+              <p className="text-xs text-slate-400 font-medium">Update your 5-digit security PIN</p>
+            </div>
           </div>
-        </div>
-      ))}
-
-      {/* Other Options */}
-      <div className="card">
-        <h2 className="text-xl font-bold mb-4">Other</h2>
-        <div className="space-y-2">
-          <button className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-            <div className="flex items-center space-x-3">
-              <HelpCircle className="w-5 h-5 text-gray-600" />
-              <span className="font-medium text-gray-900">Help & Support</span>
-            </div>
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-          <button className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-            <div className="flex items-center space-x-3">
-              <Shield className="w-5 h-5 text-gray-600" />
-              <span className="font-medium text-gray-900">Privacy Policy</span>
-            </div>
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-          <button className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-            <div className="flex items-center space-x-3">
-              <Settings className="w-5 h-5 text-gray-600" />
-              <span className="font-medium text-gray-900">Terms of Service</span>
-            </div>
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
+          <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-400 transition-colors" />
+        </button>
       </div>
 
-      {/* App Version */}
-      <div className="text-center text-sm text-gray-500 pb-8">
-        ClickPay v1.0.0
-      </div>
+      {/* Preferences */}
+      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+          <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center">
+            <Bell className="w-4 h-4 text-amber-600" />
+          </div>
+          <h2 className="font-black text-slate-800 uppercase text-xs tracking-widest">Preferences</h2>
+        </div>
 
-      {/* Change PIN Modal */}
-      {isChangingPin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 relative">
+        {[
+          { label: 'Push Notifications', desc: 'Receive app notifications', state: notifications, setter: setNotifications },
+          { label: 'Transaction Alerts', desc: 'Get notified on every transaction', state: transactionAlerts, setter: setTransactionAlerts },
+        ].map((pref) => (
+          <div key={pref.label} className="flex items-center justify-between px-6 py-4 border-b border-slate-50 last:border-0">
+            <div>
+              <p className="font-black text-slate-800 text-sm">{pref.label}</p>
+              <p className="text-xs text-slate-400 font-medium">{pref.desc}</p>
+            </div>
             <button
-              onClick={() => { setIsChangingPin(false); }}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+              onClick={() => pref.setter(!pref.state)}
+              className={`relative w-12 h-6 rounded-full transition-all duration-300 ${pref.state ? 'bg-indigo-600' : 'bg-slate-200'}`}
             >
-              <X className="w-6 h-6" />
+              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-300 ${pref.state ? 'left-7' : 'left-1'}`} />
             </button>
-            
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-              <Lock className="w-6 h-6 mr-2 text-primary-600" />
-              Change PIN
-            </h2>
+          </div>
+        ))}
+      </div>
 
-            <form onSubmit={handleChangePin} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Old PIN</label>
-                <input
-                  type="password"
-                  maxLength={5}
-                  value={oldPin}
-                  onChange={(e) => setOldPin(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Enter 5-digit old PIN"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  required
-                />
+      {/* Support */}
+      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+          <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center">
+            <HelpCircle className="w-4 h-4 text-emerald-600" />
+          </div>
+          <h2 className="font-black text-slate-800 uppercase text-xs tracking-widest">Support</h2>
+        </div>
+        {[
+          { icon: HelpCircle, label: 'Help & Support', desc: 'FAQs and contact options' },
+          { icon: FileText, label: 'Terms of Service', desc: 'Read our T&C' },
+          { icon: Shield, label: 'Privacy Policy', desc: 'How we handle your data' },
+        ].map((item) => (
+          <button key={item.label} className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors group border-b border-slate-50 last:border-0">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center group-hover:bg-emerald-50 transition-colors">
+                <item.icon className="w-5 h-5 text-slate-500 group-hover:text-emerald-600 transition-colors" />
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">New PIN</label>
-                <input
-                  type="password"
-                  maxLength={5}
-                  value={newPin}
-                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Enter 5-digit new PIN"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  required
-                />
+              <div className="text-left">
+                <p className="font-black text-slate-800 text-sm">{item.label}</p>
+                <p className="text-xs text-slate-400 font-medium">{item.desc}</p>
               </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-400 transition-colors" />
+          </button>
+        ))}
+      </div>
 
+      {/* Logout */}
+      <button
+        onClick={handleLogout}
+        className="w-full flex items-center justify-center gap-3 py-4 bg-rose-50 hover:bg-rose-100 text-rose-600 font-black text-sm rounded-2xl border border-rose-100 transition-all"
+      >
+        <LogOut className="w-5 h-5" />
+        Sign Out
+      </button>
 
+      <p className="text-center text-xs text-slate-400 font-medium">ClickPay v1.0.0 — Build 2026</p>
 
-              <div className="mt-6 flex gap-3">
+      {/* PIN Change Modal */}
+      {showPinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 relative animate-fadeIn">
+            <button
+              onClick={() => { setShowPinModal(false); setOldPin(''); setNewPin(''); setConfirmPin(''); }}
+              className="absolute top-5 right-5 p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6">
+              <Lock className="w-7 h-7 text-indigo-600" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 tracking-tighter mb-1">Change PIN</h2>
+            <p className="text-sm text-slate-500 mb-8">Enter your current PIN and choose a new 5-digit PIN.</p>
+
+            <form onSubmit={handleChangePin} className="space-y-5">
+              {[
+                { label: 'Current PIN', val: oldPin, setter: setOldPin, show: showOld, setShow: setShowOld },
+                { label: 'New PIN', val: newPin, setter: setNewPin, show: showNew, setShow: setShowNew },
+                { label: 'Confirm New PIN', val: confirmPin, setter: setConfirmPin, show: showNew, setShow: setShowNew },
+              ].map((field) => (
+                <div key={field.label}>
+                  <label className="block text-xs font-black text-slate-600 uppercase tracking-widest mb-2">{field.label}</label>
+                  <div className="relative">
+                    <input
+                      type={field.show ? 'text' : 'password'}
+                      maxLength={5}
+                      value={field.val}
+                      onChange={(e) => field.setter(e.target.value.replace(/\D/g, ''))}
+                      placeholder="• • • • •"
+                      className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 font-black text-lg tracking-widest transition-all"
+                      required
+                    />
+                    <button type="button" onClick={() => field.setShow(!field.show)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                      {field.show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              <div className="flex gap-3 mt-8">
                 <button
                   type="button"
-                  onClick={() => setIsChangingPin(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                  onClick={() => setShowPinModal(false)}
+                  className="flex-1 py-3.5 border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-50 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                  disabled={pinLoading}
+                  className="flex-1 py-3.5 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  Confirm Change
+                  {pinLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle className="w-5 h-5" />}
+                  {pinLoading ? 'Saving...' : 'Update PIN'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-
     </div>
   );
 }

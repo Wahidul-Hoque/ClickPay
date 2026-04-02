@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { CheckCircle, Clock, History, AlertCircle, X, Loader2, Landmark, ArrowLeft, Info, HelpCircle } from 'lucide-react';
-import { loanAPI } from '@/lib/api';
+import { loanAPI, systemAPI } from '@/lib/api';
 import { useToast } from '@/contexts/toastcontext';
 import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
 
@@ -14,6 +14,8 @@ export default function LoansPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [formStep, setFormStep] = useState(1); // 1: Input, 2: Review
   const [successData, setSuccessData] = useState<any>(null);
+  const [settings, setSettings] = useState<any>(null);
+  const [interestRate, setInterestRate] = useState<number>(0.09); // Default fallback
 
   // Modal State
   const [repayModal, setRepayModal] = useState<{ open: boolean; loanId: string | null }>({
@@ -25,6 +27,14 @@ export default function LoansPage() {
     try {
       const res = await (loanAPI as any).getStatus();
       setData(res.data.data);
+      
+      const settingsRes = await systemAPI.getSettings();
+      if (settingsRes.data.success) {
+        setSettings(settingsRes.data.settings);
+        if (settingsRes.data.settings.loan_interest_rate) {
+          setInterestRate(settingsRes.data.settings.loan_interest_rate);
+        }
+      }
     } catch (err: any) {
       toast.error("Failed to load loan data");
       if (err.response?.data?.errors) {
@@ -131,11 +141,21 @@ export default function LoansPage() {
             <div className="text-center md:text-left">
               <p className="text-indigo-100 font-bold uppercase text-xs tracking-widest">Active Loan</p>
               <h2 className="text-3xl font-black mt-2 ">
-                ৳{(data.activeLoan.principal_amount * 1.09).toFixed(2)} Due
+                ৳{(data.activeLoan.principal_amount * (1 + parseFloat(data.activeLoan.interest_rate))).toFixed(2)} Due
               </h2>
-              <p className="mt-3 text-xs font-bold bg-indigo-500/30 backdrop-blur-md inline-block px-3 py-1 rounded-full uppercase ">
-                Principal: ৳{data.activeLoan.principal_amount} + 9% Interest
+              <p className="text-indigo-100 text-xs font-bold mt-1">
+                Due Date: {new Date(data.activeLoan.due_at).toLocaleDateString()}
               </p>
+              <div className="flex gap-2 mt-3">
+                <p className="text-xs font-bold bg-indigo-500/30 backdrop-blur-md inline-block px-3 py-1 rounded-full uppercase ">
+                  Principal: ৳{data.activeLoan.principal_amount}
+                </p>
+                {data.activeLoan.status === 'defaulted' && (
+                  <p className="text-xs font-bold bg-rose-500/50 backdrop-blur-md inline-block px-3 py-1 rounded-full uppercase flex items-center gap-1">
+                    <AlertCircle size={12} /> Defaulted
+                  </p>
+                )}
+              </div>
             </div>
             <button 
               onClick={() => setRepayModal({ open: true, loanId: data.activeLoan.loan_id })}
@@ -211,22 +231,22 @@ export default function LoansPage() {
                   </div>
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-500 font-medium">Interest Rate (Annual Equivalent)</span>
-                    <span className="font-bold text-emerald-600">9% Fixed</span>
+                    <span className="font-bold text-emerald-600">{(interestRate * 100).toFixed(0)}% Fixed</span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-500 font-medium">Interest Amount</span>
-                    <span className="font-bold text-slate-900">৳{(Number(amount) * 0.09).toFixed(2)}</span>
+                    <span className="font-bold text-slate-900">৳{(Number(amount) * interestRate).toFixed(2)}</span>
                   </div>
                   <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
                     <span className="text-slate-900 font-black">Total Repayment Amount</span>
-                    <span className="text-2xl font-black text-indigo-600">৳{(Number(amount) * 1.09).toFixed(2)}</span>
+                    <span className="text-2xl font-black text-indigo-600">৳{(Number(amount) * (1 + interestRate)).toFixed(2)}</span>
                   </div>
                 </div>
 
                 <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-8 flex items-start gap-3">
                   <Info className="text-amber-500 shrink-0 mt-0.5" size={18} />
                   <p className="text-xs text-amber-800 font-medium leading-relaxed">
-                    By clicking "Confirm & Apply", you agree to the repayment of the total amount within the specified deadline. The funds will be credited to your wallet instantly upon admin approval.
+                    By clicking "Confirm & Apply", you agree to the repayment of the total amount within the specified deadline of 30 days. The funds will be credited to your wallet instantly upon admin approval.
                   </p>
                 </div>
 
@@ -262,10 +282,16 @@ export default function LoansPage() {
               {data.history.map((h: any) => (
                 <tr key={h.loan_id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-8 py-5 font-bold text-slate-800">৳{h.principal_amount}</td>
-                  <td className="px-8 py-5 font-bold text-slate-600">৳{(h.principal_amount * 1.09).toFixed(2)}</td>
-                  <td className="px-8 py-5 text-sm text-slate-500 font-medium">{new Date(h.repaid_at).toLocaleDateString()}</td>
+                  <td className="px-8 py-5 font-bold text-slate-600">৳{(h.principal_amount * (1 + parseFloat(h.interest_rate))).toFixed(2)}</td>
+                  <td className="px-8 py-5 text-sm text-slate-500 font-medium">{h.repaid_at ? new Date(h.repaid_at).toLocaleDateString() : 'N/A'}</td>
                   <td className="px-8 py-5 text-right">
-                    <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-3 py-1.5 rounded-full uppercase">Repaid</span>
+                    {h.status === 'repaid' ? (
+                      <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-3 py-1.5 rounded-full uppercase">Repaid</span>
+                    ) : h.status === 'defaulted' ? (
+                      <span className="bg-rose-100 text-rose-700 text-[10px] font-black px-3 py-1.5 rounded-full uppercase">Defaulted</span>
+                    ) : (
+                      <span className="bg-slate-100 text-slate-700 text-[10px] font-black px-3 py-1.5 rounded-full uppercase">{h.status}</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -293,8 +319,8 @@ export default function LoansPage() {
             <p className="text-slate-500 text-sm font-medium mb-8">
               Are you sure you want to repay this loan? A total of 
               <span className="text-indigo-600 font-bold ml-1">
-                ৳{(data.activeLoan.principal_amount * 1.09).toFixed(2)}
-              </span> (Principal + 9% Interest) will be deducted from your wallet.
+                ৳{(data.activeLoan.principal_amount * (1 + parseFloat(data.activeLoan.interest_rate))).toFixed(2)}
+              </span> (Principal + {(parseFloat(data.activeLoan.interest_rate) * 100).toFixed(0)}% Interest) will be deducted from your wallet.
             </p>
 
             <div className="flex gap-4">

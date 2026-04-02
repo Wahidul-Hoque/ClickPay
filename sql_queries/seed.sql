@@ -31,3 +31,11 @@ VALUES
     -- Amex
     (3, '3782-1111-2222-3333', '01/29', '111', 10000.00),
     (3, '3782-4444-5555-6666', '01/29', '222', 75000.00);
+
+INSERT INTO system_settings (setting_key, setting_value, description) VALUES
+('send_money_fee', 5.00, 'Fixed fee for send money transaction (non-favorite)'),
+('cashout_system_fee', 0.01, 'System profit portion of cashout fee (1%)'),
+('cashout_agent_fee', 0.005, 'Agent commission portion of cashout fee (0.5%)'),
+('merchant_fee', 0.0125, 'Fee percentage for merchant disbursements (1.25%)'),
+('loan_interest_rate', 0.09, 'Default interest rate for loans'),
+('savings_interest_rate', 0.07, 'Annual interest rate for fixed savings');

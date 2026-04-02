@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { savingsAPI } from '@/lib/api';
+import { savingsAPI, systemAPI } from '@/lib/api';
 import { useToast } from '@/contexts/toastcontext';
 import { 
   PiggyBank, TrendingUp, AlertTriangle, 
@@ -28,6 +28,7 @@ export default function SavingsPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isBreaking, setIsBreaking] = useState(false);
   const [showBreakConfirm, setShowBreakConfirm] = useState(false);
+  const [interestRate, setInterestRate] = useState<number>(0.07); // Default fallback
 
   useEffect(() => {
     fetchSavings();
@@ -38,6 +39,13 @@ export default function SavingsPage() {
       setLoading(true);
       const res = await savingsAPI.getAccounts();
       setAccounts(res.data.data || res.data); 
+
+      const settingsRes = await systemAPI.getSettings();
+      if (settingsRes.data.success) {
+        if (settingsRes.data.settings.savings_interest_rate) {
+          setInterestRate(settingsRes.data.settings.savings_interest_rate);
+        }
+      }
     } catch (err: any) {
       error("Failed to load savings");
     } finally {
@@ -90,7 +98,7 @@ export default function SavingsPage() {
       <div className="bg-indigo-600 rounded-3xl p-8 text-white shadow-lg flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Fixed Savings</h1>
-          <p className="opacity-90">Secure 7% Annual Interest</p>
+          <p className="opacity-90">Secure {(interestRate * 100).toFixed(0)}% Annual Interest</p>
         </div>
         <PiggyBank className="w-12 h-12 opacity-50" />
       </div>
@@ -117,7 +125,7 @@ export default function SavingsPage() {
                 </div>
                 <div className="bg-indigo-50 p-4 rounded-2xl text-indigo-700">
                   <p className="text-xs uppercase font-bold">Interest Rate</p>
-                  <p className="text-2xl font-black">7.00%</p>
+                  <p className="text-2xl font-black">{(parseFloat(activeAccount.interest_rate) * 100).toFixed(2)}%</p>
                 </div>
               </div>
 
@@ -213,7 +221,7 @@ export default function SavingsPage() {
             <div className="space-y-3 mb-8 bg-slate-50 p-4 rounded-2xl">
               <div className="flex justify-between text-slate-600 text-sm"><span>Principal</span><span className="font-bold text-slate-900">৳{amount}</span></div>
               <div className="flex justify-between text-slate-600 text-sm"><span>Term</span><span className="font-bold text-slate-900">{duration} Months</span></div>
-              <div className="flex justify-between text-slate-600 text-sm"><span>Interest</span><span className="font-bold text-emerald-600">7.00%</span></div>
+              <div className="flex justify-between text-slate-600 text-sm"><span>Interest</span><span className="font-bold text-emerald-600">{(interestRate * 100).toFixed(2)}%</span></div>
             </div>
 
             <form onSubmit={handleCreate} className="space-y-4">

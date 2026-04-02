@@ -1,20 +1,33 @@
 'use client';
-
-import { useState } from 'react';
+ 
+import { useState, useEffect } from 'react';
 import { Send, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/contexts/toastcontext';
-import { merchantAPI } from '@/lib/api';
+import { merchantAPI, systemAPI } from '@/lib/api';
 import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
 import Link from 'next/link';
 import { TransactionWizard } from '@/components/TransactionWizard';
-
+ 
 export default function MerchantSendMoneyPage() {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [result, setResult] = useState<any>(null);
-
-  const commissionRate = 0.0125; // 1.25%
+  const [commissionRate, setCommissionRate] = useState<number>(0.0125); // 1.25% default
+  
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await systemAPI.getSettings();
+        if (res.data.success && res.data.settings.merchant_fee) {
+          setCommissionRate(res.data.settings.merchant_fee);
+        }
+      } catch (err) {
+        console.error("Failed to load merchant settings", err);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   const calculateFee = (amount: number, target: string, isFavorite: boolean) => {
     return parseFloat((amount * commissionRate).toFixed(2));
