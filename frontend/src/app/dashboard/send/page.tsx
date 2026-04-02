@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Send } from 'lucide-react';
+import { Send , ArrowLeft } from 'lucide-react';
 import { useToast } from '@/contexts/toastcontext';
 import { useRouter } from 'next/navigation';
 import { transactionAPI, favoriteAPI, systemAPI } from '@/lib/api';
 import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
 import { TransactionWizard } from '@/components/TransactionWizard';
-
+import Link from 'next/link';
 export default function SendMoneyPage() {
   const router = useRouter();
   const toast = useToast();
@@ -97,6 +97,15 @@ export default function SendMoneyPage() {
 
   return (
     <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center py-8 px-4">
+        <div className="mb-4 self-start">
+          <Link
+            href='/dashboard'
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            Back to Dashboard
+          </Link>
+        </div>
       <TransactionWizard
         title="Send Money"
         subtitle="Transfer money to anyone instantly securely"

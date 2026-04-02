@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bell, Trash2, RefreshCw } from 'lucide-react';
+import { Bell, Trash2, RefreshCw , ArrowLeft } from 'lucide-react';
 import { notificationAPI } from '@/lib/api';
-
+import Link from 'next/link';
 interface Notification {
   notification_id: string;
   message: string;
@@ -67,6 +67,15 @@ export default function NotificationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
+        <div className="mb-4">
+          <Link 
+            href='/merchant'
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            Back to Merchant Dashboard
+          </Link>
+        </div>
           <h1 className="text-3xl font-bold text-gray-900">Notifications</h1>
           <p className="text-gray-600 mt-1">All your notifications</p>
         </div>

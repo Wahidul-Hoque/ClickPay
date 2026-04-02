@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { CheckCircle, Clock, History, AlertCircle, X, Loader2, Landmark, ArrowLeft, Info, HelpCircle } from 'lucide-react';
+import Link from 'next/link';
 import { loanAPI, systemAPI } from '@/lib/api';
 import { useToast } from '@/contexts/toastcontext';
 import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
@@ -112,7 +113,16 @@ export default function LoansPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8 animate-fadeIn">
-      <h1 className="text-3xl font-black text-slate-900 tracking-tighter">Loan Management</h1>
+        <div className="mb-4 self-start">
+          <Link
+            href='/dashboard'
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            Back to Dashboard
+          </Link>
+        </div>
+      <h1 className="text-3xl font-bold text-gray-900">Loan Management</h1>
 
       {/* Success Modal */}
       {successData && (
@@ -139,7 +149,7 @@ export default function LoansPage() {
         <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 text-white p-8 rounded-[2rem] shadow-xl relative overflow-hidden animate-slideIn">
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="text-center md:text-left">
-              <p className="text-indigo-100 font-bold uppercase text-xs tracking-widest">Active Loan</p>
+              <p className="text-indigo-100 font-bold text-gray-900">Active Loan</p>
               <h2 className="text-3xl font-black mt-2 ">
                 ৳{(data.activeLoan.principal_amount * (1 + parseFloat(data.activeLoan.interest_rate))).toFixed(2)} Due
               </h2>
@@ -184,7 +194,7 @@ export default function LoansPage() {
             {formStep === 1 ? (
               <div className="animate-fadeIn relative z-10">
                 <div className="flex items-center gap-2 mb-2">
-                  <p className="text-slate-400 font-black uppercase text-xs tracking-widest">Available Loan Limit</p>
+                  <p className="text-slate-400 font-bold text-gray-900 text-xl ">Available Loan Limit</p>
                   <HelpCircle size={14} className="text-slate-300 cursor-help" />
                 </div>
                 <h2 className="text-4xl font-black text-gray-900 tracking-tight">৳{data.limit}</h2>
@@ -209,7 +219,7 @@ export default function LoansPage() {
                           else toast.error(`Please enter between 500 and ${data.limit}`);
                         }} 
                         disabled={!amount}
-                        className="bg-indigo-600 text-white px-12 py-5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-indigo-600/20 hover:scale-105 active:scale-95 transition-all disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
+                        className="bg-indigo-600 text-white px-12 py-5 rounded-2xl font-black text-sm  tracking-widest shadow-lg shadow-indigo-600/20 hover:scale-105 active:scale-95 transition-all disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
                       >
                         Calculate & Review
                       </button>
@@ -222,7 +232,7 @@ export default function LoansPage() {
                 <button onClick={() => setFormStep(1)} className="flex items-center gap-2 text-indigo-600 font-bold text-xs uppercase tracking-widest mb-6 hover:underline">
                   <ArrowLeft size={14} /> Back to Edit
                 </button>
-                <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-6">Review Loan Summary</h3>
+                <h3 className="text-3xl font-bold text-gray-900">Review Loan Summary</h3>
                 
                 <div className="bg-slate-50 rounded-2xl p-6 space-y-4 mb-8">
                   <div className="flex justify-between items-center text-sm">
@@ -265,7 +275,7 @@ export default function LoansPage() {
 
       {/* HISTORY */}
       <div className="space-y-6">
-        <h3 className="text-2xl font-black text-slate-900 tracking-tighter flex items-center gap-3">
+        <h3 className="text-3xl font-bold text-gray-900">
           <History className="w-6 h-6 text-indigo-600"/> Loan History
         </h3>
         <div className="bg-white border border-slate-200 rounded-[2.5rem] overflow-hidden shadow-sm">

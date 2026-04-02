@@ -1,6 +1,7 @@
 'use client';
 
-import { FileText, ArrowUpRight, Search, TrendingDown, LayoutList, SlidersHorizontal, ChevronRight } from 'lucide-react';
+import { FileText, ArrowUpRight, Search, TrendingDown, LayoutList, SlidersHorizontal, ChevronRight , ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { transactionAPI } from '@/lib/api';
 import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
@@ -82,6 +83,15 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-4 max-w-3xl mx-auto rounded-3xl bg-white min-h-[calc(100vh-6rem)] sm:p-4">
+        <div className="mb-4 self-start">
+          <Link
+            href='/dashboard'
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            Back to Dashboard
+          </Link>
+        </div>
       {/* Transaction Summary Modal */}
       {selectedTransaction && (
         <TransactionSummaryModal

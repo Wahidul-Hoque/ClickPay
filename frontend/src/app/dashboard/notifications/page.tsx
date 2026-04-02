@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bell, Trash2, RefreshCw } from 'lucide-react';
+import { Bell, Trash2, RefreshCw, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 import { notificationAPI } from '@/lib/api';
 
 interface Notification {
@@ -64,6 +65,15 @@ export default function NotificationsPage() {
 
   return (
     <div className="space-y-6">
+        <div className="mb-4 self-start">
+          <Link
+            href='/dashboard'
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            Back to Dashboard
+          </Link>
+        </div>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -20,6 +20,7 @@ import {
   Calendar,
   Zap
 } from 'lucide-react';
+import Link from 'next/link';
 import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
 
 // ── Types ────────────────────────────────────────────
@@ -130,6 +131,15 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fadeIn">
+
+          <Link
+            href='/dashboard'
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            Back to Dashboard
+          </Link>
+   
       
       {/* Success Modal */}
       {successData && (

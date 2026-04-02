@@ -5,8 +5,9 @@ import { savingsAPI, systemAPI } from '@/lib/api';
 import { useToast } from '@/contexts/toastcontext';
 import { 
   PiggyBank, TrendingUp, AlertTriangle, 
-  Loader2, Lock, Unlock, Calendar, History, X 
+  Loader2, Lock, Unlock, Calendar, History, X , ArrowLeft
 } from 'lucide-react';
+import Link from 'next/link';
 
 interface SavingsAccount {
   id: number;
@@ -94,6 +95,15 @@ export default function SavingsPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-8 pb-20">
+        <div className="mb-4 self-start">
+          <Link
+            href='/dashboard'
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            Back to Dashboard
+          </Link>
+        </div>
       {/* Header Section */}
       <div className="bg-indigo-600 rounded-3xl p-8 text-white shadow-lg flex justify-between items-center">
         <div>

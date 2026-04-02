@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useRef } from 'react';
 import api from '@/lib/api';
-import { History, Search, Filter, Loader2, ArrowDownLeft, ArrowUpRight, Calendar } from 'lucide-react';
+import { History, Search, Filter, Loader2, ArrowDownLeft, ArrowUpRight, Calendar , ArrowLeft } from 'lucide-react';
 import { DatePickerDialog } from '@/components/DatePickerDialog';
-
+import Link from 'next/link';
 interface Transaction {
   transaction_id: string;
   amount: string | number;
@@ -109,9 +109,18 @@ export default function AgentTransactionList() {
 
       <div className="flex items-center gap-4 mb-8">
         <div className="p-3 bg-blue-100 rounded-2xl">
-          <History className="w-8 h-8 text-blue-600" />
+          <History className="w-8 h-8 text-emerald-600" />
         </div>
         <div>
+        <div className="mb-4">
+          <Link 
+            href='/agent'
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-emerald-600 transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            Back to Agent Dashboard
+          </Link>
+        </div>
           <h1 className="text-2xl font-bold text-slate-900">Transaction History</h1>
           <p className="text-slate-500 text-sm">Review all your processed transactions</p>
         </div>
@@ -175,7 +184,7 @@ export default function AgentTransactionList() {
         <div className="flex gap-2">
           <button
             onClick={applyFilters}
-            className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 text-sm whitespace-nowrap"
+            className="px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 text-sm whitespace-nowrap"
           >
             Show Results
           </button>

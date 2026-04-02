@@ -21,6 +21,7 @@ import {
   Sparkles,
   HandCoins,
   RefreshCw,
+  Star
 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -72,6 +73,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'Add Money', href: '/dashboard/payment_methods', icon: CreditCard },
     { name: 'Request Money', href: '/dashboard/request', icon: HandCoins },
     { name: 'Subscriptions', href: '/dashboard/subscriptions', icon: RefreshCw },
+    { name: 'My ClickPay', href: '/dashboard/my-clickpay', icon: Star },
   ];
 
   const isActive = (href: string) =>

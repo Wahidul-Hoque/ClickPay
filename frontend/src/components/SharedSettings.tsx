@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useToast } from '@/contexts/toastcontext';
 import {
   Settings, User, Lock, Shield, Bell, Moon, Sun, ChevronRight,
-  X, Eye, EyeOff, Smartphone, HelpCircle, FileText, LogOut, CheckCircle
+  X, Eye, EyeOff, Smartphone, HelpCircle, FileText, LogOut, CheckCircle, ArrowLeft
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { authAPI } from '@/lib/api';
@@ -59,6 +59,11 @@ export default function SharedSettings() {
     router.push('/auth/login');
   };
 
+  const handleReturnToDashboard = () => {
+    const dashboardPath = user?.role === 'user' ? '/dashboard' : `/${user?.role || 'dashboard'}`;
+    router.push(dashboardPath);
+  };
+
   const roleColor: Record<string, string> = {
     user: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
     agent: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
@@ -68,10 +73,21 @@ export default function SharedSettings() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-12">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-black text-slate-900 tracking-tighter">Settings</h1>
-        <p className="text-slate-500 font-medium mt-1">Manage your account and preferences</p>
+      {/* Header with Return to Dashboard Button */}
+      <div className="flex items-center justify-between">
+        
+        <div>
+
+          <button
+            onClick={handleReturnToDashboard}
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            Return to Dashboard
+          </button>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tighter">Settings</h1>
+          <p className="text-slate-500 font-medium mt-1">Manage your account and preferences</p>
+        </div>
       </div>
 
       {/* Profile Card */}

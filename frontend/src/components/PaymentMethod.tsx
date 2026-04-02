@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { 
   Landmark, 
-  CreditCard, 
+  CreditCard,
+  ArrowLeft,
   Plus, 
   ArrowUpRight, 
   Wallet, 
@@ -13,11 +14,15 @@ import {
   ShieldCheck 
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/lib/store';
 import { paymentMethodAPI, walletAPI } from '@/lib/api';
 import { useToast } from '@/contexts/toastcontext';
 
 export default function PaymentMethod({ basePath }: { basePath: string }) {
   const toast = useToast();
+  const router = useRouter();
+  const user = useAuthStore((state) => state.user);
   const [methods, setMethods] = useState([]);
   const [balance, setBalance] = useState<any>(0);
   const [loading, setLoading] = useState(true);
@@ -35,15 +40,11 @@ const fetchData = async () => {
       paymentMethodAPI.getMyMethods(),
       walletAPI.getBalance()
     ]);
-
-    // Handle Methods
     if (methodsRes.data.success) {
       setMethods(methodsRes.data.data); 
     }
 
-    // Handle Balance (Matching your working code)
     if (balanceRes.data.success) {
-      // Since response.data.data worked in your other page, use it here too
       setBalance(balanceRes.data.data); 
     }
 
@@ -54,6 +55,11 @@ const fetchData = async () => {
   } finally {
     setLoading(false);
   }
+};
+
+const handleReturnToDashboard = () => {
+  const dashboardPath = user?.role === 'user' ? '/dashboard' : `/${user?.role || 'dashboard'}`;
+  router.push(dashboardPath);
 };
 
   if (loading) {
@@ -67,6 +73,22 @@ const fetchData = async () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fadeIn">
+
+      <div className="flex items-center justify-between px-2">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tighter">Payment Methods</h1>
+          <p className="text-slate-500 font-medium mt-1">Manage your linked accounts and balance</p>
+        </div>
+        <button
+          onClick={handleReturnToDashboard}
+          className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600 transition-colors group"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Return to Dashboard
+        </button>
+      </div>
+
+        
       {/* ── Section 1: Wallet Balance ──────────────── */}
       <div className="bg-gradient-to-br from-primary-600 to-primary-800 rounded-3xl p-8 text-white shadow-xl shadow-primary-200">
         <div className="flex justify-between items-start">

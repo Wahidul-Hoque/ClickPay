@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Plus, Phone, Users, CreditCard, Landmark, Coins, TrendingUp, CheckCircle2, ChevronRight, ChevronDown, Star, X, Loader2 } from 'lucide-react';
+import { ShieldAlert, Plus, Phone, Users, CreditCard, Landmark, Coins, TrendingUp, CheckCircle2, ChevronRight, ChevronDown, Star, X, Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { transactionAPI, favoriteAPI, paymentMethodAPI, loanAPI } from '@/lib/api';
 import { useToast } from '@/contexts/toastcontext';
@@ -13,6 +13,7 @@ const MOCK_TOPUP_METHODS = [
   { id: 1, type: 'bank', last4: '1234', instName: 'City Bank', logo: '🏦' },
   { id: 2, type: 'card', last4: '5678', instName: 'Visa Platinum', logo: '💳' },
 ];
+
 
 const Gauge = ({ value, max, label }: { value: number; max: number; label: string }) => {
   const percentage = Math.min((value / max) * 100, 100);
@@ -185,6 +186,15 @@ export default function MyClickPayPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 border-b border-slate-200 pb-8">
           <div>
+            <div className="mb-4 self-start">
+              <Link
+                href='/dashboard'
+                className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors group"
+              >
+                <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                Back to Dashboard
+              </Link>
+            </div>
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-indigo-100 rounded-xl text-indigo-600">
                 <Star className="w-6 h-6 fill-current" />
