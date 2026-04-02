@@ -87,13 +87,7 @@ export default function MerchantDashboard() {
       color: 'bg-amber-600',
       link: '/merchant/profile'
     },
-    {
-      label: 'System Status',
-      value: 'Online',
-      sub: 'All terminals operational',
-      icon: Shield,
-      color: 'bg-emerald-600',
-    },
+    
   ];
 
   if (loading) return (
@@ -121,7 +115,7 @@ export default function MerchantDashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {statCards.map((card) => (
           <div key={card.label} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow">
             <div className={`w-12 h-12 ${card.color} rounded-2xl flex items-center justify-center mb-4 text-white shadow-lg`}>
@@ -181,7 +175,7 @@ export default function MerchantDashboard() {
                 <TrendingUp className="w-5 h-5" /> Sales Analytics
               </Link>
               <Link href="/merchant/transactions" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-indigo-600 hover:text-white transition-all font-bold">
-                <FileText className="w-5 h-5" /> Receipts & Ledger
+                <FileText className="w-5 h-5" /> Transactions
               </Link>
               <Link href="/merchant/send" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-emerald-600 hover:text-white transition-all font-bold">
                 <ArrowUpRight className="w-5 h-5" /> Send Money
