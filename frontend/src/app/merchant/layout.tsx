@@ -75,7 +75,7 @@ export default function MerchantLayout({ children }: { children: React.ReactNode
     { name: 'Send Money', href: '/merchant/send', icon: Send },
     { name: 'Transactions', href: '/merchant/transactions', icon: FileText },
     { name: 'Add Money', href: '/merchant/payment_methods', icon: CreditCard },
-    { name: 'Analytics', href: '/merchant/analytics', icon: Activity },
+    //{ name: 'Analytics', href: '/merchant/analytics', icon: Activity },
     { name: 'Notifications', href: '/merchant/notifications', icon: Bell },
     { name: 'Settings', href: '/merchant/settings', icon: Settings },
   ];

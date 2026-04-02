@@ -206,25 +206,33 @@ export default function LoansPage() {
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">৳</span>
                         <input 
                           type="number" 
-                          className="w-full bg-slate-50 border border-slate-200 p-5 pl-10 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-xl transition-all" 
-                          placeholder="e.g. 5000" 
+                          className="w-full bg-slate-50 border border-slate-200 p-5 pl-10 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-xl transition-all disabled:opacity-50" 
+                          placeholder={data.limit < 500 ? "N/A" : "e.g. 5000"} 
                           value={amount}
-                          onChange={e => setAmount(e.target.value)} 
+                          onChange={e => setAmount(e.target.value)}
+                          disabled={data.limit < 500}
                         />
                       </div>
                       <button 
                         onClick={() => {
                           const val = Number(amount);
-                          if (val >= 500 && val <= data.limit) setFormStep(2);
-                          else toast.error(`Please enter between 500 and ${data.limit}`);
+                          if (data.limit < 500) {
+                            toast.error("Not applicable for loan");
+                          } else if (val >= 500 && val <= data.limit) {
+                            setFormStep(2);
+                          } else {
+                            toast.error(`Please enter between ৳500 and ৳${data.limit}`);
+                          }
                         }} 
-                        disabled={!amount}
+                        disabled={!amount || data.limit < 500}
                         className="bg-indigo-600 text-white px-12 py-5 rounded-2xl font-black text-sm  tracking-widest shadow-lg shadow-indigo-600/20 hover:scale-105 active:scale-95 transition-all disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
                       >
                         Calculate & Review
                       </button>
                     </div>
-                    <p className="text-xs text-slate-400 font-medium italic">Minimum loan amount is ৳500</p>
+                    <p className={`text-xs font-medium italic ${data.limit < 500 ? 'text-rose-500' : 'text-slate-400'}`}>
+                      {data.limit < 500 ? "Not applicable for loan at the moment" : "Minimum loan amount is ৳500"}
+                    </p>
                 </div>
               </div>
             ) : (
