@@ -34,6 +34,10 @@ router.post('/reset-password', authController.resetPassword);
 // GET /api/v1/auth/profile
 router.get('/profile', protect, authController.getProfile);
 
+// Update profile (name/city)
+// PATCH /api/v1/auth/profile
+router.patch('/profile', protect, authController.updateProfile);
+
 // Logout user
 // POST /api/v1/auth/logout
 router.post('/logout', protect, authController.logout)

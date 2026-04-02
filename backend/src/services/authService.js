@@ -235,6 +235,39 @@ async changePin(userId, oldPin, newPin) {
     }
   }
 
+  async updateProfile(userId, updates) {
+    try {
+      const { name, city } = updates;
+      const fields = [];
+      const values = [];
+
+      if (name && name.trim().length > 0) {
+        fields.push(`name = $${fields.length + 1}`);
+        values.push(name.trim());
+      }
+
+      if (city && city.trim().length > 0) {
+        fields.push(`city = $${fields.length + 1}`);
+        values.push(city.trim());
+      }
+
+      if (fields.length === 0) {
+        throw new Error('No valid fields to update');
+      }
+
+      values.push(userId);
+
+      await query(
+        `UPDATE users SET ${fields.join(', ')} WHERE user_id = $${values.length}`,
+        values
+      );
+
+      return this.getProfile(userId);
+    } catch (error) {
+      throw error;
+    }
+  }
+
   // ==============================================
   // FORGOT PASSWORD / PIN FLOW
   // ==============================================

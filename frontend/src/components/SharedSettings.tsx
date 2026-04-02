@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useToast } from '@/contexts/toastcontext';
 import {
   Settings, User, Lock, Shield, Bell, Moon, Sun, ChevronRight,
-  X, Eye, EyeOff, Smartphone, HelpCircle, FileText, LogOut, CheckCircle, ArrowLeft, CreditCard, TrendingUp
+  X, Eye, EyeOff, Smartphone, HelpCircle, FileText, LogOut, CheckCircle, ArrowLeft, CreditCard, TrendingUp, MapPin
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { authAPI, paymentMethodAPI, transactionAPI } from '@/lib/api';
@@ -37,6 +37,11 @@ export default function SharedSettings() {
   const [showOld, setShowOld] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [showCityModal, setShowCityModal] = useState(false);
+  const [nameInput, setNameInput] = useState(user?.name || '');
+  const [cityInput, setCityInput] = useState(user?.city || '');
+  const [profileLoading, setProfileLoading] = useState(false);
   const [connectedMethods, setConnectedMethods] = useState<any[]>([]);
   const [stats, setStats] = useState({ totalTopups: 0, totalTopupAmount: 0 });
 
@@ -66,6 +71,13 @@ export default function SharedSettings() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      setNameInput(user.name || '');
+      setCityInput(user.city || '');
+    }
+  }, [user]);
+
   const handleChangePin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (oldPin.length !== 5 || newPin.length !== 5) {
@@ -88,6 +100,62 @@ export default function SharedSettings() {
       toast.error(error.response?.data?.message || 'Failed to change PIN');
     } finally {
       setPinLoading(false);
+    }
+  };
+
+  const handleUpdateName = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const trimmedName = nameInput.trim();
+    if (!trimmedName) {
+      toast.error('Please enter your name.');
+      return;
+    }
+    if (user?.name === trimmedName) {
+      toast.info('That name is already on file.');
+      return;
+    }
+    setProfileLoading(true);
+    try {
+      const response = await authAPI.updateProfile({ name: trimmedName });
+      if (response.data.success) {
+        const updated = response.data.data;
+        updateUser({ name: updated.name, city: updated.city });
+        setNameInput(updated.name || '');
+        toast.success(response.data.message || 'Name updated successfully');
+        setShowNameModal(false);
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update name');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const handleUpdateCity = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const trimmedCity = cityInput.trim();
+    if (!trimmedCity) {
+      toast.error('Please enter your city.');
+      return;
+    }
+    if (user?.city === trimmedCity) {
+      toast.info('That city is already selected.');
+      return;
+    }
+    setProfileLoading(true);
+    try {
+      const response = await authAPI.updateProfile({ city: trimmedCity });
+      if (response.data.success) {
+        const updated = response.data.data;
+        updateUser({ name: updated.name, city: updated.city });
+        setCityInput(updated.city || '');
+        toast.success(response.data.message || 'City updated successfully');
+        setShowCityModal(false);
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update city');
+    } finally {
+      setProfileLoading(false);
     }
   };
 
@@ -155,36 +223,52 @@ export default function SharedSettings() {
         </div>
       </div>
 
-      
-      {/* Connected TopUp Methods */}
-      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+      {/* Profile Details */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
-            <CreditCard className="w-4 h-4 text-blue-600" />
+          <div className="w-9 h-9 bg-indigo-50 rounded-xl flex items-center justify-center">
+            <User className="w-4 h-4 text-indigo-600" />
           </div>
-          <h2 className="font-black text-slate-800 uppercase text-xs tracking-widest">Connected TopUp Methods</h2>
+          <h2 className="font-black text-slate-800 uppercase text-xs tracking-widest">Profile</h2>
         </div>
-        
-        {connectedMethods.length === 0 ? (
-          <div className="px-6 py-8 text-center">
-            <p className="text-sm text-slate-400 font-medium">No bank accounts or cards linked yet.</p>
-          </div>
-        ) : (
-          connectedMethods.map((method) => (
-            <div key={method.method_id} className="flex items-center justify-between px-6 py-4 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${method.method_type === 'bank' ? 'bg-amber-50 text-amber-600' : 'bg-indigo-50 text-indigo-600'}`}>
-                  {method.method_type === 'bank' ? <HelpCircle className="w-5 h-5" /> : <CreditCard className="w-5 h-5" />}
-                </div>
-                <div>
-                  <p className="font-black text-slate-800 text-sm">{method.bank_name || method.network_name}</p>
-                  <p className="text-xs text-slate-400 font-medium">{method.identifier}</p>
-                </div>
+        <div className="space-y-0">
+          <button
+            onClick={() => {
+              setNameInput(user?.name || '');
+              setShowNameModal(true);
+            }}
+            className="w-full flex items-center justify-between px-6 py-5 hover:bg-slate-50 transition-colors group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center group-hover:bg-indigo-50 transition-colors">
+                <User className="w-5 h-5 text-slate-500 group-hover:text-indigo-600 transition-colors" />
               </div>
-              <div className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-wider">Linked</div>
+              <div className="text-left">
+                <p className="font-black text-slate-800 text-sm">Change Name</p>
+                <p className="text-xs text-slate-400 font-medium">Current: {user?.name || '—'}</p>
+              </div>
             </div>
-          ))
-        )}
+            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-400 transition-colors" />
+          </button>
+          <button
+            onClick={() => {
+              setCityInput(user?.city || '');
+              setShowCityModal(true);
+            }}
+            className="w-full flex items-center justify-between px-6 py-5 hover:bg-slate-50 transition-colors group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center group-hover:bg-indigo-50 transition-colors">
+                <MapPin className="w-5 h-5 text-slate-500 group-hover:text-indigo-600 transition-colors" />
+              </div>
+              <div className="text-left">
+                <p className="font-black text-slate-800 text-sm">Change City</p>
+                <p className="text-xs text-slate-400 font-medium">Current: {user?.city || '—'}</p>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-400 transition-colors" />
+          </button>
+        </div>
       </div>
 
       {/* Security */}
@@ -280,6 +364,128 @@ export default function SharedSettings() {
                 >
                   {pinLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle className="w-5 h-5" />}
                   {pinLoading ? 'Saving...' : 'Update PIN'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showNameModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 relative animate-fadeIn">
+            <button
+              onClick={() => {
+                setShowNameModal(false);
+                setNameInput(user?.name || '');
+              }}
+              className="absolute top-5 right-5 p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6">
+              <User className="w-7 h-7 text-indigo-600" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 tracking-tighter mb-1">Update Name</h2>
+            <p className="text-sm text-slate-500 mb-8">Type your preferred display name for ClickPay.</p>
+
+            <form onSubmit={handleUpdateName} className="space-y-5">
+              <div>
+                <label className="block text-xs font-black text-slate-600 uppercase tracking-widest mb-2">Full Name</label>
+                <input
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  placeholder="Enter your name"
+                  className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 font-semibold transition-all"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3 mt-8">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNameModal(false);
+                    setNameInput(user?.name || '');
+                  }}
+                  className="flex-1 py-3.5 border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={profileLoading}
+                  className="flex-1 py-3.5 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {profileLoading ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-5 h-5" />
+                  )}
+                  {profileLoading ? 'Saving...' : 'Update Name'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showCityModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 relative animate-fadeIn">
+            <button
+              onClick={() => {
+                setShowCityModal(false);
+                setCityInput(user?.city || '');
+              }}
+              className="absolute top-5 right-5 p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6">
+              <MapPin className="w-7 h-7 text-indigo-600" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 tracking-tighter mb-1">Update City</h2>
+            <p className="text-sm text-slate-500 mb-8">Change the city tied to your agent profile.</p>
+
+            <form onSubmit={handleUpdateCity} className="space-y-5">
+              <div>
+                <label className="block text-xs font-black text-slate-600 uppercase tracking-widest mb-2">City</label>
+                <input
+                  type="text"
+                  value={cityInput}
+                  onChange={(e) => setCityInput(e.target.value)}
+                  placeholder="Enter your city"
+                  className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 font-semibold transition-all"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3 mt-8">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCityModal(false);
+                    setCityInput(user?.city || '');
+                  }}
+                  className="flex-1 py-3.5 border border-slate-200 text-slate-600 font-black rounded-2xl hover:bg-slate-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={profileLoading}
+                  className="flex-1 py-3.5 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {profileLoading ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-5 h-5" />
+                  )}
+                  {profileLoading ? 'Saving...' : 'Update City'}
                 </button>
               </div>
             </form>

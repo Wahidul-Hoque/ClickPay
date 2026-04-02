@@ -145,6 +145,30 @@ class AuthController {
     }
   }
 
+  async updateProfile(req, res, next) {
+    try {
+      const userId = req.user.userId;
+      const { name, city } = req.body;
+
+      if (!name && !city) {
+        return res.status(400).json({
+          success: false,
+          message: 'Name or city must be provided'
+        });
+      }
+
+      const updatedUser = await authService.updateProfile(userId, { name, city });
+
+      return res.json({
+        success: true,
+        message: 'Profile updated successfully',
+        data: updatedUser
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // POST /api/v1/auth/logout
   // Headers: Authorization: Bearer <token>
   async logout(req, res) {
