@@ -16,10 +16,11 @@ class FraudDetectionService {
   // CHECK FOR REPEATED TRANSACTIONS (called after each successful txn)
   // ──────────────────────────────────────────────────────────────
   async checkForRepeatedTransactions(fromWalletId, toWalletId, amount, transactionType) {
+    const client = await getClient();
     try {
-      // Count how many completed transactions with the SAME
-      // (from_wallet, to_wallet, amount, type) exist in the last 1 hour
-      const result = await query(
+      await client.query('BEGIN');
+
+      const result = await client.query(
         `SELECT COUNT(*) AS repeat_count
          FROM transactions
          WHERE from_wallet_id = $1
@@ -35,24 +36,24 @@ class FraudDetectionService {
       console.log(`[FRAUD] Repeat check: ${repeatCount} identical transactions in last hour (threshold: 5)`);
 
       if (repeatCount >= 5) {
-        // Get the user_id from the sender wallet
-        const walletRes = await query(
+        const walletRes = await client.query(
           'SELECT user_id FROM wallets WHERE wallet_id = $1',
           [fromWalletId]
         );
-        if (walletRes.rows.length === 0) return;
+        if (walletRes.rows.length === 0) {
+          await client.query('COMMIT');
+          return { alert: false, repeatCount };
+        }
         const flaggedUserId = walletRes.rows[0].user_id;
 
-        // Get the receiver info
-        const receiverRes = await query(
+        const receiverRes = await client.query(
           `SELECT u.name, u.phone FROM wallets w JOIN users u ON w.user_id = u.user_id WHERE w.wallet_id = $1`,
           [toWalletId]
         );
         const receiverName = receiverRes.rows[0]?.name || 'Unknown';
         const receiverPhone = receiverRes.rows[0]?.phone || 'Unknown';
 
-        // Check if an alert already exists for this pattern in the last hour (avoid duplicate alerts)
-        const existingAlert = await query(
+        const existingAlert = await client.query(
           `SELECT 1 FROM fraud_alerts
            WHERE flagged_user_id = $1
              AND from_wallet_id = $2
@@ -65,13 +66,13 @@ class FraudDetectionService {
 
         if (existingAlert.rows.length > 0) {
           console.log('[FRAUD] Alert already exists for this pattern, skipping duplicate.');
-          return;
+          await client.query('COMMIT');
+          return { alert: false, repeatCount };
         }
 
-        // Create fraud alert
         const alertDescription = `User made ${repeatCount} identical ${transactionType} transactions of ৳${amount} to ${receiverName} (${receiverPhone}) within the last hour.`;
 
-        const alertRes = await query(
+        const alertRes = await client.query(
           `INSERT INTO fraud_alerts 
              (flagged_user_id, from_wallet_id, to_wallet_id, amount, transaction_type, repeat_count, description, status)
            VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
@@ -82,30 +83,32 @@ class FraudDetectionService {
         const alertId = alertRes.rows[0].alert_id;
         console.log(`[FRAUD] ⚠️ Alert #${alertId} created for user ${flaggedUserId}`);
 
-        // Send automatic notification to the user
-        await query(`CALL p_send_notification($1, $2)`, [
+        await client.query(`CALL p_send_notification($1, $2)`, [
           flaggedUserId,
           `⚠️ Security Alert: We detected ${repeatCount} identical transactions of ৳${amount} to ${receiverPhone} within the last hour. If you did not authorize these transactions, please contact support immediately. Your account may be temporarily restricted for safety.`
         ]);
 
-        // Send notification to ALL admins
-        const adminsRes = await query(`SELECT user_id FROM users WHERE role = 'admin' AND status = 'active'`);
+        const adminsRes = await client.query(`SELECT user_id FROM users WHERE role = 'admin' AND status = 'active'`);
         for (const admin of adminsRes.rows) {
-          await query(`CALL p_send_notification($1, $2)`, [
+          await client.query(`CALL p_send_notification($1, $2)`, [
             admin.user_id,
             `🚨 Fraud Alert #${alertId}: User ID ${flaggedUserId} made ${repeatCount} identical ${transactionType} transactions of ৳${amount} to ${receiverPhone}. Review and take action.`
           ]);
         }
 
         console.log(`[FRAUD] Notifications sent to user ${flaggedUserId} and ${adminsRes.rows.length} admin(s)`);
+        await client.query('COMMIT');
         return { alert: true, alertId, repeatCount };
       }
 
+      await client.query('COMMIT');
       return { alert: false, repeatCount };
     } catch (error) {
-      // Fraud check should never block a legitimate transaction
+      await client.query('ROLLBACK');
       console.error('[FRAUD] Error during fraud check (non-blocking):', error.message);
       return { alert: false, error: error.message };
+    } finally {
+      client.release();
     }
   }
 
