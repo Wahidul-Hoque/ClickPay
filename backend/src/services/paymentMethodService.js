@@ -13,34 +13,46 @@ class PaymentMethodService {
   // 2. LINK A NEW METHOD (Handshake)
   async linkMethod(userId, data) {
     const { type, bankId, networkId, phoneNumber, bankPin, cardNumber, expiryDate, cvv } = data;
+    const client = await getClient();
 
-    // Step A: Verify against the "Outer World" (Mock Bank/Card)
-    let mockId = null;
-    if (type === 'bank') {
-      const res = await query(
-        `SELECT account_id FROM mock_bank_accounts 
-         WHERE bank_id = $1 AND phone_number = $2 AND bank_pin = $3`,
-        [bankId, phoneNumber, bankPin]
-      );
-      if (res.rows.length === 0) throw new Error('Invalid Bank credentials or account not found');
-      mockId = res.rows[0].account_id;
-    } else {
-      const res = await query(
-        `SELECT card_id FROM mock_card_accounts 
-         WHERE network_id = $1 AND card_number = $2 AND expiry_date = $3 AND cvv = $4`,
-        [networkId, cardNumber, expiryDate, cvv]
-      );
-      if (res.rows.length === 0) throw new Error('Invalid Card details or card not found');
-      mockId = res.rows[0].card_id;
+    try {
+      await client.query('BEGIN');
+
+      // Step A: Verify against the "Outer World" (Mock Bank/Card)
+      let mockId = null;
+      if (type === 'bank') {
+        const res = await client.query(
+          `SELECT account_id FROM mock_bank_accounts 
+           WHERE bank_id = $1 AND phone_number = $2 AND bank_pin = $3`,
+          [bankId, phoneNumber, bankPin]
+        );
+        if (res.rows.length === 0) throw new Error('Invalid Bank credentials or account not found');
+        mockId = res.rows[0].account_id;
+      } else {
+        const res = await client.query(
+          `SELECT card_id FROM mock_card_accounts 
+           WHERE network_id = $1 AND card_number = $2 AND expiry_date = $3 AND cvv = $4`,
+          [networkId, cardNumber, expiryDate, cvv]
+        );
+        if (res.rows.length === 0) throw new Error('Invalid Card details or card not found');
+        mockId = res.rows[0].card_id;
+      }
+
+      // Step B: Create the Link in our App
+      const insertQuery = type === 'bank'
+        ? `INSERT INTO user_payment_methods (user_id, method_type, mock_bank_account_id) VALUES ($1, $2, $3) RETURNING *`
+        : `INSERT INTO user_payment_methods (user_id, method_type, mock_card_account_id) VALUES ($1, $2, $3) RETURNING *`;
+
+      const linkRes = await client.query(insertQuery, [userId, type, mockId]);
+
+      await client.query('COMMIT');
+      return linkRes.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-
-    // Step B: Create the Link in our App
-    const insertQuery = type === 'bank'
-      ? `INSERT INTO user_payment_methods (user_id, method_type, mock_bank_account_id) VALUES ($1, $2, $3) RETURNING *`
-      : `INSERT INTO user_payment_methods (user_id, method_type, mock_card_account_id) VALUES ($1, $2, $3) RETURNING *`;
-
-    const linkRes = await query(insertQuery, [userId, type, mockId]);
-    return linkRes.rows[0];
   }
 //add method for topup wallet
 async topupWallet(userId, methodId, amount) {

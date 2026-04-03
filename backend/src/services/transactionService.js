@@ -894,26 +894,37 @@ class TransactionService {
   async updateRequestStatus(requestId, userId, status) {
     // 'declined' → only the requestee (payer) can do it
     // 'cancelled' → only the requester (creator) can do it
-    const updateRes = await query(
-      `UPDATE money_requests
-       SET status = $1
-       WHERE request_id = $2
-         AND status = 'requested'
-         AND (
-           ($1 = 'declined'  AND requestee_user_id = $3) OR
-           ($1 = 'cancelled' AND requester_user_id = $3)
-         )
-       RETURNING *`,
-      [status, requestId, userId]
-    );
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
 
-    if (updateRes.rows.length === 0) {
-      throw new Error(
-        'Request not found, already resolved, or you are not authorised to perform this action'
+      const updateRes = await client.query(
+        `UPDATE money_requests
+         SET status = $1
+         WHERE request_id = $2
+           AND status = 'requested'
+           AND (
+             ($1 = 'declined'  AND requestee_user_id = $3) OR
+             ($1 = 'cancelled' AND requester_user_id = $3)
+           )
+         RETURNING *`,
+        [status, requestId, userId]
       );
-    }
 
-    return updateRes.rows[0];
+      if (updateRes.rows.length === 0) {
+        throw new Error(
+          'Request not found, already resolved, or you are not authorised to perform this action'
+        );
+      }
+
+      await client.query('COMMIT');
+      return updateRes.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   // REVERSE TRANSACTION (Admin Only)

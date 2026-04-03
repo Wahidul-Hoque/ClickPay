@@ -107,20 +107,38 @@ class SubscriptionService {
   }
 
   async toggleAutoRenew(subscriptionId, userId) {
-    const sub = await query(
-      `SELECT auto_renew, next_billing_at FROM subscriptions WHERE subscription_id = $1 AND subscriber_user_id = $2`,
-      [subscriptionId, userId]
-    );
-    if (sub.rows.length === 0) throw new Error('Subscription not found');
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
 
-    const nextMode = !sub.rows[0].auto_renew;
-    const endAt = nextMode ? null : sub.rows[0].next_billing_at;
+      const sub = await client.query(
+        `SELECT auto_renew, next_billing_at
+         FROM subscriptions
+         WHERE subscription_id = $1 AND subscriber_user_id = $2
+         FOR UPDATE`,
+        [subscriptionId, userId]
+      );
+      if (sub.rows.length === 0) throw new Error('Subscription not found');
 
-    const result = await query(
-      `UPDATE subscriptions SET auto_renew = $1, end_at = $2 WHERE subscription_id = $3 RETURNING *`,
-      [nextMode, endAt, subscriptionId]
-    );
-    return result.rows[0];
+      const nextMode = !sub.rows[0].auto_renew;
+      const endAt = nextMode ? null : sub.rows[0].next_billing_at;
+
+      const result = await client.query(
+        `UPDATE subscriptions
+         SET auto_renew = $1, end_at = $2
+         WHERE subscription_id = $3
+         RETURNING *`,
+        [nextMode, endAt, subscriptionId]
+      );
+
+      await client.query('COMMIT');
+      return result.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 

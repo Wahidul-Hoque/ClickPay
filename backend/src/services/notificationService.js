@@ -164,21 +164,41 @@ class NotificationService {
   }
 
   async deleteNotification(userId, notificationId) {
-    const res = await query(
-      'DELETE FROM notifications WHERE user_id = $1 AND notification_id = $2 RETURNING notification_id',
-      [userId, notificationId]
-    );
-    if (res.rows.length === 0) {
-      const err = new Error('Notification not found');
-      err.statusCode = 404;
-      throw err;
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+      const res = await client.query(
+        'DELETE FROM notifications WHERE user_id = $1 AND notification_id = $2 RETURNING notification_id',
+        [userId, notificationId]
+      );
+      if (res.rows.length === 0) {
+        const err = new Error('Notification not found');
+        err.statusCode = 404;
+        throw err;
+      }
+      await client.query('COMMIT');
+      return { success: true };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-    return { success: true };
   }
 
   async clearAll(userId) {
-    await query('DELETE FROM notifications WHERE user_id = $1', [userId]);
-    return { success: true };
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM notifications WHERE user_id = $1', [userId]);
+      await client.query('COMMIT');
+      return { success: true };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 
