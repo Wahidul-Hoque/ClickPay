@@ -72,7 +72,8 @@ class AgentService {
        JOIN wallets w_from ON t.from_wallet_id = w_from.wallet_id
        JOIN wallets w_to ON t.to_wallet_id = w_to.wallet_id
        JOIN users u_to ON w_to.user_id = u_to.user_id
-       WHERE w_from.user_id = $1
+        WHERE w_from.user_id = $1
+          AND t.transaction_type != 'system_profit'
        ORDER BY t.created_at DESC LIMIT 20`,
       [agentId]
     );

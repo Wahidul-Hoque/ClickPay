@@ -131,7 +131,7 @@ async topupWallet(userId, methodId, amount) {
     const txnRes = await client.query(
       `INSERT INTO transactions 
          (from_card_account_id, to_wallet_id, amount, transaction_type, status, reference)
-       VALUES ($1, $2, $3, 'bank_transfer', 'initiated', $4)
+       VALUES ($1, $2, $3, 'card_transfer', 'initiated', $4)
        RETURNING transaction_id`,
       [externalId, wallet.wallet_id, topupAmount, `Top-up from ${providerName}`]
     );

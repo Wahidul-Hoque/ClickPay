@@ -567,7 +567,7 @@ class TransactionService {
     const offset = (page - 1) * limit;
     const { startDate, endDate, type } = filters;
 
-    let whereClause = `WHERE (w_from.user_id = $1 OR w_to.user_id = $1) AND t.status = 'completed' AND t.transaction_type != 'agent_fee'`;
+    let whereClause = `WHERE (w_from.user_id = $1 OR w_to.user_id = $1) AND t.status = 'completed' AND t.transaction_type NOT IN ('agent_fee', 'system_profit')`;
     const dataParams = [userId];
 
     if (startDate) {
@@ -688,43 +688,58 @@ class TransactionService {
   // POST /api/v1/transactions/request
   // ============================================================
   async requestMoney(requesterUserId, recipientPhone, amount, message) {
-    const requesterWalletRes = await query(
-      `SELECT wallet_id FROM wallets
-       WHERE user_id = $1 AND wallet_type IN ('user','agent')`,
-      [requesterUserId]
-    );
-    if (requesterWalletRes.rows.length === 0) throw new Error('Your wallet not found');
-    const requesterWalletId = requesterWalletRes.rows[0].wallet_id;
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
 
-    const requesteeRes = await query(
-      `SELECT u.user_id, u.name, w.wallet_id
-       FROM users u
-       JOIN wallets w ON u.user_id = w.user_id
-       WHERE u.phone = $1 AND w.wallet_type IN ('user','agent')`,
-      [recipientPhone]
-    );
-    if (requesteeRes.rows.length === 0) throw new Error('Recipient not found with this phone number');
-    const requestee = requesteeRes.rows[0];
-    if (requestee.user_id === requesterUserId) throw new Error('Cannot request money from yourself');
+      const requesterWalletRes = await client.query(
+        `SELECT wallet_id FROM wallets
+         WHERE user_id = $1 AND wallet_type IN ('user','agent')
+         FOR UPDATE`,
+        [requesterUserId]
+      );
+      if (requesterWalletRes.rows.length === 0) throw new Error('Your wallet not found');
+      const requesterWalletId = requesterWalletRes.rows[0].wallet_id;
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+      const requesteeRes = await client.query(
+        `SELECT u.user_id, u.name, w.wallet_id
+         FROM users u
+         JOIN wallets w ON u.user_id = w.user_id
+         WHERE u.phone = $1 AND w.wallet_type IN ('user','agent')`,
+        [recipientPhone]
+      );
+      if (requesteeRes.rows.length === 0) throw new Error('Recipient not found with this phone number');
+      const requestee = requesteeRes.rows[0];
+      if (requestee.user_id === requesterUserId) throw new Error('Cannot request money from yourself');
 
-    const insertRes = await query(
-      `INSERT INTO money_requests
-         (requester_user_id, requester_wallet_id, requestee_user_id, requestee_wallet_id,
-          amount, message, expires_at, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'requested')
-       RETURNING *`,
-      [requesterUserId, requesterWalletId, requestee.user_id, requestee.wallet_id,
-        amount, message || null, expiresAt]
-    );
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
 
-    return {
-      ...insertRes.rows[0],
-      requestee_name: requestee.name,
-      requestee_phone: recipientPhone,
-    };
+      const insertRes = await client.query(
+        `INSERT INTO money_requests
+           (requester_user_id, requester_wallet_id, requestee_user_id, requestee_wallet_id,
+            amount, message, expires_at, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'requested')
+         RETURNING *`,
+        [requesterUserId, requesterWalletId, requestee.user_id, requestee.wallet_id,
+          amount, message || null, expiresAt]
+      );
+      const reqPhone = await client.query('SELECT phone FROM users WHERE user_id = $1', [requesterUserId]);
+      await client.query(`CALL p_send_notification($1, $2)`, [requestee.user_id, `You have a new money request from ${reqPhone.rows[0].phone} for ৳${amount}`]);
+
+      await client.query('COMMIT');
+
+      return {
+        ...insertRes.rows[0],
+        requestee_name: requestee.name,
+        requestee_phone: recipientPhone,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   // ============================================================
