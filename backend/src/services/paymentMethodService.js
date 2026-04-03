@@ -1,20 +1,5 @@
 import { query, getClient } from '../config/database.js';
-
-// ──────────────────────────────────────────────────────────────
-// INTERNAL HELPERS (Matches your BillService pattern)
-// ──────────────────────────────────────────────────────────────
-
-async function logEvent(client, transactionId, eventType, eventStatus, details) {
-  await client.query(
-    `INSERT INTO transaction_events (transaction_id, event_type, event_status, details)
-     VALUES ($1, $2, $3, $4)`,
-    [transactionId, eventType, eventStatus, details]
-  );
-}
-
-// ──────────────────────────────────────────────────────────────
-// PAYMENT METHOD SERVICE
-// ──────────────────────────────────────────────────────────────
+import { logEvent } from '../utils/dbHelpers.js';
 
 class PaymentMethodService {
 

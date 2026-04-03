@@ -36,10 +36,11 @@ class NotificationService {
       }
       const userId = userRes.rows[0].user_id;
       const insertRes = await query(
-        'INSERT INTO notifications (user_id, message) VALUES ($1, $2) RETURNING notification_id, user_id, message, created_at',
+        'CALL p_send_notification($1, $2)',
         [userId, trimmedMessage]
       );
-      return { sentCount: 1, audience: 'phone', phone: targetPhone, notification: insertRes.rows[0] };
+      // Let's get the created notification manually since CALL doesn't return the row. Wait, p_send_notification doesn't return anything. Let's just return a generic success object.
+      return { sentCount: 1, audience: 'phone', phone: targetPhone, message: 'Notification sent successfully.' };
     }
 
     if (!AUDIENCES.includes(targetAudience)) {
@@ -92,7 +93,7 @@ class NotificationService {
       // Insert notifications one-by-one for maximum compatibility
       for (const uid of recipientIds) {
         await client.query(
-          'INSERT INTO notifications (user_id, message) VALUES ($1, $2)',
+          'CALL p_send_notification($1, $2)',
           [uid, trimmedMessage]
         );
       }
@@ -101,8 +102,7 @@ class NotificationService {
 
       try {
         await client.query(
-          `INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description)
-           VALUES ($1, $2, $3, $4)`,
+          `CALL p_log_admin_activity($1, $2, $3, $4)`,
           [
             adminId,
             'SEND_NOTIFICATION',

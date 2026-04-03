@@ -311,25 +311,14 @@ class AdminService {
     try {
       await client.query('BEGIN');
 
-      // 1. Update User status
-      const userRes = await client.query(
-        'UPDATE users SET status = $1 WHERE user_id = $2', 
-        [status, userId]
-      );
-      const user = userRes.rows[0];
-
-      // 2. Update all Wallets belonging to this user
-      await client.query(
-        'UPDATE wallets SET status = $1 WHERE user_id = $2', 
-        [status, userId]
-      );
+      // 1 & 2. Update User and Wallet status
+      await client.query(`CALL p_set_user_account_status($1, $2)`, [userId, status]);
 
       // 3. Log Admin Activity
       const description = `${action === 'freeze' ? 'Froze' : 'Activated'} user account and wallets for user ${userId}.`;
       
       await client.query(
-        `INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description)
-         VALUES ($1, $2, $3, $4)`,
+        `CALL p_log_admin_activity($1, $2, $3, $4)`,
         [
           adminId, 
           logActionType, 
@@ -401,8 +390,7 @@ class AdminService {
     );
 
     await query(
-      `INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description)
-       VALUES ($1, 'update_setting', $2, $3)`,
+      `CALL p_log_admin_activity($1, 'update_setting', $2, $3)`,
       [adminId, key, `Updated ${key} to ${value}`]
     );
 

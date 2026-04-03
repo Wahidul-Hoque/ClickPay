@@ -1,39 +1,6 @@
 import { query, getClient } from '../config/database.js';
-import { comparePassword } from '../middleware/auth.js'; 
-
-// ──────────────────────────────────────────────────────────────
-// INTERNAL HELPERS
-// ──────────────────────────────────────────────────────────────
-
-async function logEvent(client, transactionId, eventType, eventStatus, details) {
-  await client.query(
-    `INSERT INTO transaction_events (transaction_id, event_type, event_status, details)
-     VALUES ($1, $2, $3, $4)`,
-    [transactionId, eventType, eventStatus, details]
-  );
-}
-
-async function recordFailure(transactionId, errorMessage) {
-  if (!transactionId) return;
-  try {
-    const failClient = await getClient();
-    try {
-      await failClient.query(
-        `UPDATE transactions SET status = 'failed' WHERE transaction_id = $1`,
-        [transactionId]
-      );
-      await failClient.query(
-        `INSERT INTO transaction_events (transaction_id, event_type, event_status, details)
-         VALUES ($1, 'failed', 'failure', $2)`,
-        [transactionId, `Failed: ${errorMessage}`]
-      );
-    } finally {
-      failClient.release();
-    }
-  } catch (logErr) {
-    console.error('Could not persist loan transaction failure log:', logErr.message);
-  }
-}
+import { comparePassword } from '../middleware/auth.js';
+import { logEvent, recordFailure } from '../utils/dbHelpers.js';
 
 class LoanService {
   async getLoanEligibility(userId) {
@@ -64,20 +31,12 @@ class LoanService {
   }
 
   async applyForLoan(userId, amount) {
-    // Check for existing active loan or pending app
-    const existing = await query(
-      `SELECT 1 FROM loans WHERE user_id = $1 AND status IN ('active', 'overdue')
-       UNION
-       SELECT 1 FROM loan_applications WHERE user_id = $1 AND decision_status = 'submitted'`,
-      [userId]
-    );
-    if (existing.rows.length > 0) throw new Error("You already have an active loan or pending request.");
-
+    // Note: Duplicate checking is now handled automatically by the trg_validate_loan_application trigger
     const { limit } = await this.getLoanEligibility(userId);
     if (amount < 500 || amount > limit) throw new Error("Invalid loan amount.");
 
-    const settings = await query("SELECT setting_value FROM system_settings WHERE setting_key = 'loan_interest_rate'");
-    const rate = settings.rows.length > 0 ? parseFloat(settings.rows[0].setting_value) : 0.09;
+    const settings = await query("SELECT fn_get_system_setting('loan_interest_rate', 0.09) as rate");
+    const rate = parseFloat(settings.rows[0].rate);
 
     const res = await query(
       `INSERT INTO loan_applications (user_id, requested_amount, interest_rate, term_days, decision_status)
@@ -96,7 +55,7 @@ class LoanService {
       // 1. Get Loan and interest details
       const loanRes = await client.query(`SELECT * FROM loans WHERE loan_id = $1 AND user_id = $2 AND status != 'repaid' FOR UPDATE`, [loanId, userId]);
       if (loanRes.rows.length === 0) throw new Error("Loan not found or already repaid.");
-      
+
       const loan = loanRes.rows[0];
       const principal = parseFloat(loan.principal_amount);
       const interest = principal * parseFloat(loan.interest_rate);
@@ -115,7 +74,7 @@ class LoanService {
         [userWalletRes.rows[0].wallet_id, principal, `Principal for Loan #${loanId}`]
       );
       transactionId = t1.rows[0].transaction_id;
-      
+
       await logEvent(client, transactionId, 'initiated', 'info', `Loan repayment of ৳${totalToPay.toFixed(2)} initiated`);
 
       // Transaction for Interest
@@ -133,7 +92,7 @@ class LoanService {
       // 5. Close Loan Record
       await client.query(`UPDATE loans SET status = 'repaid', repayment_transaction_id = $1 WHERE loan_id = $2`, [transactionId, loanId]);
       await client.query(`UPDATE transactions SET status = 'completed' WHERE transaction_id = $1`, [transactionId]);
-      
+
       await logEvent(client, transactionId, 'completed', 'success', `Loan repayment successfully processed`);
 
       await client.query('COMMIT');
@@ -155,7 +114,7 @@ class LoanService {
        FROM loans l 
        LEFT JOIN transactions t ON l.repayment_transaction_id = t.transaction_id
        WHERE l.user_id = $1 AND l.status IN ('repaid', 'defaulted') 
-       ORDER BY l.created_at DESC`, 
+       ORDER BY l.created_at DESC`,
       [userId]
     );
     const eligibility = await this.getLoanEligibility(userId);
@@ -245,13 +204,12 @@ class LoanService {
 
       // 7. Log Admin Activity
       await client.query(
-        `INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description)
-         VALUES ($1, 'loan_approve', $2, $3)`,
+        `CALL p_log_admin_activity($1, 'loan_approve', $2, $3)`,
         [adminId, loanId.toString(), `Admin #${adminId} approved Loan Application #${applicationId}. Created Loan ID: ${loanId}. Amount: ৳${app.requested_amount}`]
       );
 
       await client.query('COMMIT');
-      return { success: true , loanId: loanId};
+      return { success: true, loanId: loanId };
     } catch (error) {
       await client.query('ROLLBACK');
       if (transactionId) await recordFailure(transactionId, error.message);
@@ -282,11 +240,10 @@ class LoanService {
 
       // 2. Log Admin Activity
       await client.query(
-        `INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description)
-         VALUES ($1, 'loan_reject', $2, $3)`,
+        `CALL p_log_admin_activity($1, 'loan_reject', $2, $3)`,
         [
-          adminId, 
-          applicationId.toString(), 
+          adminId,
+          applicationId.toString(),
           `Rejected loan application #${applicationId} for User ID ${app.user_id}. Amount: ৳${app.requested_amount}`
         ]
       );
@@ -330,7 +287,7 @@ class LoanService {
       let transactionId = null;
       try {
         await client.query('BEGIN');
-        
+
         const principal = parseFloat(loan.principal_amount);
         const interest = principal * parseFloat(loan.interest_rate);
         const totalToPay = principal + interest;
@@ -353,7 +310,7 @@ class LoanService {
           transactionId = t1.rows[0].transaction_id;
 
           await logEvent(client, transactionId, 'initiated', 'info', `Auto-deduction for loan #${loan.loan_id} initiated`);
-          
+
           // Transaction for Interest
           await client.query(
             `INSERT INTO transactions (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
@@ -369,13 +326,12 @@ class LoanService {
           // Close Loan Record
           await client.query(`UPDATE loans SET status = 'repaid', repayment_transaction_id = $1 WHERE loan_id = $2`, [transactionId, loan.loan_id]);
           await client.query(`UPDATE transactions SET status = 'completed' WHERE transaction_id = $1`, [transactionId]);
-          
+
           await logEvent(client, transactionId, 'completed', 'success', `Auto-deduction for loan #${loan.loan_id} successful`);
           console.log(`[LoanScheduler] Loan #${loan.loan_id} auto-repaid successfully.`);
-        } else {
           // Freeze wallet
-          await client.query(`UPDATE wallets SET status = 'frozen' WHERE wallet_id = $1`, [loan.wallet_id]);
-          console.log(`[LoanScheduler] Loan #${loan.loan_id} defaulted. Wallet #${loan.wallet_id} frozen due to insufficient funds.`);
+          // Note: Wallet freeze is now handled automatically by trg_freeze_on_loan_default trigger
+          console.log(`[LoanScheduler] Loan #${loan.loan_id} defaulted. Wallet will be auto-frozen by trigger due to insufficient funds.`);
         }
 
         await client.query('COMMIT');

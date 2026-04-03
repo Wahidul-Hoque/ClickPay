@@ -3,40 +3,7 @@
 
 import { query, getClient } from '../config/database.js';
 import { comparePassword } from '../middleware/auth.js';
-
-// ──────────────────────────────────────────────────────────────
-// INTERNAL HELPERS
-// ──────────────────────────────────────────────────────────────
-
-async function logEvent(client, transactionId, eventType, eventStatus, details) {
-  await client.query(
-    `INSERT INTO transaction_events (transaction_id, event_type, event_status, details)
-     VALUES ($1, $2, $3, $4)`,
-    [transactionId, eventType, eventStatus, details]
-  );
-}
-
-async function recordFailure(transactionId, errorMessage) {
-  if (!transactionId) return;
-  try {
-    const failClient = await getClient();
-    try {
-      await failClient.query(
-        `UPDATE transactions SET status = 'failed' WHERE transaction_id = $1`,
-        [transactionId]
-      );
-      await failClient.query(
-        `INSERT INTO transaction_events (transaction_id, event_type, event_status, details)
-         VALUES ($1, 'failed', 'failure', $2)`,
-        [transactionId, `Failed: ${errorMessage}`]
-      );
-    } finally {
-      failClient.release();
-    }
-  } catch (logErr) {
-    console.error('Could not persist bill payment failure log:', logErr.message);
-  }
-}
+import { logEvent, recordFailure } from '../utils/dbHelpers.js';
 
 // ──────────────────────────────────────────────────────────────
 // BILL SERVICE CLASS
@@ -96,16 +63,9 @@ class BillService {
       }
 
       // ── Step 2: Verify ePin ─────────────────────────────────
-      const epinRow = await client.query(
-        'SELECT epin_hash FROM users WHERE user_id = $1',
-        [userId]
-      );
-      if (epinRow.rows.length === 0) throw new Error('User not found');
-
+      const epinRow = await client.query('SELECT fn_get_epin_hash($1) as epin_hash', [userId]);
       const isValid = await comparePassword(epin, epinRow.rows[0].epin_hash);
-      if (!isValid) {
-        throw new Error('Invalid ePin');
-      }
+      if (!isValid) throw new Error('Invalid ePin');
 
       // ── Step 3: Verify biller exists and is active ──────────
       const billerRes = await client.query(

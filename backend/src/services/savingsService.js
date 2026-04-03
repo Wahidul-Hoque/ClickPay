@@ -1,36 +1,19 @@
 import { query, getClient } from '../config/database.js';
 import { comparePassword } from '../middleware/auth.js';
+import { logEvent } from '../utils/dbHelpers.js';
 
 class SavingsService {
-  // Internal helper to log transaction events
-  async logEvent(client, transactionId, eventType, eventStatus, details) {
-    await client.query(
-      `INSERT INTO transaction_events (transaction_id, event_type, event_status, details)
-       VALUES ($1, $2, $3, $4)`,
-      [transactionId, eventType, eventStatus, details]
-    );
-  }
-
   async createSavingsAccount(userId, amount, durationMonths, epin) {
     const client = await getClient();
-    const settings = await client.query("SELECT setting_value FROM system_settings WHERE setting_key = 'savings_interest_rate'");
-    const ANNUAL_RATE = settings.rows.length > 0 ? parseFloat(settings.rows[0].setting_value) : 0.07;
+    const settings = await client.query("SELECT fn_get_system_setting('savings_interest_rate', 0.07) as rate");
+    const ANNUAL_RATE = parseFloat(settings.rows[0].rate);
 
     try {
       await client.query('BEGIN');
 
-      // 1. Strict Check: Only one active account allowed
-      const existing = await client.query(
-        `SELECT 1 FROM fixed_savings_accounts WHERE user_id = $1 AND status = 'active'`, 
-        [userId]
-      );
-      if (existing.rows.length > 0) {
-        throw new Error("You already have an active savings account.");
-      }
-
       // 2. ePin Verification
-      const user = (await client.query(`SELECT epin_hash FROM users WHERE user_id = $1`, [userId])).rows[0];
-      const isValid = await comparePassword(epin, user.epin_hash);
+      const user = await client.query(`SELECT fn_get_epin_hash($1) as epin_hash`, [userId]);
+      const isValid = await comparePassword(epin, user.rows[0].epin_hash);
       if (!isValid) throw new Error('Invalid ePin');
 
       // 3. Wallet Balance Check
@@ -64,8 +47,7 @@ class SavingsService {
       const transactionId = txnRes.rows[0].transaction_id;
 
       // 6. Update Balances
-      await client.query(`UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2`, [amount, fundingWallet.wallet_id]);
-      await client.query(`UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2`, [amount, savingsWallet.wallet_id]);
+      await client.query('CALL p_debit_credit_wallets($1, $2, $3)', [fundingWallet.wallet_id, savingsWallet.wallet_id, amount]);
 
       // 7. Create Savings Record
       const finishAt = new Date();
@@ -79,7 +61,7 @@ class SavingsService {
       );
 
       // Log the event
-      await this.logEvent(client, transactionId, 'savings_created', 'success', `Account expires at ${finishAt.toISOString()}`);
+      await logEvent(client, transactionId, 'savings_created', 'success', `Account expires at ${finishAt.toISOString()}`);
 
       await client.query('COMMIT');
       return { success: true, finishAt };
@@ -137,7 +119,7 @@ class SavingsService {
            RETURNING transaction_id`,
           [acc.funding_wallet_id, interest, `Interest Earned #${fixedSavingsId}`]
         );
-        await this.logEvent(client, iTxn.rows[0].transaction_id, 'interest_paid', 'success', `Interest: ${interest}`);
+        await logEvent(client, iTxn.rows[0].transaction_id, 'interest_paid', 'success', `Interest: ${interest}`);
         await client.query(`UPDATE wallets SET balance = balance - $1 WHERE wallet_type = 'system' AND system_purpose = 'profit'`, [interest]);
       }
 
@@ -149,7 +131,7 @@ class SavingsService {
         [isMatured ? 'closed' : 'broken', fixedSavingsId]
       );
 
-      await this.logEvent(client, pTxn.rows[0].transaction_id, 'savings_closed', 'success', isMatured ? 'Matured' : 'Broken Early');
+      await logEvent(client, pTxn.rows[0].transaction_id, 'savings_closed', 'success', isMatured ? 'Matured' : 'Broken Early');
 
       await client.query('COMMIT');
       return { principal, interest, status: isMatured ? 'closed' : 'broken' };

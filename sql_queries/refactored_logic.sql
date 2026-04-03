@@ -138,11 +138,11 @@ $$ LANGUAGE plpgsql;
 -- ==========================================
 
 -- ──────────────────────────────────────────
--- Procedure 1: sp_log_admin_activity
+-- Procedure 1: p_log_admin_activity
 -- Consolidates the admin_activity_logs INSERT
 -- repeated in 9 places across 4 service files.
 -- ──────────────────────────────────────────
-CREATE OR REPLACE PROCEDURE sp_log_admin_activity(
+CREATE OR REPLACE PROCEDURE p_log_admin_activity(
     p_admin_id BIGINT,
     p_action_type VARCHAR,
     p_target_id VARCHAR,
@@ -157,12 +157,12 @@ $$ LANGUAGE plpgsql;
 
 
 -- ──────────────────────────────────────────
--- Procedure 2: sp_record_transaction_failure
+-- Procedure 2: p_record_transaction_failure
 -- Consolidates the recordFailure() helper function that was
 -- identically copy-pasted in transactionService, billService,
 -- and loanService (3 copies of 20 lines each).
 -- ──────────────────────────────────────────
-CREATE OR REPLACE PROCEDURE sp_record_transaction_failure(
+CREATE OR REPLACE PROCEDURE p_record_transaction_failure(
     p_transaction_id BIGINT,
     p_error_message TEXT
 )
@@ -183,12 +183,12 @@ $$ LANGUAGE plpgsql;
 
 
 -- ──────────────────────────────────────────
--- Procedure 3: sp_debit_credit_wallets
+-- Procedure 3: p_debit_credit_wallets
 -- Consolidates the debit-from-sender / credit-to-receiver
 -- wallet update pair repeated in 9+ methods across
 -- transactionService, loanService, savingsService, agentService.
 -- ──────────────────────────────────────────
-CREATE OR REPLACE PROCEDURE sp_debit_credit_wallets(
+CREATE OR REPLACE PROCEDURE p_debit_credit_wallets(
     p_from_wallet_id BIGINT,
     p_to_wallet_id BIGINT,
     p_amount NUMERIC
@@ -206,12 +206,12 @@ $$ LANGUAGE plpgsql;
 
 
 -- ──────────────────────────────────────────
--- Procedure 4: sp_send_notification
+-- Procedure 4: p_send_notification
 -- Consolidates the INSERT INTO notifications pattern
 -- scattered across 6 places in transactionService,
 -- fraudDetectionService, and notificationService.
 -- ──────────────────────────────────────────
-CREATE OR REPLACE PROCEDURE sp_send_notification(
+CREATE OR REPLACE PROCEDURE p_send_notification(
     p_user_id BIGINT,
     p_message VARCHAR(500)
 )
@@ -224,13 +224,13 @@ $$ LANGUAGE plpgsql;
 
 
 -- ──────────────────────────────────────────
--- Procedure 5: sp_set_user_account_status
+-- Procedure 5: p_set_user_account_status
 -- Consolidates the freeze/unfreeze user + all wallets pattern
 -- repeated in adminService, fraudDetectionService, loanService.
--- (Enhances the existing sp_freeze_user_account to support both
+-- (Enhances the existing p_freeze_user_account to support both
 -- freeze and activate operations via a status parameter.)
 -- ──────────────────────────────────────────
-CREATE OR REPLACE PROCEDURE sp_set_user_account_status(
+CREATE OR REPLACE PROCEDURE p_set_user_account_status(
     p_user_id BIGINT,
     p_status VARCHAR  -- 'active' or 'frozen'
 )

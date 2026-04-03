@@ -94,7 +94,7 @@ $$ LANGUAGE plpgsql;
 
 -- Procedure 1: Transfer Funds
 -- Ensures secure double-entry accounting between two active wallets.
-CREATE OR REPLACE PROCEDURE sp_transfer_funds(
+CREATE OR REPLACE PROCEDURE p_transfer_funds(
     p_from_wallet_id BIGINT, 
     p_to_wallet_id BIGINT, 
     p_amount NUMERIC, 
@@ -126,7 +126,7 @@ $$ LANGUAGE plpgsql;
 
 -- Procedure 2: Freeze User Account
 -- Freezes a user's account and logs the admin's action.
-CREATE OR REPLACE PROCEDURE sp_freeze_user_account(
+CREATE OR REPLACE PROCEDURE p_freeze_user_account(
     p_target_user_id BIGINT, 
     p_admin_id BIGINT, 
     p_reason TEXT
@@ -143,7 +143,7 @@ $$ LANGUAGE plpgsql;
 
 -- Procedure 3: Dismiss Fraud Alert
 -- Dismisses an alert and leaves a tracking note from the assigned admin.
-CREATE OR REPLACE PROCEDURE sp_dismiss_fraud_alert(
+CREATE OR REPLACE PROCEDURE p_dismiss_fraud_alert(
     p_alert_id BIGINT, 
     p_admin_id BIGINT, 
     p_note TEXT
@@ -161,7 +161,7 @@ $$ LANGUAGE plpgsql;
 
 -- Procedure 4: Process Agent Cashout
 -- Settles standard user and agent cashout processes, while creating agent_fees logs.
-CREATE OR REPLACE PROCEDURE sp_process_agent_cashout(
+CREATE OR REPLACE PROCEDURE p_process_agent_cashout(
     p_user_wallet_id BIGINT, 
     p_agent_wallet_id BIGINT, 
     p_amount NUMERIC, 
@@ -185,7 +185,7 @@ $$ LANGUAGE plpgsql;
 
 -- Procedure 5: Mark Loan as Repaid
 -- Marks an active loan as repaid if the transaction succeeds.
-CREATE OR REPLACE PROCEDURE sp_repay_loan(
+CREATE OR REPLACE PROCEDURE p_repay_loan(
     p_loan_id BIGINT, 
     p_tx_id BIGINT
 )

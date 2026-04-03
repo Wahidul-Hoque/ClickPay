@@ -83,26 +83,18 @@ class FraudDetectionService {
         console.log(`[FRAUD] ⚠️ Alert #${alertId} created for user ${flaggedUserId}`);
 
         // Send automatic notification to the user
-        await query(
-          `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
-          [
-            flaggedUserId,
-            `⚠️ Security Alert: We detected ${repeatCount} identical transactions of ৳${amount} to ${receiverPhone} within the last hour. If you did not authorize these transactions, please contact support immediately. Your account may be temporarily restricted for safety.`
-          ]
-        );
+        await query(`CALL p_send_notification($1, $2)`, [
+          flaggedUserId,
+          `⚠️ Security Alert: We detected ${repeatCount} identical transactions of ৳${amount} to ${receiverPhone} within the last hour. If you did not authorize these transactions, please contact support immediately. Your account may be temporarily restricted for safety.`
+        ]);
 
         // Send notification to ALL admins
-        const adminsRes = await query(
-          `SELECT user_id FROM users WHERE role = 'admin' AND status = 'active'`
-        );
+        const adminsRes = await query(`SELECT user_id FROM users WHERE role = 'admin' AND status = 'active'`);
         for (const admin of adminsRes.rows) {
-          await query(
-            `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
-            [
-              admin.user_id,
-              `🚨 Fraud Alert #${alertId}: User ID ${flaggedUserId} made ${repeatCount} identical ${transactionType} transactions of ৳${amount} to ${receiverPhone}. Review and take action.`
-            ]
-          );
+          await query(`CALL p_send_notification($1, $2)`, [
+            admin.user_id,
+            `🚨 Fraud Alert #${alertId}: User ID ${flaggedUserId} made ${repeatCount} identical ${transactionType} transactions of ৳${amount} to ${receiverPhone}. Review and take action.`
+          ]);
         }
 
         console.log(`[FRAUD] Notifications sent to user ${flaggedUserId} and ${adminsRes.rows.length} admin(s)`);
@@ -187,18 +179,10 @@ class FraudDetectionService {
       const flaggedUserId = alert.flagged_user_id;
 
       if (action === 'freeze') {
-        // Freeze the user account
-        await client.query(
-          `UPDATE users SET status = 'frozen' WHERE user_id = $1`,
-          [flaggedUserId]
-        );
-        // Freeze all wallets
-        await client.query(
-          `UPDATE wallets SET status = 'frozen' WHERE user_id = $1`,
-          [flaggedUserId]
-        );
+        // Freeze the user account and all wallets
+        await client.query(`CALL p_set_user_account_status($1, 'frozen')`, [flaggedUserId]);
 
-        // Mark alert as resolved
+        // Mark alert as resolved (trigger handles admin logging)
         await client.query(
           `UPDATE fraud_alerts 
            SET status = 'frozen', resolved_by = $1, resolved_at = NOW(), resolution_note = $2
@@ -206,46 +190,19 @@ class FraudDetectionService {
           [adminUserId, note || 'Account frozen due to suspicious activity', alertId]
         );
 
-        // Log admin activity
-        await client.query(
-          `INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description)
-           VALUES ($1, $2, $3, $4)`,
-          [
-            adminUserId,
-            'fraud_freeze',
-            flaggedUserId.toString(),
-            `Froze user account (ID: ${flaggedUserId}) due to fraud alert #${alertId}. ${note || ''}`
-          ]
-        );
-
         // Notify user
-        await client.query(
-          `INSERT INTO notifications (user_id, message) VALUES ($1, $2)`,
-          [
-            flaggedUserId,
-            `🔒 Your account has been frozen due to suspicious transaction activity detected by our security system. Please contact support for assistance.`
-          ]
-        );
+        await client.query(`CALL p_send_notification($1, $2)`, [
+          flaggedUserId,
+          `🔒 Your account has been frozen due to suspicious transaction activity detected by our security system. Please contact support for assistance.`
+        ]);
 
       } else if (action === 'dismiss') {
-        // Mark alert as dismissed
+        // Mark alert as dismissed (trigger handles admin logging)
         await client.query(
           `UPDATE fraud_alerts 
            SET status = 'dismissed', resolved_by = $1, resolved_at = NOW(), resolution_note = $2
            WHERE alert_id = $3`,
           [adminUserId, note || 'Alert dismissed after review', alertId]
-        );
-
-        // Log admin activity
-        await client.query(
-          `INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description)
-           VALUES ($1, $2, $3, $4)`,
-          [
-            adminUserId,
-            'fraud_dismiss',
-            flaggedUserId.toString(),
-            `Dismissed fraud alert #${alertId} for user ID ${flaggedUserId}. ${note || ''}`
-          ]
         );
       } else {
         throw new Error('Invalid action. Use "freeze" or "dismiss"');

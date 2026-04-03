@@ -13,42 +13,7 @@
 import { query, getClient } from '../config/database.js';
 import { comparePassword } from '../middleware/auth.js';
 import fraudDetectionService from './fraudDetectionService.js';
-
-// ──────────────────────────────────────────────────────────────
-// INTERNAL HELPERS
-// ──────────────────────────────────────────────────────────────
-
-// Log a single lifecycle event for a transaction (uses a client mid-transaction)
-async function logEvent(client, transactionId, eventType, eventStatus, details) {
-  await client.query(
-    `INSERT INTO transaction_events (transaction_id, event_type, event_status, details)
-     VALUES ($1, $2, $3, $4)`,
-    [transactionId, eventType, eventStatus, details]
-  );
-}
-
-// After a ROLLBACK, record the failure in a fresh connection so the log is persisted
-async function recordFailure(transactionId, errorMessage) {
-  if (!transactionId) return;
-  try {
-    const failClient = await getClient();
-    try {
-      await failClient.query(
-        `UPDATE transactions SET status = 'failed' WHERE transaction_id = $1`,
-        [transactionId]
-      );
-      await failClient.query(
-        `INSERT INTO transaction_events (transaction_id, event_type, event_status, details)
-         VALUES ($1, 'failed', 'failure', $2)`,
-        [transactionId, `Failed: ${errorMessage}`]
-      );
-    } finally {
-      failClient.release();
-    }
-  } catch (logErr) {
-    console.error('Could not persist transaction failure log:', logErr.message);
-  }
-}
+import { logEvent, recordFailure } from '../utils/dbHelpers.js';
 
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -66,14 +31,9 @@ class TransactionService {
       await client.query('BEGIN');
 
       // ── Step 1: Verify sender ePin ──────────────────────────
-      const epinRow = await client.query(
-        'SELECT epin_hash FROM users WHERE user_id = $1',
-        [fromUserId]
-      );
-      if (epinRow.rows.length === 0) throw new Error('User not found');
-      if (!(await comparePassword(epin, epinRow.rows[0].epin_hash))) {
-        throw new Error('Invalid ePin');
-      }
+      const epinRow = await client.query('SELECT fn_get_epin_hash($1) as epin_hash', [fromUserId]);
+      const isValid = await comparePassword(epin, epinRow.rows[0].epin_hash);
+      if (!isValid) throw new Error('Invalid ePin');
 
       // ── Step 2: Lock sender wallet ──────────────────────────
       const senderRes = await client.query(
@@ -103,14 +63,10 @@ class TransactionService {
 
       // ── Step 4: Duplicate guard (same wallets + amount, last 30s) ──
       const dup = await client.query(
-        `SELECT 1 FROM transactions
-         WHERE from_wallet_id = $1 AND to_wallet_id = $2
-           AND amount = $3
-           AND status = 'completed'
-           AND created_at > NOW() - INTERVAL '30 seconds'`,
+        `SELECT fn_is_duplicate_transaction($1, $2, $3) as is_dup`,
         [senderWallet.wallet_id, receiverWallet.wallet_id, amount]
       );
-      if (dup.rows.length > 0) {
+      if (dup.rows[0].is_dup) {
         throw new Error('Duplicate transaction detected — please wait before retrying');
       }
 
@@ -239,9 +195,8 @@ class TransactionService {
       console.log(`[TX:${Date.now()}] Merchant transfer start by ${merchantUserId} to ${toPhone}`);
 
       // 1. Verify ePin
-      const { rows: epinRows } = await client.query('SELECT epin_hash FROM users WHERE user_id = $1', [merchantUserId]);
-      if (epinRows.length === 0) throw new Error('Merchant not found');
-      if (!(await comparePassword(epin, epinRows[0].epin_hash))) throw new Error('Invalid ePin');
+      const epinRows = await client.query('SELECT fn_get_epin_hash($1) as epin_hash', [merchantUserId]);
+      if (!(await comparePassword(epin, epinRows.rows[0].epin_hash))) throw new Error('Invalid ePin');
       console.log('[TX] ePin verified');
 
       // 2. Lock Wallets
@@ -354,14 +309,9 @@ class TransactionService {
       await client.query('BEGIN');
 
       // ── Step 1: Verify agent ePin ───────────────────────────
-      const epinRow = await client.query(
-        'SELECT epin_hash FROM users WHERE user_id = $1',
-        [agentUserId]
-      );
-      if (epinRow.rows.length === 0) throw new Error('Agent not found');
-      if (!(await comparePassword(agentEpin, epinRow.rows[0].epin_hash))) {
-        throw new Error('Invalid ePin');
-      }
+      const epinRow = await client.query('SELECT fn_get_epin_hash($1) as epin_hash', [agentUserId]);
+      const isValid = await comparePassword(agentEpin, epinRow.rows[0].epin_hash);
+      if (!isValid) throw new Error('Invalid ePin');
 
       // ── Step 2: Lock agent wallet (must be agent type) ──────
       const agentRes = await client.query(
@@ -391,14 +341,10 @@ class TransactionService {
 
       // ── Step 4: Duplicate guard ─────────────────────────────
       const dup = await client.query(
-        `SELECT 1 FROM transactions
-         WHERE from_wallet_id = $1 AND to_wallet_id = $2
-           AND amount = $3
-           AND status = 'completed'
-           AND created_at > NOW() - INTERVAL '30 seconds'`,
+        `SELECT fn_is_duplicate_transaction($1, $2, $3) as is_dup`,
         [agentWallet.wallet_id, userWallet.wallet_id, amount]
       );
-      if (dup.rows.length > 0) {
+      if (dup.rows[0].is_dup) {
         throw new Error('Duplicate cash-in detected — please wait before retrying');
       }
 
@@ -423,21 +369,11 @@ class TransactionService {
       await logEvent(client, transactionId, 'initiated', 'info', `Cash-in of ৳${amount} for ${userWallet.name} initiated by agent`);
       await logEvent(client, transactionId, 'epin_verified', 'info', 'Agent ePin verified');
 
-      // ── Step 7: Deduct from agent ───────────────────────────
-      await client.query(
-        'UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2',
-        [amount, agentWallet.wallet_id]
-      );
-      await logEvent(client, transactionId, 'amount_deducted', 'info',
-        `৳${amount} deducted from agent wallet`);
-
-      // ── Step 8: Credit user ─────────────────────────────────
-      await client.query(
-        'UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2',
-        [amount, userWallet.wallet_id]
-      );
-      await logEvent(client, transactionId, 'amount_credited', 'info',
-        `৳${amount} credited to ${userWallet.name}`);
+      // ── Step 7 & 8: Perform debit and credit transfers ─────
+      await client.query('CALL p_debit_credit_wallets($1, $2, $3)', [agentWallet.wallet_id, userWallet.wallet_id, amount]);
+      
+      await logEvent(client, transactionId, 'amount_deducted', 'info', `৳${amount} deducted from agent wallet`);
+      await logEvent(client, transactionId, 'amount_credited', 'info', `৳${amount} credited to ${userWallet.name}`);
 
       // ── Step 9: Mark completed ──────────────────────────────
       await client.query(
@@ -498,11 +434,9 @@ class TransactionService {
       await client.query('BEGIN');
 
       // 1. Verify User ePin
-      const epinRow = await client.query('SELECT epin_hash FROM users WHERE user_id = $1', [userId]);
-      if (epinRow.rows.length === 0) throw new Error('User not found');
-      if (!(await comparePassword(userEpin, epinRow.rows[0].epin_hash))) {
-        throw new Error('Invalid ePin');
-      }
+      const epinRow = await client.query('SELECT fn_get_epin_hash($1) as epin_hash', [userId]);
+      const isValid = await comparePassword(userEpin, epinRow.rows[0].epin_hash);
+      if (!isValid) throw new Error('Invalid ePin');
 
       // 2. Lock Wallets (User, Agent, and System Profit)
       const userRes = await client.query(
@@ -528,11 +462,11 @@ class TransactionService {
       const systemWallet = systemRes.rows[0];
 
       // 3. Fee Math
-      const sysProfitRes = await client.query("SELECT setting_value FROM system_settings WHERE setting_key = 'cashout_system_fee'");
-      const agentCommRes = await client.query("SELECT setting_value FROM system_settings WHERE setting_key = 'cashout_agent_fee'");
+      const sysProfitRes = await client.query("SELECT fn_get_system_setting('cashout_system_fee', 0.01) as rate");
+      const agentCommRes = await client.query("SELECT fn_get_system_setting('cashout_agent_fee', 0.005) as rate");
       
-      const systemProfitRate = sysProfitRes.rows.length > 0 ? parseFloat(sysProfitRes.rows[0].setting_value) : 0.01;
-      const agentCommRate = agentCommRes.rows.length > 0 ? parseFloat(agentCommRes.rows[0].setting_value) : 0.005;
+      const systemProfitRate = parseFloat(sysProfitRes.rows[0].rate);
+      const agentCommRate = parseFloat(agentCommRes.rows[0].rate);
 
       const systemProfit = parseFloat((amount * systemProfitRate).toFixed(2));
       const agentCommission = parseFloat((amount * agentCommRate).toFixed(2));
@@ -862,13 +796,9 @@ class TransactionService {
       }
 
       // ── Step 2: Verify ePin ─────────────────────────────────
-      const epinRow = await client.query(
-        'SELECT epin_hash FROM users WHERE user_id = $1',
-        [payerUserId]
-      );
-      if (!(await comparePassword(epin, epinRow.rows[0].epin_hash))) {
-        throw new Error('Invalid ePin');
-      }
+      const epinRow = await client.query('SELECT fn_get_epin_hash($1) as epin_hash', [payerUserId]);
+      const isValid = await comparePassword(epin, epinRow.rows[0].epin_hash);
+      if (!isValid) throw new Error('Invalid ePin');
 
       // ── Step 3: Lock payer wallet & check balance ───────────
       const payerWalletRes = await client.query(
@@ -900,21 +830,12 @@ class TransactionService {
       await logEvent(client, transactionId, 'initiated', 'info', `Payment for request #${requestId} of ৳${requestAmount} initiated`);
       await logEvent(client, transactionId, 'epin_verified', 'info', 'Payer ePin verified');
 
-      // ── Step 5: Deduct from payer ───────────────────────────
-      await client.query(
-        'UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2',
-        [requestAmount, moneyRequest.requestee_wallet_id]
-      );
-      await logEvent(client, transactionId, 'amount_deducted', 'info',
-        `৳${requestAmount} deducted from payer`);
-
-      // ── Step 6: Credit requester ────────────────────────────
-      await client.query(
-        'UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2',
-        [requestAmount, moneyRequest.requester_wallet_id]
-      );
-      await logEvent(client, transactionId, 'amount_credited', 'info',
-        `৳${requestAmount} credited to requester`);
+      // ── Step 5 & 6: Perform debit and credit transfers ─────
+      await client.query('CALL p_debit_credit_wallets($1, $2, $3)', 
+        [moneyRequest.requestee_wallet_id, moneyRequest.requester_wallet_id, requestAmount]);
+        
+      await logEvent(client, transactionId, 'amount_deducted', 'info', `৳${requestAmount} deducted from payer`);
+      await logEvent(client, transactionId, 'amount_credited', 'info', `৳${requestAmount} credited to requester`);
 
       // ── Step 7: Mark request as paid ───────────────────────
       await client.query(
@@ -1038,14 +959,8 @@ class TransactionService {
       reversalTxnId = revRes.rows[0].transaction_id;
 
       // 4. Update Balances
-      await client.query(
-        'UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2',
-        [originalTxn.amount, receiverWallet.wallet_id]
-      );
-      await client.query(
-        'UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2',
-        [originalTxn.amount, senderWallet.wallet_id]
-      );
+      await client.query('CALL p_debit_credit_wallets($1, $2, $3)', 
+        [receiverWallet.wallet_id, senderWallet.wallet_id, originalTxn.amount]);
 
       const senderNumberRes = await client.query(`select phone from users where user_id = $1`, [senderWallet.user_id]);
       const receiverNumberRes = await client.query(`select phone from users where user_id = $1`, [receiverWallet.user_id]);
@@ -1064,14 +979,14 @@ class TransactionService {
       
       await client.query('update transactions set status = $1, transaction_type = $2 where transaction_id = $3', ['reversed', 'reversal', transactionId]);
 
-      await client.query(`INSERT INTO admin_activity_logs (admin_user_id, action_type, target_id, description) VALUES ($1, $2, $3, $4)`, [adminUserId, 'reverse_transaction', transactionId, `Transaction reversed by Admin id ${adminUserId}. Amount: ৳${originalTxn.amount} reversed From: ${senderPhone}, To: ${receiverPhone}`]);
+      await client.query(`CALL p_log_admin_activity($1, $2, $3, $4)`, [adminUserId, 'reverse_transaction', transactionId, `Transaction reversed by Admin id ${adminUserId}. Amount: ৳${originalTxn.amount} reversed From: ${senderPhone}, To: ${receiverPhone}`]);
 
       // Update original transaction to link reversal
       await logEvent(client, originalTxn.transaction_id, 'reversed', 'info', `Transaction reversed by Admin. Reversal ID: ${reversalTxnId}`);
       await logEvent(client, reversalTxnId, 'completed', 'success', `Reversal of txn #${originalTxn.transaction_id} completed`);
+      
+      // Notifications are now handled automatically by trg_notify_on_reversal
 
-      await client.query(`insert into notifications (user_id, message) values ($1, $2)`, [receiverWallet.user_id, `A transaction of ৳${originalTxn.amount} has been reversed. Your wallet has been debited.`]);
-      await client.query(`insert into notifications (user_id, message) values ($1, $2)`, [senderWallet.user_id, `A transaction of ৳${originalTxn.amount} has been reversed. Your wallet has been credited.`]);
 
       await client.query('COMMIT');
       return { success: true, reversal_id: reversalTxnId, amount: originalTxn.amount };

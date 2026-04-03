@@ -34,7 +34,7 @@ class AgentService {
       await client.query('BEGIN');
 
       // Verify Agent ePin
-      const agent = await client.query('SELECT epin_hash FROM users WHERE user_id = $1', [agentId]);
+      const agent = await client.query('SELECT fn_get_epin_hash($1) as epin_hash', [agentId]);
       if (!(await comparePassword(epin, agent.rows[0].epin_hash))) throw new Error('Invalid ePin');
 
       // Get Wallets
@@ -52,8 +52,7 @@ class AgentService {
       );
 
       // Update Balances
-      await client.query('UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2', [amount, agentWallet.rows[0].wallet_id]);
-      await client.query('UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2', [amount, userRes.rows[0].wallet_id]);
+      await client.query('CALL p_debit_credit_wallets($1, $2, $3)', [agentWallet.rows[0].wallet_id, userRes.rows[0].wallet_id, amount]);
 
       await client.query('COMMIT');
       return tx.rows[0];
