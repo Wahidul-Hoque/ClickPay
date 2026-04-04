@@ -220,10 +220,12 @@ class TransactionController {
       const userId = req.user.userId;
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
+      const { startDate, endDate, type, direction } = req.query;
       const filters = {
-        startDate: req.query.startDate,
-        endDate: req.query.endDate,
-        type: req.query.type
+        startDate,
+        endDate,
+        type,
+        direction
       };
       const result = await transactionService.getHistory(userId, page, limit, filters);
       return res.json({ success: true, data: result.transactions, pagination: result.pagination });

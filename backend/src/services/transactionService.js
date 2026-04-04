@@ -573,7 +573,7 @@ class TransactionService {
   // ============================================================
   async getHistory(userId, page = 1, limit = 10, filters = {}) {
     const offset = (page - 1) * limit;
-    const { startDate, endDate, type } = filters;
+    const { startDate, endDate, type, direction } = filters;
 
     let whereClause = `WHERE (w_from.user_id = $1 OR w_to.user_id = $1) AND t.status = 'completed' AND t.transaction_type NOT IN ('agent_fee', 'system_profit')`;
     const dataParams = [userId];
@@ -589,6 +589,13 @@ class TransactionService {
     if (type && type !== 'all') {
       dataParams.push(type);
       whereClause += ` AND t.transaction_type = $${dataParams.length}`;
+    }
+    if (direction) {
+      if (direction === 'debit') {
+        whereClause += ` AND w_from.user_id = $1`;
+      } else if (direction === 'credit') {
+        whereClause += ` AND w_to.user_id = $1`;
+      }
     }
 
     const countQuery = `

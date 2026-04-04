@@ -56,9 +56,8 @@ export default function RegisterPage() {
 
       if (user.role === 'agent') {
         router.push('/agent');
-      } else if (user.role === 'admin') {
-        router.push('/admin');
-      } else if (user.role === 'merchant') {
+      } 
+       else if (user.role === 'merchant') {
         router.push('/merchant');
       } else {
         router.push('/dashboard'); // Standard user
@@ -189,7 +188,7 @@ export default function RegisterPage() {
                 <option value="user">User</option>
                 <option value="agent">Agent</option>
                 <option value="merchant">Merchant</option>
-                <option value="admin">Admin</option>
+                
               </select>
               <p className="text-xs text-gray-500 mt-1">
                 User: Personal account | Agent: Cash-in/out services | Merchant: Store payments | Admin: System management
