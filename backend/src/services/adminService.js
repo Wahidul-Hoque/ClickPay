@@ -86,7 +86,7 @@ class AdminService {
     const reconciliation = await query(`
       SELECT 
         COALESCE(SUM(t.amount) FILTER (WHERE t.transaction_type IN ('cash_in', 'add_money')), 0) as inflow,
-        COALESCE(SUM(t.amount) FILTER (WHERE t.transaction_type IN ('cash_out', 'payment', 'send_money')), 0) as outflow
+        COALESCE(SUM(t.amount) FILTER (WHERE t.transaction_type IN ('cash_out', 'payment', 'transfer')), 0) as outflow
       FROM transactions t
       ${reconFilterStr}
     `, reconParams);

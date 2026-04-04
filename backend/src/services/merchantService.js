@@ -6,10 +6,10 @@ class MerchantService {
     let queryParams = [];
     let paramIdx = 1;
 
-    // Default transaction types for merchants: 'payment' variants
-    let transactionFilter = "AND t.transaction_type IN ('payment', 'merchant_payment', 'request_payment')";
+    // Default transaction types for merchants: 'payment' variants and P2B transfers
+    let transactionFilter = "AND t.transaction_type IN ('payment', 'merchant_payment', 'request_payment', 'transfer', 'merchant_transfer')";
     if (transactionTypes) {
-      const allowedTypes = ['payment', 'merchant_payment', 'request_payment', 'merchant_cash_in'];
+      const allowedTypes = ['payment', 'merchant_payment', 'request_payment', 'merchant_transfer', 'transfer'];
       const typesList = transactionTypes.split(',').filter(t => allowedTypes.includes(t));
       if (typesList.length > 0) {
         transactionFilter = `AND t.transaction_type IN (${typesList.map((_, i) => `$${paramIdx + i}`).join(', ')})`;
