@@ -42,10 +42,9 @@ class AdminService {
     // 2. Platform Revenue (Fees)
     const revDate = buildDateFilter('t', 'created_at');
     const revenue = await query(`
-      SELECT COALESCE(SUM(af.fee_amount), 0) as total_fees
-      FROM agent_fees af
-      JOIN transactions t ON af.cashout_transaction_id = t.transaction_id
-      WHERE ${revDate.filter}
+      SELECT COALESCE(SUM(amount), 0) as total_fees
+      FROM transactions t 
+      WHERE to_wallet_id= (SELECT wallet_id FROM wallets WHERE wallet_type = 'system' AND system_purpose = 'profit') and ${revDate.filter}
     `, revDate.params);
 
     // 3. Trend Analysis

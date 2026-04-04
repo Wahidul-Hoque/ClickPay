@@ -830,11 +830,12 @@ export default function AdminDashboard() {
                     <NavBtn icon={<Store />} label="Merchant Ranking" active={activeSection === 'merchants'} onClick={() => scrollToSection('merchants')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<UserRound />} label="User Management" active={activeSection === 'users'} onClick={() => scrollToSection('users')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Landmark />} label="Loans & Savings" active={activeSection === 'loans'} onClick={() => scrollToSection('loans')} collapsed={!isSidebarOpen} />
+                    <NavBtn icon={<Settings />} label="System Settings" active={activeSection === 'settings'} onClick={() => scrollToSection('settings')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<Bell />} label="Send Notification" active={activeSection === 'notify'} onClick={() => scrollToSection('notify')} collapsed={!isSidebarOpen} />
                     <NavBtn icon={<ShieldAlert />} label="Fraud Alerts" active={activeSection === 'fraud'} onClick={() => scrollToSection('fraud')} collapsed={!isSidebarOpen} />
-                    <NavBtn icon={<RefreshCcw />} label="Reconciliation" active={activeSection === 'recon'} onClick={() => scrollToSection('recon')} collapsed={!isSidebarOpen}/>
+                    <NavBtn icon={<RefreshCcw />} label="Admin Wallet Flow" active={activeSection === 'recon'} onClick={() => scrollToSection('recon')} collapsed={!isSidebarOpen}/>
                     <NavBtn icon={<Activity />} label="Admin Action History" active={activeSection === 'audit'} onClick={() => scrollToSection('audit')} collapsed={!isSidebarOpen} />
-                    <NavBtn icon={<Settings />} label="System Settings" active={activeSection === 'settings'} onClick={() => scrollToSection('settings')} collapsed={!isSidebarOpen} />
+                    
                 </nav>
 
                 <div className="p-4 border-t border-slate-900 space-y-1">
