@@ -358,9 +358,31 @@ class AdminService {
   }
 
   // 12: Audit Logs
-    async getAuditLogs(limit = 20) {
+  // 12: Audit Logs
+  async getAuditLogs(filters = {}) {
+    const { startDate, endDate, page = 1, limit = 10 } = filters;
+    const offset = (page - 1) * limit;
     const client = await getClient();
+    
     try {
+      let whereClause = "";
+      const params = [];
+
+      if (startDate && endDate) {
+        params.push(startDate, endDate);
+        whereClause = `WHERE DATE(log.created_at) >= $1 AND DATE(log.created_at) <= $2`;
+      } else if (startDate) {
+        params.push(startDate);
+        whereClause = `WHERE DATE(log.created_at) >= $1`;
+      } else if (endDate) {
+        params.push(endDate);
+        whereClause = `WHERE DATE(log.created_at) <= $1`;
+      }
+
+      const limitIdx = params.length + 1;
+      const offsetIdx = params.length + 2;
+      params.push(limit, offset);
+
       const res = await client.query(`
         SELECT 
           log.log_id,
@@ -372,21 +394,15 @@ class AdminService {
           log.created_at
         FROM admin_activity_logs log
         JOIN users admin ON log.admin_user_id = admin.user_id
+        ${whereClause}
         ORDER BY log.created_at DESC
-        LIMIT $1
-      `, [limit]);
+        LIMIT $${limitIdx} OFFSET $${offsetIdx}
+      `, params);
 
       return res.rows;
     } catch (error) {
       console.error("Error fetching audit logs:", error);
-      // Return empty array or system message on failure so the dashboard doesn't crash
-      return [{ 
-        admin_name: 'System', 
-        action_type: 'error', 
-        description: 'Failed to fetch logs', 
-        target_id: 'DB', 
-        created_at: new Date() 
-      }];
+      return [];
     } finally {
       client.release();
     }

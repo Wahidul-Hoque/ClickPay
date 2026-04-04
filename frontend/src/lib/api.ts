@@ -197,8 +197,8 @@ export const adminApi = {
     },
 
     /** 12: System Audit & Admin Action Log **/
-    getAuditLogs: async (limit = 50) => {
-        const response = await apiClient.get(`/admin/audit-logs?limit=${limit}`);
+    getAuditLogs: async (filters: { startDate?: string; endDate?: string; page?: number; limit?: number } = {}) => {
+        const response = await apiClient.get('/admin/audit-logs', { params: filters });
         return response.data;
     },
 

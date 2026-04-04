@@ -124,7 +124,7 @@ class AuthService {
       if (!isValidEpin) {
         // Increment failed attempts count
         const incrementResult = await query(
-          'UPDATE users SET try = try + 1 WHERE user_id = $1 RETURNING try',
+          'UPDATE users SET try = COALESCE(try, 0) + 1 WHERE user_id = $1 RETURNING try',
           [user.user_id]
         );
         

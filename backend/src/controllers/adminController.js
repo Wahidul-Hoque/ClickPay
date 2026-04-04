@@ -11,7 +11,7 @@ class AdminController {
       const analytics = await adminService.getFinancialAnalytics(city, startDate, endDate);
       const agents = await adminService.getAgentPerformance(city);
       const portfolio = await adminService.getPortfolioReports();
-      const audit = await adminService.getAuditLogs();
+      const audit = await adminService.getAuditLogs({ limit: 10 });
 
       res.json({
         success: true,
@@ -224,6 +224,21 @@ class AdminController {
       const adminId = req.user.userId;
       const result = await adminService.updateSystemSetting(key, value, adminId);
       res.json({ success: true, ...result });
+    } catch (error) { next(error); }
+  }
+
+  async getAuditLogs(req, res, next) {
+    try {
+      const { startDate, endDate, page, limit } = req.query;
+      const filters = {
+        startDate,
+        endDate,
+        page: parseInt(page) || 1,
+        limit: parseInt(limit) || 20
+      };
+      
+      const logs = await adminService.getAuditLogs(filters);
+      res.status(200).json({ success: true, data: logs });
     } catch (error) { next(error); }
   }
 }

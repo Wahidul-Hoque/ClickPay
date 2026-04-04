@@ -1691,6 +1691,10 @@ export default function AdminDashboard() {
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full">
                                         {audit.length} Recent Logs
                                     </span>
+                                    <Link href="/admin/audit-logs" className="text-xs font-black text-indigo-600 hover:text-indigo-700 transition-all uppercase tracking-widest flex items-center gap-2 group">
+                                        View Full History
+                                        <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                                    </Link>
                                 </div>
                                 
                                 {/* The list now spans the full width */}

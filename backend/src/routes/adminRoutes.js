@@ -23,6 +23,7 @@ router.post('/notifications/send', protect, adminController.sendNotification);
 router.get('/notifications/sent', protect, adminController.getSentNotifications);
 router.get('/savings/active', protect, adminController.getActiveSavings);
 router.get('/reconciliation/wallet', protect, adminController.getAdminWalletReconciliation);
+router.get('/audit-logs', protect, adminController.getAuditLogs);
 
 // Fraud Detection routes
 router.get('/fraud/alerts', protect, adminController.getFraudAlerts);
