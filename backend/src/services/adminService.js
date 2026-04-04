@@ -238,13 +238,34 @@ class AdminService {
       FROM loans GROUP BY status
     `);
     const savings = await query(`
-      SELECT SUM(principal_amount) as total_savings 
+      SELECT COUNT(*) as active_count, COALESCE(SUM(principal_amount), 0) as total_savings 
       FROM fixed_savings_accounts WHERE status = 'active'
     `);
     const subs = await query(`
       SELECT SUM(amount) as mrr FROM subscriptions WHERE status = 'active'
     `);
-    return { loans: loans.rows, totalSavings: savings.rows[0], mrr: subs.rows[0] };
+    return { loans: loans.rows, totalSavings: savings.rows[0], activeSavingsCount: parseInt(savings.rows[0]?.active_count || '0', 10), mrr: subs.rows[0] };
+  }
+
+  async getActiveSavingsPlans(limit = 3) {
+    const params = [limit];
+    const plans = await query(
+      `SELECT 
+         f.fixed_savings_id,
+         f.principal_amount,
+         f.annual_interest_rate,
+         f.finish_at,
+         u.user_id,
+         u.name as user_name,
+         u.phone
+       FROM fixed_savings_accounts f
+       JOIN users u ON f.user_id = u.user_id
+       WHERE f.status = 'active'
+       ORDER BY f.principal_amount DESC
+       LIMIT $1`,
+      params
+    );
+    return plans.rows;
   }
 
   // 9: User Management

@@ -20,6 +20,8 @@ router.get('/agent/regions', protect, adminController.getRegions);
 router.get('/merchant/rankings', protect, adminController.getMerchantRankings);
 router.get('/merchant/regions', protect, adminController.getMerchantRegions);
 router.post('/notifications/send', protect, adminController.sendNotification);
+router.get('/notifications/sent', protect, adminController.getSentNotifications);
+router.get('/savings/active', protect, adminController.getActiveSavings);
 
 // Fraud Detection routes
 router.get('/fraud/alerts', protect, adminController.getFraudAlerts);

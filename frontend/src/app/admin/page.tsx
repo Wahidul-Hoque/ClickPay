@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
     Users, 
@@ -44,6 +44,7 @@ import { DatePickerDialog } from '@/components/DatePickerDialog';
 import Link from 'next/link';
 import { useToast } from '@/contexts/toastcontext';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { adminApi } from '@/lib/api';
 
 
 function useOnClickOutside(ref: any, handler: any) {
@@ -333,6 +334,11 @@ export default function AdminDashboard() {
     const [notifyPhone, setNotifyPhone] = useState('');
     const [notifyMessage, setNotifyMessage] = useState('');
     const [notifySending, setNotifySending] = useState(false);
+    const [sentNotifications, setSentNotifications] = useState<any[]>([]);
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [notificationsLoading, setNotificationsLoading] = useState(false);
+    const bellRef = useRef<HTMLDivElement>(null);
+    const [activeSavings, setActiveSavings] = useState<any[]>([]);
 
     const [analytics, setAnalytics] = useState<any>(null);
     const [portfolio, setPortfolio] = useState<any>(null);
@@ -347,6 +353,59 @@ export default function AdminDashboard() {
     const [fraudFilter, setFraudFilter] = useState<string>('');
     const [fraudLoading, setFraudLoading] = useState(false);
     const [fraudResolving, setFraudResolving] = useState<number | null>(null);
+
+    const fetchSentNotifications = useCallback(async () => {
+        setNotificationsLoading(true);
+        try {
+            const result = await adminApi.getSentNotifications({ limit: 10 });
+            if (result.success) {
+                setSentNotifications(result.data);
+            } else {
+                setSentNotifications([]);
+            }
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'Failed to load notifications');
+        } finally {
+            setNotificationsLoading(false);
+        }
+    }, [toast]);
+
+    const fetchActiveSavings = useCallback(async () => {
+        try {
+            const result = await adminApi.getActiveSavings({ limit: 3 });
+            if (result.success) {
+                setActiveSavings(result.data);
+            } else {
+                setActiveSavings([]);
+            }
+        } catch (error: any) {
+            console.error('[SAVINGS]', error);
+        }
+    }, []);
+
+    const handleBellToggle = () => {
+        setNotificationsOpen((prev) => {
+            const next = !prev;
+            if (next) {
+                fetchSentNotifications();
+            }
+            return next;
+        });
+    };
+
+    useEffect(() => {
+        fetchActiveSavings();
+    }, [fetchActiveSavings]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (notificationsOpen && bellRef.current && !bellRef.current.contains(event.target as Node)) {
+                setNotificationsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [notificationsOpen]);
 
     useEffect(() => {
         const fetchAdminData = async () => {
@@ -668,6 +727,13 @@ export default function AdminDashboard() {
         router.push('/auth/login');
     };
 
+    const formatCurrency = (value: any) => {
+        const num = Number(value) || 0;
+        return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
+    const formatCount = (value: any) => Number(value) || 0;
+
     const handleDatePick = (dateStr: string, targetName: string) => {
         if (targetName === 'startDate') setStartDate(dateStr);
         if (targetName === 'endDate') setEndDate(dateStr);
@@ -735,8 +801,55 @@ export default function AdminDashboard() {
                             <input className="pl-12 pr-6 py-3 bg-slate-100 border-transparent focus:bg-white focus:ring-2 focus:ring-indigo-500 rounded-2xl text-sm outline-none w-80 transition-all" placeholder="Search Transactions, NID, or Logs..."/>
                         </div>
                         <div className="flex gap-2">
-                            <IconButton icon={<Bell size={20}/>} badge />
-                            
+                            <div ref={bellRef} className="relative">
+                                <IconButton
+                                    icon={<Bell size={20} />}
+                                    badge={!notificationsOpen && sentNotifications.length > 0}
+                                    onClick={handleBellToggle}
+                                    ariaLabel="Toggle sent notifications"
+                                />
+                                {notificationsOpen && (
+                                    <div className="absolute right-0 top-full mt-3 w-[340px] bg-white border border-slate-200 rounded-2xl shadow-2xl shadow-slate-900/20 z-50">
+                                        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                                Sent Notifications
+                                            </p>
+                                            <span className="text-[10px] font-black text-slate-400">
+                                                {sentNotifications.length} latest
+                                            </span>
+                                        </div>
+                                        <div className="max-h-72 overflow-y-auto">
+                                            {notificationsLoading ? (
+                                                <div className="px-5 py-6 text-center text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                                                    Loading...
+                                                </div>
+                                            ) : sentNotifications.length === 0 ? (
+                                                <div className="px-5 py-6 text-center text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                                                    No notifications yet
+                                                </div>
+                                            ) : (
+                                                <ul className="divide-y divide-slate-100">
+                                                    {sentNotifications.map((notification) => (
+                                                        <li key={notification.notification_id} className="px-5 py-4">
+                                                            <p className="text-sm font-semibold text-slate-800 leading-snug">
+                                                                {notification.message}
+                                                            </p>
+                                                            <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wider text-slate-400">
+                                                                <span>{(notification.recipient_role || 'user').toUpperCase()}</span>
+                                                                <span>•</span>
+                                                                <span>{notification.recipient_phone || 'Unknown'}</span>
+                                                            </div>
+                                                            <p className="text-[10px] text-slate-500 mt-1">
+                                                                {new Date(notification.created_at).toLocaleString()}
+                                                            </p>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </header>
@@ -1133,19 +1246,45 @@ export default function AdminDashboard() {
                                 <div className="absolute top-0 right-0 p-10 opacity-10"><Landmark size={150}/></div>
                                 <h4 className="font-black text-indigo-400 uppercase text-xs tracking-widest mb-10">Fixed Savings Pool</h4>
                                 <div className="flex items-end gap-3 mb-4">
-                                    <span className="text-6xl font-black">৳{portfolio?.totalSavings?.total_savings || 0}</span>
+                                    <span className="text-6xl font-black">
+                                        ৳{formatCurrency(portfolio?.totalSavings?.total_savings)}
+                                    </span>
                                     <span className="text-indigo-400 font-bold mb-2">Total Assets</span>
                                 </div>
                                 <div className="flex items-center gap-6 mt-4">
                                     <div>
-                                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Monthly Growth</p>
-                                        <p className="text-lg font-black text-emerald-400">৳{portfolio?.mrr?.mrr || 0}</p>
+                                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Current MRR</p>
+                                        <p className="text-lg font-black text-emerald-400">৳{formatCurrency(portfolio?.mrr?.mrr)}</p>
                                     </div>
                                     <div className="w-[1px] h-10 bg-slate-800"></div>
                                     <div>
                                         <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Active Plans</p>
-                                        <p className="text-lg font-black">42</p>
+                                        <p className="text-lg font-black">{formatCount(portfolio?.activeSavingsCount)}</p>
                                     </div>
+                                </div>
+                                <div className="mt-6 space-y-3">
+                                    {activeSavings.length === 0 ? (
+                                        <p className="text-[11px] text-slate-300">No active plans yet.</p>
+                                    ) : (
+                                        activeSavings.map((plan) => (
+                                            <div key={plan.fixed_savings_id} className="flex items-center justify-between bg-white/5 rounded-2xl p-3 border border-white/10">
+                                                <div>
+                                                    <p className="text-sm font-black text-white">{plan.user_name || plan.phone}</p>
+                                                    <p className="text-[10px] text-slate-300">
+                                                        {new Date(plan.finish_at).toLocaleDateString()} • @{plan.annual_interest_rate}% APR
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm font-black text-emerald-200">৳{formatCurrency(plan.principal_amount)}</p>
+                                                    <p className="text-[10px] text-slate-300">Plan #{plan.fixed_savings_id}</p>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                    <Link href="/admin/savings" className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.4em] text-indigo-300 hover:text-white">
+                                        <span>View All Plans</span>
+                                        <ArrowRight className="w-3 h-3" />
+                                    </Link>
                                 </div>
                             </div>
                         </div>
@@ -1564,9 +1703,14 @@ function ReconItem({ label, value, success }: any) {
     );
 }
 
-function IconButton({ icon, badge }: any) {
+function IconButton({ icon, badge, onClick, ariaLabel }: any) {
     return (
-        <button className="p-3 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-2xl transition-all relative">
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label={ariaLabel}
+            className="p-3 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-2xl transition-all relative"
+        >
             {icon}
             {badge && <div className="absolute top-3 right-3 w-2.5 h-2.5 bg-rose-500 border-2 border-white rounded-full"></div>}
         </button>

@@ -168,6 +168,12 @@ export const adminApi = {
         const response = await apiClient.get('/admin/reports/portfolio');
         return response.data; // Returns loan risk, savings maturity, and MRR
     },
+    sendNotification: async (data: { audience: string; message: string; phone?: string }) => 
+        (await apiClient.post('/admin/notifications/send', data)).data,
+    getSentNotifications: async (params?: { limit?: number }) =>
+        (await apiClient.get('/admin/notifications/sent', { params })).data,
+    getActiveSavings: async (params?: { limit?: number }) =>
+        (await apiClient.get('/admin/savings/active', { params })).data,
 
     /** 9: User Management & Account Controls **/
     getUsers: async (filters: { query?: string; status?: string; page?: number } = {}) => {

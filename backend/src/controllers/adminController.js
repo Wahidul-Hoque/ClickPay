@@ -144,6 +144,26 @@ class AdminController {
     }
   }
 
+  async getSentNotifications(req, res, next) {
+    try {
+      const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
+      const notifications = await notificationService.getSentNotifications(limit);
+      res.json({ success: true, data: notifications });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getActiveSavings(req, res, next) {
+    try {
+      const limit = parseInt(req.query.limit, 10) || 10;
+      const data = await adminService.getActiveSavingsPlans(limit);
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // ── FRAUD DETECTION ENDPOINTS ──────────────────────────────
 
   async getFraudAlerts(req, res, next) {
@@ -198,4 +218,4 @@ class AdminController {
   }
 }
 
-export default new AdminController();
+export default new AdminController();

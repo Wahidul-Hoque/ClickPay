@@ -122,6 +122,28 @@ class NotificationService {
     }
   }
 
+  async getSentNotifications(limit = 10) {
+    const sanitizedLimit = Math.min(50, Math.max(1, Number(limit ?? 10) || 10));
+    const res = await query(
+      `
+      SELECT 
+        n.notification_id,
+        n.message,
+        n.created_at,
+        u.user_id,
+        u.name AS recipient_name,
+        u.phone AS recipient_phone,
+        u.role AS recipient_role
+      FROM notifications n
+      JOIN users u ON u.user_id = n.user_id
+      ORDER BY n.created_at DESC
+      LIMIT $1
+      `,
+      [sanitizedLimit]
+    );
+    return res.rows;
+  }
+
   async listUserNotifications(userId, page = 1, limit = 20) {
     const p = Math.max(1, parseInt(page, 10) || 1);
     const l = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
