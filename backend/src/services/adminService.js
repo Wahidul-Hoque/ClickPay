@@ -417,6 +417,71 @@ class AdminService {
 
     return { success: true };
   }
+
+  async getAdminWalletReconciliation(period = 'day') {
+    const sanitizedPeriod = period === 'month' ? 'month' : 'day';
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+
+      const walletRes = await client.query(
+        `SELECT wallet_id FROM wallets WHERE wallet_type = 'system' AND system_purpose = 'profit' LIMIT 1 FOR UPDATE`
+      );
+      if (walletRes.rows.length === 0) {
+        throw new Error('Admin profit wallet is not configured');
+      }
+      const adminWalletId = walletRes.rows[0].wallet_id;
+
+      const periodClause =
+        sanitizedPeriod === 'month'
+          ? "DATE_TRUNC('month', t.created_at) = DATE_TRUNC('month', CURRENT_DATE)"
+          : "DATE(t.created_at) = CURRENT_DATE";
+
+      const buildSummary = async (periodCondition) => {
+        const res = await client.query(
+          `
+          SELECT
+            COALESCE(SUM(t.amount) FILTER (WHERE t.to_wallet_id = $1), 0) AS total_incoming,
+            COALESCE(SUM(t.amount) FILTER (WHERE t.from_wallet_id = $1), 0) AS total_outgoing,
+            COALESCE(SUM(t.amount) FILTER (WHERE t.to_wallet_id = $1 AND t.transaction_type = 'loan_interest'), 0) AS loan_interest,
+            COALESCE(SUM(t.amount) FILTER (WHERE t.to_wallet_id = $1 AND t.transaction_type = 'system_profit'), 0) AS system_profit,
+            COALESCE(SUM(t.amount) FILTER (WHERE t.to_wallet_id = $1 AND t.transaction_type = 'merchant_subscription'), 0) AS merchant_subscription
+          FROM transactions t
+          WHERE t.status = 'completed'
+            AND ${periodCondition}
+            AND (t.to_wallet_id = $1 OR t.from_wallet_id = $1)
+          `,
+          [adminWalletId]
+        );
+        return res.rows[0] || {};
+      };
+
+      const [currentSummary, previousMonthSummary] = await Promise.all([
+        buildSummary(periodClause),
+        buildSummary("DATE_TRUNC('month', t.created_at) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')")
+      ]);
+
+      await client.query('COMMIT');
+
+      const formatRow = (summaryRow) => ({
+        totalIncoming: parseFloat(summaryRow.total_incoming) || 0,
+        totalOutgoing: parseFloat(summaryRow.total_outgoing) || 0,
+        loanInterest: parseFloat(summaryRow.loan_interest) || 0,
+        systemProfit: parseFloat(summaryRow.system_profit) || 0,
+        merchantSubscription: parseFloat(summaryRow.merchant_subscription) || 0,
+      });
+
+      return {
+        current: formatRow(currentSummary),
+        previousMonth: formatRow(previousMonthSummary),
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 }
 
 export default new AdminService();

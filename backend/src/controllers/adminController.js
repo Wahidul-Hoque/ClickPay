@@ -164,6 +164,16 @@ class AdminController {
     }
   }
 
+  async getAdminWalletReconciliation(req, res, next) {
+    try {
+      const period = req.query.period === 'month' ? 'month' : 'day';
+      const data = await adminService.getAdminWalletReconciliation(period);
+      res.json({ success: true, data, period });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // ── FRAUD DETECTION ENDPOINTS ──────────────────────────────
 
   async getFraudAlerts(req, res, next) {

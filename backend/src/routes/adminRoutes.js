@@ -22,6 +22,7 @@ router.get('/merchant/regions', protect, adminController.getMerchantRegions);
 router.post('/notifications/send', protect, adminController.sendNotification);
 router.get('/notifications/sent', protect, adminController.getSentNotifications);
 router.get('/savings/active', protect, adminController.getActiveSavings);
+router.get('/reconciliation/wallet', protect, adminController.getAdminWalletReconciliation);
 
 // Fraud Detection routes
 router.get('/fraud/alerts', protect, adminController.getFraudAlerts);

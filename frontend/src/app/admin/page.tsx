@@ -58,6 +58,24 @@ function useOnClickOutside(ref: any, handler: any) {
     return () => { document.removeEventListener("mousedown", listener); document.removeEventListener("touchstart", listener); };
   }, [ref, handler]);
 }
+
+const ADMIN_WALLET_FLOW_EMPTY_PRESET = {
+    totalIncoming: 0,
+    totalOutgoing: 0,
+    loanInterest: 0,
+    systemProfit: 0,
+    merchantSubscription: 0,
+};
+
+const ADMIN_WALLET_FLOW_EMPTY = {
+    current: { ...ADMIN_WALLET_FLOW_EMPTY_PRESET },
+    previousMonth: { ...ADMIN_WALLET_FLOW_EMPTY_PRESET },
+};
+
+const RECON_PERIODS = [
+    { key: 'day', label: 'This Day' },
+    { key: 'month', label: 'This Month' },
+] as const;
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const LoanSummaryWidget = () => {
     const [apps, setApps] = useState<any[]>([]);
@@ -339,6 +357,12 @@ export default function AdminDashboard() {
     const [notificationsLoading, setNotificationsLoading] = useState(false);
     const bellRef = useRef<HTMLDivElement>(null);
     const [activeSavings, setActiveSavings] = useState<any[]>([]);
+    const [reconScope, setReconScope] = useState<'day' | 'month'>('day');
+    const [adminWalletFlows, setAdminWalletFlows] = useState({
+        day: { ...ADMIN_WALLET_FLOW_EMPTY },
+        month: { ...ADMIN_WALLET_FLOW_EMPTY },
+    });
+    const [adminWalletLoading, setAdminWalletLoading] = useState(true);
 
     const [analytics, setAnalytics] = useState<any>(null);
     const [portfolio, setPortfolio] = useState<any>(null);
@@ -383,6 +407,44 @@ export default function AdminDashboard() {
         }
     }, []);
 
+    const fetchAdminWalletFlows = useCallback(async () => {
+        setAdminWalletLoading(true);
+        try {
+            const [dayResult, monthResult] = await Promise.all([
+                adminApi.getAdminWalletReconciliation('day'),
+                adminApi.getAdminWalletReconciliation('month'),
+            ]);
+            const normalizePayload = (payload: any) => {
+                const data = payload?.success ? payload.data : {};
+                const current = data?.current || {};
+                const previousMonth = data?.previousMonth || {};
+                const parseFlow = (row: any) => ({
+                    totalIncoming: Number(row.totalIncoming) || 0,
+                    totalOutgoing: Number(row.totalOutgoing) || 0,
+                    loanInterest: Number(row.loanInterest) || 0,
+                    systemProfit: Number(row.systemProfit) || 0,
+                    merchantSubscription: Number(row.merchantSubscription) || 0,
+                });
+                return {
+                    current: parseFlow(current),
+                    previousMonth: parseFlow(previousMonth),
+                };
+            };
+            setAdminWalletFlows({
+                day: normalizePayload(dayResult),
+                month: normalizePayload(monthResult),
+            });
+        } catch (error: any) {
+            console.error('[ADMIN WALLET]', error);
+            setAdminWalletFlows({
+                day: { ...ADMIN_WALLET_FLOW_EMPTY },
+                month: { ...ADMIN_WALLET_FLOW_EMPTY },
+            });
+        } finally {
+            setAdminWalletLoading(false);
+        }
+    }, []);
+
     const handleBellToggle = () => {
         setNotificationsOpen((prev) => {
             const next = !prev;
@@ -396,6 +458,10 @@ export default function AdminDashboard() {
     useEffect(() => {
         fetchActiveSavings();
     }, [fetchActiveSavings]);
+
+    useEffect(() => {
+        fetchAdminWalletFlows();
+    }, [fetchAdminWalletFlows]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -733,6 +799,9 @@ export default function AdminDashboard() {
     };
 
     const formatCount = (value: any) => Number(value) || 0;
+    const displayedAdminWalletFlow = adminWalletFlows[reconScope] ?? ADMIN_WALLET_FLOW_EMPTY;
+    const currentFlow = displayedAdminWalletFlow.current ?? ADMIN_WALLET_FLOW_EMPTY.current;
+    const previousMonthFlow = displayedAdminWalletFlow.previousMonth ?? ADMIN_WALLET_FLOW_EMPTY.previousMonth;
 
     const handleDatePick = (dateStr: string, targetName: string) => {
         if (targetName === 'startDate') setStartDate(dateStr);
@@ -1517,27 +1586,127 @@ export default function AdminDashboard() {
                     <section id="recon" className="scroll-mt-32">
                         <div className="space-y-10">
                             {/* --- Top Part: Settlement Summary (Now Full Width) --- */}
-                            <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm">
-                                <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-                                    <div>
-                                        <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Reconciliation</h2>
-                                        <p className="text-slate-500 font-medium">Daily inflow vs outflow audit</p>
-                                    </div>
-                                    <div className="flex gap-8 bg-slate-50 p-6 rounded-2xl border border-slate-100 flex-1 md:max-w-2xl justify-around">
-                                        <ReconItem label="Inflow" value={`+৳${analytics?.reconciliation?.inflow || 0}`} />
-                                        <div className="w-[1px] h-8 bg-slate-200 hidden md:block"></div>
-                                        <ReconItem label="Outflow" value={`-৳${analytics?.reconciliation?.outflow || 0}`} />
-                                        <div className="w-[1px] h-8 bg-slate-200 hidden md:block"></div>
-                                        <ReconItem 
-                                            label="Net Flow" 
-                                            value={`৳${(parseFloat(analytics?.reconciliation?.inflow || 0) - parseFloat(analytics?.reconciliation?.outflow || 0)).toLocaleString()}`} 
-                                            success={parseFloat(analytics?.reconciliation?.inflow || 0) - parseFloat(analytics?.reconciliation?.outflow || 0) >= 0} 
-                                        />
-                                    </div>
-                                </div>
-                            </div>
+                             <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm">
+                                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                                     <div>
+                                         <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Reconciliation</h2>
+                                         <p className="text-slate-500 font-medium">Daily inflow vs outflow audit</p>
+                                     </div>
+                                     <div className="flex gap-8 bg-slate-50 p-6 rounded-2xl border border-slate-100 flex-1 md:max-w-2xl justify-around">
+                                         <ReconItem label="Inflow" value={`+৳${analytics?.reconciliation?.inflow || 0}`} />
+                                         <div className="w-[1px] h-8 bg-slate-200 hidden md:block"></div>
+                                         <ReconItem label="Outflow" value={`-৳${analytics?.reconciliation?.outflow || 0}`} />
+                                         <div className="w-[1px] h-8 bg-slate-200 hidden md:block"></div>
+                                         <ReconItem 
+                                             label="Net Flow" 
+                                             value={`৳${(parseFloat(analytics?.reconciliation?.inflow || 0) - parseFloat(analytics?.reconciliation?.outflow || 0)).toLocaleString()}`} 
+                                             success={parseFloat(analytics?.reconciliation?.inflow || 0) - parseFloat(analytics?.reconciliation?.outflow || 0) >= 0} 
+                                         />
+                                     </div>
+                                 </div>
+                             </div>
 
-                            {/* --- Bottom Part: Admin Action History (Now Full Width) --- */}
+                              <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm">
+                                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                      <div>
+                                          <h3 className="text-2xl font-black text-slate-900">Admin Wallet Flow</h3>
+                                          <p className="text-[11px] text-slate-500 uppercase tracking-[0.3em]">
+                                              Income sources for the admin profit wallet (wallet #48)
+                                          </p>
+                                      </div>
+                                      <div className="flex gap-2">
+                                          {RECON_PERIODS.map((periodOpt) => (
+                                              <button
+                                                  key={periodOpt.key}
+                                                  type="button"
+                                                  onClick={() => setReconScope(periodOpt.key)}
+                                                  className={`px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] rounded-2xl border transition-all ${
+                                                      reconScope === periodOpt.key
+                                                          ? 'bg-indigo-600 text-white border-indigo-600'
+                                                          : 'bg-white text-slate-400 border-slate-200 hover:border-indigo-200 hover:text-indigo-600'
+                                                  }`}
+                                              >
+                                                  {periodOpt.label}
+                                              </button>
+                                          ))}
+                                      </div>
+                                  </div>
+                                  <div className="grid gap-6 md:grid-cols-[1.5fr_1fr] mt-6">
+                                      <div className="grid gap-3 sm:grid-cols-3">
+                                          {[
+                                              { label: 'Loan Interest', value: currentFlow.loanInterest },
+                                              { label: 'System Profit', value: currentFlow.systemProfit },
+                                              { label: 'Merchant Subscription', value: currentFlow.merchantSubscription },
+                                          ].map((item) => (
+                                              <div key={item.label} className="bg-slate-50/60 border border-slate-100 rounded-2xl p-4">
+                                                  <p className="text-[10px] uppercase tracking-[0.4em] text-slate-400">{item.label}</p>
+                                                  <p className="text-2xl font-black text-slate-900 mt-2">
+                                                      {adminWalletLoading
+                                                          ? 'Loading...'
+                                                          : `+৳${formatCurrency(item.value)}`}
+                                                  </p>
+                                                  <p className="text-[10px] text-slate-500 mt-1">
+                                                      {item.label} credits into wallet 48
+                                                  </p>
+                                              </div>
+                                          ))}
+                                      </div>
+                                      <div className="space-y-4">
+                                          <div className="bg-slate-50/70 border border-slate-100 rounded-2xl p-6">
+                                              <p className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-500">Total Incoming</p>
+                                              <p className="text-3xl font-black text-emerald-600 mt-3">
+                                                  {adminWalletLoading
+                                                      ? 'Loading...'
+                                                      : `+৳${formatCurrency(currentFlow.totalIncoming)}`}
+                                              </p>
+                                              <p className="text-[10px] text-slate-500 mt-1">All credits landing in wallet 48</p>
+                                          </div>
+                                          <div className="bg-slate-50/70 border border-slate-100 rounded-2xl p-6">
+                                              <p className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-500">Outgoing</p>
+                                              <p className="text-3xl font-black text-rose-600 mt-3">
+                                                  {adminWalletLoading
+                                                      ? 'Loading...'
+                                                      : `-৳${formatCurrency(currentFlow.totalOutgoing)}`}
+                                              </p>
+                                              <p className="text-[10px] text-slate-500 mt-1">Money paid from wallet 48 settlements</p>
+                                          </div>
+                                      </div>
+                                  </div>
+                                  {!adminWalletLoading && (
+                                      <div className="mt-6">
+                                          <p className="text-[10px] uppercase tracking-[0.4em] text-slate-400 mb-3">Previous Month (wallet 48)</p>
+                                          <div className="grid gap-4 sm:grid-cols-2">
+                                              {[
+                                                  {
+                                                      label: 'Incoming',
+                                                      value: previousMonthFlow.totalIncoming,
+                                                      prefix: '+৳',
+                                                      color: 'emerald-600',
+                                                  },
+                                                  {
+                                                      label: 'Outgoing',
+                                                      value: previousMonthFlow.totalOutgoing,
+                                                      prefix: '-৳',
+                                                      color: 'rose-600',
+                                                  },
+                                              ].map((item) => (
+                                                  <div key={item.label} className="bg-slate-50/50 border border-slate-100 rounded-2xl p-4">
+                                                      <p className="text-[10px] uppercase tracking-[0.4em] text-slate-400">{item.label}</p>
+                                                      <p className={`text-2xl font-black mt-2 text-${item.color}`}>
+                                                          {`${item.prefix}${formatCurrency(item.value)}`}
+                                                      </p>
+                                                      <p className="text-[10px] text-slate-500 mt-1">Totals for the previous month</p>
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      </div>
+                                  )}
+                                  <p className="text-[10px] uppercase tracking-[0.4em] text-slate-400 mt-6">
+                                      Totals reflect {reconScope === 'day' ? 'today' : 'this month'} for wallet 48.
+                                  </p>
+                              </div>
+
+                              {/* --- Bottom Part: Admin Action History (Now Full Width) --- */}
                             <div id="audit" className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm flex flex-col">
                                 <div>
                                         <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Admin Action History</h2>

@@ -174,6 +174,8 @@ export const adminApi = {
         (await apiClient.get('/admin/notifications/sent', { params })).data,
     getActiveSavings: async (params?: { limit?: number }) =>
         (await apiClient.get('/admin/savings/active', { params })).data,
+    getAdminWalletReconciliation: async (period: 'day' | 'month') =>
+        (await apiClient.get('/admin/reconciliation/wallet', { params: { period } })).data,
 
     /** 9: User Management & Account Controls **/
     getUsers: async (filters: { query?: string; status?: string; page?: number } = {}) => {
