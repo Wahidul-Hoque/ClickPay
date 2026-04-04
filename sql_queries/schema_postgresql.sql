@@ -290,10 +290,19 @@ CREATE TABLE favorites (
 -- SYSTEM SETTINGS
 CREATE TABLE system_settings (
     setting_key     VARCHAR(100) PRIMARY KEY,
-    setting_value   NUMERIC(10,5) NOT NULL,
+    setting_value   NUMERIC(15,2) NOT NULL,
     description      TEXT,
     updated_at       TIMESTAMPTZ DEFAULT NOW()
 );
+
+INSERT INTO system_settings (setting_key, setting_value, description) VALUES 
+('daily_send_money_limit', 25000.00, 'Max amount a user can send per day via transfer'),
+('monthly_send_money_limit', 100000.00, 'Max amount a user can send per month via transfer'),
+('daily_receive_money_limit', 50000.00, 'Max amount a user can receive per day'),
+('monthly_receive_money_limit', 200000.00, 'Max amount a user can receive per month'),
+('daily_mobile_recharge_limit', 10000.00, 'Max amount heavily rechargable per day'),
+('monthly_mobile_recharge_limit', 50000.00, 'Max amount heavily rechargable per month')
+ON CONFLICT (setting_key) DO NOTHING;
 
 
 -- FRAUD_ALERTS
