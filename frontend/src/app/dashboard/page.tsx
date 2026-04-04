@@ -181,9 +181,9 @@ export default function DashboardPage() {
 
   const statCards = [
     {
-      label: 'Total Balance',
+      label: 'Available Balance',
       value: formatCurrency(balance),
-      sub: 'Available balance',
+      //sub: 'Available balance',
       icon: Wallet,
       gradient: 'gradient-indigo',
       glow: 'shadow-glow-indigo',

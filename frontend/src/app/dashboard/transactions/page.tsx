@@ -222,7 +222,7 @@ export default function TransactionsPage() {
                 <div
                   key={type.value}
                   className={`px-4 py-2 rounded-xl cursor-pointer text-sm font-medium transition-colors ${
-                    filters.type === type.value ? 'bg-rose-50 text-rose-600' : 'text-slate-600 hover:bg-slate-50'
+                    filters.type === type.value ? 'bg-primary-50 text-primary-600' : 'text-slate-600 hover:bg-slate-50'
                   }`}
                   onClick={() => {
                     setFilters(prev => ({ ...prev, type: type.value }));
@@ -239,7 +239,7 @@ export default function TransactionsPage() {
         <div className="flex gap-2">
           <button
             onClick={applyFilters}
-            className="px-6 py-2 bg-rose-600 text-white font-bold rounded-2xl hover:bg-rose-700 transition-all shadow-md shadow-rose-200 text-sm whitespace-nowrap"
+            className="px-6 py-2 bg-primary-600 text-white font-bold rounded-2xl hover:bg-primary-700 transition-all shadow-md shadow-primary-200 text-sm whitespace-nowrap"
           >
             Apply
           </button>
@@ -280,7 +280,7 @@ export default function TransactionsPage() {
       <div className="overflow-hidden">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-10 h-10 border-2 border-rose-500 border-t-transparent flex items-center justify-center rounded-full animate-spin"></div>
+            <div className="w-10 h-10 border-2 border-primary-500 border-t-transparent flex items-center justify-center rounded-full animate-spin"></div>
           </div>
         ) : filteredTransactions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -297,7 +297,7 @@ export default function TransactionsPage() {
               const isCredit = t.direction === 'credit';
 
               const firstLetter = directionName ? directionName.charAt(0).toUpperCase() : 'O';
-              const circleBgClass = isCredit ? 'bg-[#98D298] text-white' : 'bg-[#D6A590] text-white';
+              const circleBgClass = isCredit ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600';
 
               let displayType = t.transaction_type.replace(/_/g, ' ');
               displayType = displayType.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -315,8 +315,8 @@ export default function TransactionsPage() {
                   onClick={() => setSelectedTransaction(t)}
                 >
                   <div className="flex items-start gap-4 flex-1">
-                    <div className={`w-14 h-14 rounded-full flex shrink-0 items-center justify-center text-xl font-medium ${circleBgClass}`}>
-                      {firstLetter}
+                    <div className={`w-12 h-12 rounded-full flex shrink-0 items-center justify-center ${circleBgClass}`}>
+                      {isCredit ? <ArrowUpRight className="w-6 h-6" /> : <TrendingDown className="w-6 h-6" />}
                     </div>
                     <div className="min-w-0 pt-0.5">
                       <p className="text-[15px] font-medium text-slate-800 tracking-tight truncate">
@@ -331,7 +331,7 @@ export default function TransactionsPage() {
                     </div>
                   </div>
                   <div className="text-right flex flex-col items-end pt-0.5 gap-1.5">
-                    <p className={`text-[15px] font-medium tracking-tight ${isCredit ? 'text-[#1D8260]' : 'text-[#A0202F]'}`}>
+                    <p className={`text-[15px] font-bold tracking-tight ${isCredit ? 'text-emerald-600' : 'text-slate-800'}`}>
                       {isCredit ? '+' : '-'} ৳{parseFloat(t.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </p>
                     <p className="text-[12px] text-slate-500 whitespace-nowrap">
