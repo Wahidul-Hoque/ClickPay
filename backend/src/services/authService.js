@@ -122,20 +122,27 @@ class AuthService {
       const isValidEpin = await comparePassword(epin, user.epin_hash);
 
       if (!isValidEpin) {
+        // Increment failed attempts count
         const incrementResult = await query(
           'UPDATE users SET try = try + 1 WHERE user_id = $1 RETURNING try',
           [user.user_id]
         );
-        const currentTry = normalizeTryCount(incrementResult.rows[0].try);
+        
+        const currentTry = normalizeTryCount(incrementResult.rows[0]?.try);
 
+        // Freeze account if failed attempts exceed 5
         if (currentTry >= 5) {
-          await query('CALL p_set_user_account_status($1, $2)', [user.user_id, 'frozen']);
+          // Use direct updates instead of relying on potentially missing stored procedures
+          await query('UPDATE users SET status = $1 WHERE user_id = $2', ['frozen', user.user_id]);
+          await query('UPDATE wallets SET status = $1 WHERE user_id = $2', ['frozen', user.user_id]);
+          
           throw new Error('Account locked due to multiple failed login attempts. Please contact support.');
         }
 
         throw new Error('Invalid phone number or ePin');
       }
 
+      // Reset failed attempts on successful login
       if (previousFailedAttempts > 0) {
         await query('UPDATE users SET try = 0 WHERE user_id = $1', [user.user_id]);
       }
