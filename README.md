@@ -77,7 +77,7 @@ clickpay-project/
 │   │   └── utils/            # Connection pool handlers & shared utilities
 │
 └── sql_queries/              # Raw Database Schemas & Infrastructure Logic
-    └── database_setup.sql    # Relational schemas, procedural algorithms, and constraint setups
+    └── schema_postgresql.sql    # Relational schemas, procedural algorithms, and constraint setups
 ```
 
 ---
