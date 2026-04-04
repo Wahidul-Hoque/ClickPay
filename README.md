@@ -5,7 +5,7 @@ ClickPay is a highly scalable, full-stack digital wallet and financial technolog
 The system leverages a strictly typed, React-driven frontend combined with a highly robust Node.js backend to facilitate complex money flows between Consumers, Agents, and Merchants. At its core, ClickPay prioritizes uncompromised data integrity, implementing advanced concurrency controls and active fraud-heuristic daemons natively within the persistence layer.
 
 ## 👥 Engineering Team
-- **Wahidul Haque**  - CSE,BUET
+- **Wahidul Hoque**  - CSE,BUET
 - **Abu Bakar Siddique**  - CSE,BUET
 
 ---
@@ -77,7 +77,7 @@ clickpay-project/
 │   │   └── utils/            # Connection pool handlers & shared utilities
 │
 └── sql_queries/              # Raw Database Schemas & Infrastructure Logic
-    └── database_setup.sql    # Relational schemas, procedural algorithms, and constraint setups
+    └── schema_postgresql.sql    # Relational schemas, procedural algorithms, and constraint setups
 ```
 
 ---
