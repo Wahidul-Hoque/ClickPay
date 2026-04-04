@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import api, { transactionAPI } from '@/lib/api';
 import { History, Filter, Loader2, ArrowDownLeft, ArrowUpRight, Calendar } from 'lucide-react';
 import { DatePickerDialog } from '@/components/DatePickerDialog';
+import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
 
 interface Transaction {
   transaction_id: string;
@@ -45,6 +46,7 @@ export default function MerchantTransactionList() {
     type: 'all'
   });
   const [datePickerTarget, setDatePickerTarget] = useState<string | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
   const typeDropdownRef = useRef<HTMLDivElement>(null);
@@ -106,6 +108,24 @@ export default function MerchantTransactionList() {
         onCancel={() => setDatePickerTarget(null)}
         onOk={handleDatePick}
       />
+
+      {/* Transaction Details Modal */}
+      {selectedTransaction && (
+        <TransactionSummaryModal
+          isOpen={!!selectedTransaction}
+          onClose={() => setSelectedTransaction(null)}
+          title="Transaction Details"
+          accountLabel={selectedTransaction.direction === 'credit' ? 'From' : 'To'}
+          account={selectedTransaction.direction === 'credit' 
+            ? (selectedTransaction.from_name || selectedTransaction.from_phone) 
+            : (selectedTransaction.to_name || selectedTransaction.to_phone)}
+          amount={selectedTransaction.amount}
+          charge="0.00"
+          transactionId={selectedTransaction.transaction_id}
+          reference={selectedTransaction.reference || ''}
+          time={new Date(selectedTransaction.created_at).toLocaleString('en-GB')}
+        />
+      )}
 
       <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 mb-8 flex flex-wrap gap-4 items-end">
         <div className="flex-1 min-w-[150px]">
@@ -197,7 +217,11 @@ export default function MerchantTransactionList() {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {transactions.map((tx) => (
-                  <tr key={tx.transaction_id} className="hover:bg-slate-50/50 transition-colors">
+                  <tr 
+                    key={tx.transaction_id} 
+                    className="hover:bg-slate-50/50 transition-colors cursor-pointer group"
+                    onClick={() => setSelectedTransaction(tx)}
+                  >
                     <td className="px-6 py-5 whitespace-nowrap">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center mx-auto ${
                         tx.direction === 'credit' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'

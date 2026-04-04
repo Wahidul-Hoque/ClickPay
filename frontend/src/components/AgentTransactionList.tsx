@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import api from '@/lib/api';
 import { History, Search, Filter, Loader2, ArrowDownLeft, ArrowUpRight, Calendar , ArrowLeft } from 'lucide-react';
 import { DatePickerDialog } from '@/components/DatePickerDialog';
+import { TransactionSummaryModal } from '@/components/TransactionSummaryModal';
 import Link from 'next/link';
 interface Transaction {
   transaction_id: string;
@@ -45,6 +46,7 @@ export default function AgentTransactionList() {
     type: 'all'
   });
   const [datePickerTarget, setDatePickerTarget] = useState<string | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
   const typeDropdownRef = useRef<HTMLDivElement>(null);
@@ -106,6 +108,24 @@ export default function AgentTransactionList() {
         onCancel={() => setDatePickerTarget(null)}
         onOk={handleDatePick}
       />
+
+      {/* Transaction Details Modal */}
+      {selectedTransaction && (
+        <TransactionSummaryModal
+          isOpen={!!selectedTransaction}
+          onClose={() => setSelectedTransaction(null)}
+          title="Transaction Details"
+          accountLabel={selectedTransaction.direction === 'credit' ? 'From' : 'To'}
+          account={selectedTransaction.direction === 'credit' 
+            ? (selectedTransaction.from_name || selectedTransaction.from_phone) 
+            : (selectedTransaction.to_name || selectedTransaction.to_phone)}
+          amount={selectedTransaction.amount}
+          charge="0.00"
+          transactionId={selectedTransaction.transaction_id}
+          reference={selectedTransaction.reference || ''}
+          time={new Date(selectedTransaction.created_at).toLocaleString('en-GB')}
+        />
+      )}
 
       <div className="flex items-center gap-4 mb-8">
         <div className="p-3 bg-blue-100 rounded-2xl">
@@ -216,7 +236,11 @@ export default function AgentTransactionList() {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {transactions.map((tx) => (
-                  <tr key={tx.transaction_id} className="hover:bg-slate-50/50 transition-colors group">
+                  <tr 
+                    key={tx.transaction_id} 
+                    className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
+                    onClick={() => setSelectedTransaction(tx)}
+                  >
                     <td className="px-8 py-6">
                       <div className={`w-10 h-10 rounded-2xl flex items-center justify-center mx-auto transition-transform group-hover:scale-110 ${
                         tx.direction === 'credit' ? 'bg-emerald-100 text-emerald-600 shadow-sm shadow-emerald-100' : 'bg-rose-100 text-rose-600 shadow-sm shadow-rose-100'
