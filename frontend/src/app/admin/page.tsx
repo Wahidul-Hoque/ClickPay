@@ -865,10 +865,7 @@ export default function AdminDashboard() {
                     </div>
                     
                     <div className="flex items-center gap-6">
-                        <div className="relative hidden xl:block">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4"/>
-                            <input className="pl-12 pr-6 py-3 bg-slate-100 border-transparent focus:bg-white focus:ring-2 focus:ring-indigo-500 rounded-2xl text-sm outline-none w-80 transition-all" placeholder="Search Transactions, NID, or Logs..."/>
-                        </div>
+                        
                         <div className="flex gap-2">
                             <div ref={bellRef} className="relative">
                                 <IconButton
@@ -1026,10 +1023,10 @@ export default function AdminDashboard() {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
-                            <StatCard title="Revenue (Fees)" value={`৳${analytics?.revenue?.total_fees || '0'}`} trend="+14.2%" up icon={<DollarSign className="text-indigo-600"/>} bg="bg-indigo-50" />
-                            <StatCard title="Total Volume" value={`৳${analytics?.stats?.total_volume || '0'}`} trend="+5.1%" up icon={<RefreshCcw className="text-emerald-600"/>} bg="bg-emerald-50" />
-                            <StatCard title="Trans. Count" value={analytics?.stats?.transaction_count || '0'} trend="+2.0%" up icon={<PieChart className="text-rose-600"/>} bg="bg-rose-50" />
-                            <StatCard title="Avg Trans" value={`৳${Number(analytics?.stats?.avg_transaction || 0).toFixed(0)}`} trend="+2.0%" up icon={<ArrowRightLeft className="text-amber-600"/>} bg="bg-amber-50" />
+                            <StatCard title="Revenue (Fees)" value={`৳${analytics?.revenue?.total_fees || '0'}`} up icon={<DollarSign className="text-indigo-600"/>} />
+                            <StatCard title="Total Volume" value={`৳${analytics?.stats?.total_volume || '0'}`} up icon={<RefreshCcw className="text-emerald-600"/>} bg="bg-emerald-50" />
+                            <StatCard title="Trans. Count" value={analytics?.stats?.transaction_count || '0'}  up icon={<PieChart className="text-rose-600"/>} bg="bg-rose-50" />
+                            <StatCard title="Avg Trans" value={`৳${Number(analytics?.stats?.avg_transaction || 0).toFixed(0)}`} up icon={<ArrowRightLeft className="text-amber-600"/>} bg="bg-amber-50" />
                         </div>
 
                         <div className="flex flex-col gap-8">
@@ -1321,10 +1318,7 @@ export default function AdminDashboard() {
                                     <span className="text-indigo-400 font-bold mb-2">Total Assets</span>
                                 </div>
                                 <div className="flex items-center gap-6 mt-4">
-                                    <div>
-                                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Current MRR</p>
-                                        <p className="text-lg font-black text-emerald-400">৳{formatCurrency(portfolio?.mrr?.mrr)}</p>
-                                    </div>
+                                    
                                     <div className="w-[1px] h-10 bg-slate-800"></div>
                                     <div>
                                         <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Active Plans</p>
@@ -1340,7 +1334,7 @@ export default function AdminDashboard() {
                                                 <div>
                                                     <p className="text-sm font-black text-white">{plan.user_name || plan.phone}</p>
                                                     <p className="text-[10px] text-slate-300">
-                                                        {new Date(plan.finish_at).toLocaleDateString()} • @{plan.annual_interest_rate}% APR
+                                                        {new Date(plan.finish_at).toLocaleDateString()} • {(plan.annual_interest_rate*100).toFixed(2)}% Yearly Interest
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
@@ -1585,33 +1579,14 @@ export default function AdminDashboard() {
 
                     <section id="recon" className="scroll-mt-32">
                         <div className="space-y-10">
-                            {/* --- Top Part: Settlement Summary (Now Full Width) --- */}
-                             <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm">
-                                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-                                     <div>
-                                         <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Reconciliation</h2>
-                                         <p className="text-slate-500 font-medium">Daily inflow vs outflow audit</p>
-                                     </div>
-                                     <div className="flex gap-8 bg-slate-50 p-6 rounded-2xl border border-slate-100 flex-1 md:max-w-2xl justify-around">
-                                         <ReconItem label="Inflow" value={`+৳${analytics?.reconciliation?.inflow || 0}`} />
-                                         <div className="w-[1px] h-8 bg-slate-200 hidden md:block"></div>
-                                         <ReconItem label="Outflow" value={`-৳${analytics?.reconciliation?.outflow || 0}`} />
-                                         <div className="w-[1px] h-8 bg-slate-200 hidden md:block"></div>
-                                         <ReconItem 
-                                             label="Net Flow" 
-                                             value={`৳${(parseFloat(analytics?.reconciliation?.inflow || 0) - parseFloat(analytics?.reconciliation?.outflow || 0)).toLocaleString()}`} 
-                                             success={parseFloat(analytics?.reconciliation?.inflow || 0) - parseFloat(analytics?.reconciliation?.outflow || 0) >= 0} 
-                                         />
-                                     </div>
-                                 </div>
-                             </div>
+                            
 
                               <div className="bg-white rounded-[2rem] border border-slate-200 p-8 shadow-sm">
                                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                                       <div>
                                           <h3 className="text-2xl font-black text-slate-900">Admin Wallet Flow</h3>
                                           <p className="text-[11px] text-slate-500 uppercase tracking-[0.3em]">
-                                              Income sources for the admin profit wallet (wallet #48)
+                                              Income sources for the admin wallet
                                           </p>
                                       </div>
                                       <div className="flex gap-2">
@@ -1646,7 +1621,7 @@ export default function AdminDashboard() {
                                                           : `+৳${formatCurrency(item.value)}`}
                                                   </p>
                                                   <p className="text-[10px] text-slate-500 mt-1">
-                                                      {item.label} credits into wallet 48
+                                                      {item.label} credits into wallet 
                                                   </p>
                                               </div>
                                           ))}
@@ -1659,7 +1634,7 @@ export default function AdminDashboard() {
                                                       ? 'Loading...'
                                                       : `+৳${formatCurrency(currentFlow.totalIncoming)}`}
                                               </p>
-                                              <p className="text-[10px] text-slate-500 mt-1">All credits landing in wallet 48</p>
+                                              <p className="text-[10px] text-slate-500 mt-1">All credits landing in wallet </p>
                                           </div>
                                           <div className="bg-slate-50/70 border border-slate-100 rounded-2xl p-6">
                                               <p className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-500">Outgoing</p>
@@ -1668,13 +1643,13 @@ export default function AdminDashboard() {
                                                       ? 'Loading...'
                                                       : `-৳${formatCurrency(currentFlow.totalOutgoing)}`}
                                               </p>
-                                              <p className="text-[10px] text-slate-500 mt-1">Money paid from wallet 48 settlements</p>
+                                              <p className="text-[10px] text-slate-500 mt-1">Money paid for settlements</p>
                                           </div>
                                       </div>
                                   </div>
                                   {!adminWalletLoading && (
                                       <div className="mt-6">
-                                          <p className="text-[10px] uppercase tracking-[0.4em] text-slate-400 mb-3">Previous Month (wallet 48)</p>
+                                          <p className="text-[10px] uppercase tracking-[0.4em] text-slate-400 mb-3">Previous Month</p>
                                           <div className="grid gap-4 sm:grid-cols-2">
                                               {[
                                                   {
@@ -1702,7 +1677,7 @@ export default function AdminDashboard() {
                                       </div>
                                   )}
                                   <p className="text-[10px] uppercase tracking-[0.4em] text-slate-400 mt-6">
-                                      Totals reflect {reconScope === 'day' ? 'today' : 'this month'} for wallet 48.
+                                      Totals reflect {reconScope === 'day' ? 'today' : 'this month'}
                                   </p>
                               </div>
 

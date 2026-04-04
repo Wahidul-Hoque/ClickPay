@@ -53,20 +53,20 @@ export default function AdminSavingsPage() {
                   <th className="py-3">Plan ID</th>
                   <th className="py-3">Primary Holder</th>
                   <th className="py-3">Principal</th>
-                  <th className="py-3">APR</th>
+                  <th className="py-3">Annual Interest Rate</th>
                   <th className="py-3">Finishes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {savings.map((plan) => (
                   <tr key={plan.fixed_savings_id} className="hover:bg-slate-50">
-                    <td className="py-4 font-black text-slate-800">#{plan.fixed_savings_id}</td>
+                    <td className="py-4 font-black text-slate-800">{plan.fixed_savings_id}</td>
                     <td className="py-4 text-slate-600">
                       {plan.user_name || plan.phone}
                       <div className="text-[10px] text-slate-400 uppercase tracking-wider">{plan.phone || '—'}</div>
                     </td>
                     <td className="py-4 font-bold text-slate-800">৳{Number(plan.principal_amount).toLocaleString()}</td>
-                    <td className="py-4 text-slate-600">{parseFloat(plan.annual_interest_rate).toFixed(2)}%</td>
+                    <td className="py-4 text-slate-600">{(parseFloat(plan.annual_interest_rate) * 100).toFixed(2)}%</td>
                     <td className="py-4 text-slate-600">{new Date(plan.finish_at).toLocaleDateString()}</td>
                   </tr>
                 ))}
