@@ -275,6 +275,8 @@ export const favoriteAPI = {
     apiClient.get('/favorites', { params: { type } }),
   toggleFavorite: (id: string | number) =>
     apiClient.patch(`/favorites/${id}/toggle`),
+  deleteFavorite: (id: string | number) =>
+    apiClient.delete(`/favorites/${id}`),
 };
 
 

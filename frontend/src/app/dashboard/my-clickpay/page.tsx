@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Plus, Phone, Users, CreditCard, Landmark, Coins, TrendingUp, CheckCircle2, ChevronRight, ChevronDown, Star, X, Loader2, ArrowLeft } from 'lucide-react';
+import { ShieldAlert, Plus, Phone, Users, CreditCard, Landmark, Coins, TrendingUp, CheckCircle2, ChevronRight, ChevronDown, Star, X, Loader2, ArrowLeft, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { transactionAPI, favoriteAPI, paymentMethodAPI, loanAPI } from '@/lib/api';
 import { useToast } from '@/contexts/toastcontext';
@@ -72,6 +72,7 @@ export default function MyClickPayPage() {
   const [newFavName, setNewFavName] = useState('');
   const [newFavPhone, setNewFavPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ id: number; name: string } | null>(null);
 
   useEffect(() => {
     fetchFavorites();
@@ -144,6 +145,22 @@ export default function MyClickPayPage() {
           toast.error(e.message || 'Validation error');
         });
       }
+    }
+  };
+
+  const handleDeleteFavorite = async () => {
+    if (!deleteConfirmation) return;
+    
+    try {
+      setIsLoading(true);
+      await favoriteAPI.deleteFavorite(deleteConfirmation.id);
+      toast.success("Contact deleted successfully");
+      fetchFavorites();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to delete contact");
+    } finally {
+      setIsLoading(false);
+      setDeleteConfirmation(null);
     }
   };
 
@@ -254,14 +271,24 @@ export default function MyClickPayPage() {
                         <p className="text-xs font-mono text-slate-400 font-semibold tracking-widest">{fav.phone}</p>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => handleToggleFavorite(fav.id)}
-                      disabled={isLoading}
-                      className={`p-2 rounded-xl transition-all ${fav.is_favorite ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-300 hover:text-amber-500 hover:bg-slate-100'}`}
-                      title={fav.is_favorite ? "Remove from favorites" : "Mark as favorite"}
-                    >
-                      <Star className={`w-5 h-5 ${fav.is_favorite ? 'fill-current' : ''}`} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => handleToggleFavorite(fav.id)}
+                        disabled={isLoading}
+                        className={`p-2 rounded-xl transition-all ${fav.is_favorite ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-300 hover:text-amber-500 hover:bg-slate-100'}`}
+                        title={fav.is_favorite ? "Remove from favorites" : "Mark as favorite"}
+                      >
+                        <Star className={`w-5 h-5 ${fav.is_favorite ? 'fill-current' : ''}`} />
+                      </button>
+                      <button 
+                        onClick={() => setDeleteConfirmation({ id: fav.id, name: fav.name })}
+                        disabled={isLoading}
+                        className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                        title="Delete Number"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {favoriteNumbers.length === 0 && !isLoading && (
@@ -310,7 +337,17 @@ export default function MyClickPayPage() {
                         <p className="text-xs font-mono text-slate-400 font-semibold tracking-widest">{ag.phone}</p>
                       </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-400 transition-colors" />
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => setDeleteConfirmation({ id: ag.id, name: ag.name })}
+                        disabled={isLoading}
+                        className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                        title="Delete Agent"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-400 transition-colors" />
+                    </div>
                   </div>
                 ))}
                 {favoriteAgents.length === 0 && !isLoading && (
@@ -550,6 +587,40 @@ export default function MyClickPayPage() {
               >
                 {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Save Agent'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteConfirmation && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fadeIn">
+          <div className="bg-white rounded-[2.5rem] p-10 w-full max-w-sm shadow-2xl border border-slate-100 transform transition-all scale-100">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mb-6">
+                <Trash2 className="w-10 h-10" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-800 mb-2">Are you sure?</h3>
+              <p className="text-slate-500 font-medium mb-8 leading-relaxed">
+                You are about to delete <span className="text-slate-900 font-black">"{deleteConfirmation.name}"</span>. 
+                This action cannot be undone.
+              </p>
+              
+              <div className="grid grid-cols-2 gap-4 w-full">
+                <button 
+                  onClick={() => setDeleteConfirmation(null)}
+                  className="py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black text-sm transition-all active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDeleteFavorite}
+                  disabled={isLoading}
+                  className="py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-rose-200 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
