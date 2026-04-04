@@ -209,7 +209,7 @@ export default function MerchantTransactionList() {
                       <p className="font-bold text-slate-900 capitalize text-sm mb-0.5">
                         {tx.transaction_type.replace(/_/g, ' ')}
                       </p>
-                      <p className="text-[10px] text-slate-400 font-medium">#{tx.transaction_id.substring(0,8)} • {new Date(tx.created_at).toLocaleDateString()}</p>
+                      <p className="text-[10px] text-slate-400 font-medium"> {new Date(tx.created_at).toLocaleDateString()}</p>
                     </td>
                     <td className="px-6 py-5">
                       <p className="font-bold text-slate-700 text-sm">

@@ -228,7 +228,7 @@ export default function AgentTransactionList() {
                       <p className="font-bold text-slate-900 capitalize text-sm mb-0.5">
                         {tx.transaction_type.replace('_', ' ')}
                       </p>
-                      <p className="text-[11px] text-slate-400 font-medium">#{tx.transaction_id} • {new Date(tx.created_at).toLocaleString()}</p>
+                      <p className="text-[11px] text-slate-400 font-medium">  {new Date(tx.created_at).toLocaleString()}</p>
                     </td>
                     <td className="px-8 py-6">
                       <p className="font-bold text-slate-700 text-sm">
