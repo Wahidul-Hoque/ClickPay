@@ -107,20 +107,18 @@ export async function verifyUserLimits(client, userId, walletId, category, amoun
   const categoryName = category.replace('_', ' ');
 
   if (dailySpent + payAmount > dailyLimit) {
-    try {
-      const failClient = await getClient();
-      await failClient.query(`CALL p_send_notification($1, $2)`, [userId, `You have exceeded your daily ${categoryName} limit of ৳${dailyLimit}. Please try again tomorrow.`]);
-      failClient.release();
-    } catch(err) {}
-    throw new Error(`Daily ${categoryName} limit (৳${dailyLimit}) exceeded.`);
+    if (category === 'receive_money') {
+      throw new Error(`The receiver has exceeded their daily limit of ৳${dailyLimit}.`);
+    } else {
+      throw new Error(`Daily ${categoryName} limit (৳${dailyLimit}) exceeded.`);
+    }
   }
 
   if (monthlySpent + payAmount > monthlyLimit) {
-    try {
-      const failClient = await getClient();
-      await failClient.query(`CALL p_send_notification($1, $2)`, [userId, `You have exceeded your monthly ${categoryName} limit of ৳${monthlyLimit}.`]);
-      failClient.release();
-    } catch(err) {}
-    throw new Error(`Monthly ${categoryName} limit (৳${monthlyLimit}) exceeded.`);
+    if (category === 'receive_money') {
+      throw new Error(`The receiver has exceeded their monthly limit of ৳${monthlyLimit}.`);
+    } else {
+      throw new Error(`Monthly ${categoryName} limit (৳${monthlyLimit}) exceeded.`);
+    }
   }
 }

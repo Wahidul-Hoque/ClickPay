@@ -37,7 +37,7 @@ class TransactionService {
 
       // ── Step 2: Lock sender wallet ──────────────────────────
       const senderRes = await client.query(
-        `SELECT wallet_id, balance, status
+        `SELECT wallet_id, balance, status, wallet_type
          FROM wallets
          WHERE user_id = $1 AND wallet_type IN ('user','agent')
          FOR UPDATE`,
@@ -49,7 +49,7 @@ class TransactionService {
 
       // ── Step 3: Lock receiver wallet ────────────────────────
       const receiverRes = await client.query(
-        `SELECT w.wallet_id, w.status, w.user_id, u.name
+        `SELECT w.wallet_id, w.status, w.user_id, u.name, w.wallet_type
          FROM wallets w
          JOIN users u ON w.user_id = u.user_id
          WHERE u.phone = $1 AND w.wallet_type IN ('user','agent')
@@ -98,8 +98,12 @@ class TransactionService {
       }
 
       // ── Step 5.5: Check Daily & Monthly Limits ────────────────
-      await verifyUserLimits(client, fromUserId, senderWallet.wallet_id, 'send_money', amount);
-      await verifyUserLimits(client, receiverWallet.user_id, receiverWallet.wallet_id, 'receive_money', amount);
+      if (senderWallet.wallet_type !== 'agent') {
+        await verifyUserLimits(client, fromUserId, senderWallet.wallet_id, 'send_money', amount);
+      }
+      if (receiverWallet.wallet_type !== 'agent') {
+        await verifyUserLimits(client, receiverWallet.user_id, receiverWallet.wallet_id, 'receive_money', amount);
+      }
 
       // ── Step 6: Create transaction record (status = 'initiated') ──
       const reference = `TXN-${Date.now()}`;
@@ -234,8 +238,6 @@ class TransactionService {
         throw new Error(`Insufficient funds. Required: ৳${totalDeduction.toFixed(2)} (incl. ${(merchantRate * 100).toFixed(2)}% fee)`);
       }
 
-      await verifyUserLimits(client, receiverWallet[0].user_id, receiverWallet[0].wallet_id, 'receive_money', amount);
-
       // 4. System Wallet
       const { rows: systemWallet } = await client.query(
         "SELECT wallet_id FROM wallets WHERE wallet_type = 'system' AND system_purpose = 'profit' FOR UPDATE"
@@ -359,8 +361,6 @@ class TransactionService {
       if (agentBalance < parseFloat(amount)) {
         throw new Error(`Insufficient agent balance. Available: ৳${agentBalance.toFixed(2)}`);
       }
-
-      await verifyUserLimits(client, userWallet.user_id, userWallet.wallet_id, 'receive_money', amount);
 
       // ── Step 6: Create transaction record (initiated) ───────
       const reference = `CIN-${Date.now()}`;
