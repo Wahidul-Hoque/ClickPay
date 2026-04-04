@@ -1,6 +1,6 @@
 import { query, getClient } from '../config/database.js';
 import { comparePassword } from '../middleware/auth.js';
-import { logEvent } from '../utils/dbHelpers.js';
+import { logEvent } from './dbHelpers.js';
 
 class SavingsService {
   async createSavingsAccount(userId, amount, durationMonths, epin) {

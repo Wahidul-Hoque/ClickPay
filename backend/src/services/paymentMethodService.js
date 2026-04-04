@@ -1,5 +1,5 @@
 import { query, getClient } from '../config/database.js';
-import { logEvent } from '../utils/dbHelpers.js';
+import { logEvent } from './dbHelpers.js';
 
 class PaymentMethodService {
 

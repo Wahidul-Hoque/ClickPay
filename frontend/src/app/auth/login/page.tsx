@@ -73,7 +73,9 @@ export default function LoginPage() {
           toast.error(err.message || 'Validation error');
         });
       }
-    } finally {
+    } 
+    
+    finally {
       setLoading(false);
     }
   };

@@ -1,6 +1,6 @@
 import { query, getClient } from '../config/database.js';
 import { comparePassword } from '../middleware/auth.js';
-import { logEvent, recordFailure } from '../utils/dbHelpers.js';
+import { logEvent, recordFailure } from './dbHelpers.js';
 
 class LoanService {
   async getLoanEligibility(userId) {
