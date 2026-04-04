@@ -358,15 +358,24 @@ export default function AgentRankingList({ apiPrefix = '/agent' }: { apiPrefix?:
           <tbody className="divide-y divide-slate-100">
             {rankings.length > 0 ? (
               rankings.map((agent, index) => (
-                <tr key={agent.user_id} className={`transition-colors hover:bg-slate-50 ${index < 3 ? "bg-emerald-50/20" : ""}`}>
-                   <td className="px-6 py-4">
-                     <div className="flex items-center justify-center w-8 h-8 rounded-full">
-                       {agent.rank === 1 && <Medal className="w-6 h-6 text-yellow-500" />}
-                       {agent.rank === 2 && <Medal className="w-6 h-6 text-slate-400" />}
-                       {agent.rank === 3 && <Medal className="w-6 h-6 text-amber-600" />}
-                       {agent.rank > 3 && <span className="font-mono text-slate-400 font-bold">#{agent.rank}</span>}
-                     </div>
-                   </td>
+                                <tr key={agent.user_id} className={`transition-colors hover:bg-slate-50 ${Number(agent.rank) <= 3 ? "bg-emerald-50/20" : ""}`}>
+                                    <td className="px-6 py-4 text-center">
+                                        <div className="flex items-center justify-center">
+                                            {Number(agent.rank) === 1 && <Medal className="w-6 h-6 text-yellow-500 drop-shadow-sm" />}
+                                            {Number(agent.rank) === 2 && <Medal className="w-6 h-6 text-slate-400 drop-shadow-sm" />}
+                                            {Number(agent.rank) === 3 && <Medal className="w-6 h-6 text-amber-600 drop-shadow-sm" />}
+                                            {Number(agent.rank) > 3 && (
+                                                <span className="font-mono text-slate-400 font-bold">
+                                                    #{agent.rank}
+                                                </span>
+                                            )}
+                                            {!agent.rank && (
+                                                <span className="font-mono text-slate-300 font-bold text-xs text-center">
+                                                    #{index + 1}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </td>
                   <td className="px-6 py-4">
                     <p className="font-bold text-slate-900">{agent.name}</p>
                     <div className="flex items-center gap-2 text-xs text-slate-500">

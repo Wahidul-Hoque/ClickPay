@@ -364,15 +364,24 @@ export default function MerchantRankingList({ apiPrefix = '/merchant' }: { apiPr
           <tbody className="divide-y divide-slate-100">
             {rankings.length > 0 ? (
               rankings.map((merchant, index) => (
-                <tr key={merchant.user_id} className={`transition-colors hover:bg-slate-50 ${index < 3 ? "bg-blue-50/20" : ""}`}>
-                   <td className="px-6 py-4">
-                     <div className="flex items-center justify-center w-8 h-8 rounded-full">
-                       {merchant.rank === 1 && <Medal className="w-6 h-6 text-yellow-500" />}
-                       {merchant.rank === 2 && <Medal className="w-6 h-6 text-slate-400" />}
-                       {merchant.rank === 3 && <Medal className="w-6 h-6 text-amber-600" />}
-                       {merchant.rank > 3 && <span className="font-mono text-slate-400 font-bold">#{merchant.rank}</span>}
-                     </div>
-                   </td>
+                                <tr key={merchant.user_id} className={`transition-colors hover:bg-slate-50 ${Number(merchant.rank) <= 3 ? "bg-blue-50/20" : ""}`}>
+                                    <td className="px-6 py-4 text-center">
+                                        <div className="flex items-center justify-center">
+                                            {Number(merchant.rank) === 1 && <Medal className="w-6 h-6 text-yellow-500 drop-shadow-sm" />}
+                                            {Number(merchant.rank) === 2 && <Medal className="w-6 h-6 text-slate-400 drop-shadow-sm" />}
+                                            {Number(merchant.rank) === 3 && <Medal className="w-6 h-6 text-amber-600 drop-shadow-sm" />}
+                                            {Number(merchant.rank) > 3 && (
+                                                <span className="font-mono text-slate-400 font-black text-sm tabular-nums">
+                                                    #{merchant.rank}
+                                                </span>
+                                            )}
+                                            {!merchant.rank && (
+                                                <span className="font-mono text-slate-300 font-bold text-xs">
+                                                    #{index + 1}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </td>
                   <td className="px-6 py-4">
                     <p className="font-bold text-slate-900">{merchant.name}</p>
                     <div className="flex items-center gap-2 text-xs text-slate-500">
