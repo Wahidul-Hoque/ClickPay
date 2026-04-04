@@ -205,7 +205,7 @@ export default function DashboardPage() {
     {
       label: 'Expenses',
       value: formatCurrency(expenses),
-      sub: '-0% from last month',
+      //sub: '-0% from last month',
       icon: TrendingDown,
       gradient: 'gradient-rose',
       glow: '',
@@ -227,7 +227,7 @@ export default function DashboardPage() {
   const quickActions = [
     { label: 'Send Money', href: '/dashboard/send', icon: Send, gradient: 'gradient-indigo' },
     { label: 'Mobile Recharge', href: '/dashboard/bills', icon: Phone, gradient: 'gradient-rose' },
-    { label: 'QR Payment', href: '/dashboard/qr', icon: QrCode, gradient: 'gradient-violet' },
+    //{ label: 'QR Payment', href: '/dashboard/qr', icon: QrCode, gradient: 'gradient-violet' },
     { label: 'Pay Bills', href: '/dashboard/bills', icon: CreditCard, gradient: 'gradient-emerald' },
     { label: 'History', href: '/dashboard/transactions', icon: Wallet, gradient: 'gradient-amber' },
   ];
