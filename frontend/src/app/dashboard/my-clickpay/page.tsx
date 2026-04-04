@@ -64,11 +64,7 @@ export default function MyClickPayPage() {
   const [loanSummary, setLoanSummary] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [limitType, setLimitType] = useState<'Daily' | 'Monthly'>('Daily');
-  const [spentData, setSpentData] = useState({
-    addMoney: 0,
-    clickpayToBank: 0,
-    cardToOther: 0
-  });
+  const [limitsData, setLimitsData] = useState<any>(null);
 
   // Modal states
   const [isAddNumberOpen, setIsAddNumberOpen] = useState(false);
@@ -84,46 +80,18 @@ export default function MyClickPayPage() {
   const fetchFavorites = async () => {
     try {
       setIsLoading(true);
-      const [numRes, agentRes, methodRes, loanRes, txnRes] = await Promise.all([
+      const [numRes, agentRes, methodRes, loanRes, limitRes] = await Promise.all([
         favoriteAPI.getFavorites('number'),
         favoriteAPI.getFavorites('agent'),
         paymentMethodAPI.getMyMethods(),
         loanAPI.getStatus(),
-        transactionAPI.getHistory({ limit: 100 })
+        transactionAPI.getLimits()
       ]);
       setFavoriteNumbers(numRes.data.data || []);
       setFavoriteAgents(agentRes.data.data || []);
       setTopupMethods(methodRes.data.data || []);
       setLoanSummary(loanRes.data.data || null);
-
-      // Compute spent data
-      const txns = txnRes.data.data || [];
-      const now = new Date();
-      let addMoneySpent = 0;
-      let toBankSpent = 0;
-      let toOtherSpent = 0;
-
-      txns.forEach((t: any) => {
-        const d = new Date(t.created_at);
-        const matchesDaily = limitType === 'Daily' 
-          ? d.toDateString() === now.toDateString() 
-          : d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-
-        if (matchesDaily) {
-          if (t.transaction_type === 'bank_transfer' && t.direction === 'credit') {
-            addMoneySpent += parseFloat(t.amount);
-          } else if (t.transaction_type === 'cash_out') {
-            toBankSpent += parseFloat(t.amount);
-          } else if (t.transaction_type === 'transfer') {
-            toOtherSpent += parseFloat(t.amount);
-          }
-        }
-      });
-      setSpentData({
-        addMoney: addMoneySpent,
-        clickpayToBank: toBankSpent,
-        cardToOther: toOtherSpent
-      });
+      setLimitsData(limitRes.data.data || null);
     } catch (err: any) {
       toast.error('Failed to load dashboard data');
       if (err.response?.data?.errors) {
@@ -232,23 +200,25 @@ export default function MyClickPayPage() {
                 </div>
               </div>
 
+              {limitsData && (
               <div className="flex justify-between items-start overflow-x-auto gap-3 custom-scrollbar pb-2">
                  <Gauge 
-                   value={spentData.addMoney} 
-                   max={limitType === 'Daily' ? 50000 : 150000} 
-                   label="Add Money" 
+                   value={limitType === 'Daily' ? limitsData.daily.sendMoney.spent : limitsData.monthly.sendMoney.spent} 
+                   max={limitType === 'Daily' ? limitsData.daily.sendMoney.limit : limitsData.monthly.sendMoney.limit} 
+                   label="Send Money" 
                  />
                  <Gauge 
-                   value={spentData.clickpayToBank} 
-                   max={limitType === 'Daily' ? 50000 : 150000} 
-                   label="ClickPay to Bank" 
+                   value={limitType === 'Daily' ? limitsData.daily.receiveMoney.spent : limitsData.monthly.receiveMoney.spent} 
+                   max={limitType === 'Daily' ? limitsData.daily.receiveMoney.limit : limitsData.monthly.receiveMoney.limit} 
+                   label="Cash In" 
                  />
                  <Gauge 
-                   value={spentData.cardToOther} 
-                   max={limitType === 'Daily' ? 10000 : 50000} 
-                   label="Card to Others" 
+                   value={limitType === 'Daily' ? limitsData.daily.mobileRecharge.spent : limitsData.monthly.mobileRecharge.spent} 
+                   max={limitType === 'Daily' ? limitsData.daily.mobileRecharge.limit : limitsData.monthly.mobileRecharge.limit} 
+                   label="Mobile Recharge" 
                  />
               </div>
+              )}
             </section>
             
             {/* Favorite Numbers */}

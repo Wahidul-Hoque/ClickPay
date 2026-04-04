@@ -60,6 +60,10 @@ router.post('/cash-out', protect, transactionController.cashOut);
 // GET /api/v1/transactions/history?page=1&limit=10
 router.get('/history', protect, transactionController.getHistory);
 
+// Get spend limits (Daily & Monthly)
+// GET /api/v1/transactions/limits
+router.get('/limits', protect, transactionController.getLimits);
+
 // Get details of a single transaction (must be a party to it)
 // GET /api/v1/transactions/:id
 // NOTE: keep this LAST so it doesn't shadow named paths above

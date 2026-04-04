@@ -3,7 +3,7 @@
 
 import { query, getClient } from '../config/database.js';
 import { comparePassword } from '../middleware/auth.js';
-import { logEvent, recordFailure } from '../utils/dbHelpers.js';
+import { logEvent, recordFailure, verifyUserLimits } from '../utils/dbHelpers.js';
 
 // ──────────────────────────────────────────────────────────────
 // BILL SERVICE CLASS
@@ -83,6 +83,11 @@ class BillService {
         throw new Error(
           `Insufficient balance. Available: ৳${parseFloat(wallet.balance).toFixed(2)}`
         );
+      }
+
+      // ── Step 4.5: Check Daily & Monthly Limits ───────────────
+      if (biller.category === 'mobile') {
+        await verifyUserLimits(client, userId, wallet.wallet_id, 'mobile_recharge', amount);
       }
 
       // ── Step 5: Create transaction record (initiated) ───────

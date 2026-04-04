@@ -13,7 +13,7 @@
 import { query, getClient } from '../config/database.js';
 import { comparePassword } from '../middleware/auth.js';
 import fraudDetectionService from './fraudDetectionService.js';
-import { logEvent, recordFailure } from '../utils/dbHelpers.js';
+import { logEvent, recordFailure, verifyUserLimits } from '../utils/dbHelpers.js';
 
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -96,6 +96,10 @@ class TransactionService {
       if (currentBalance < totalDeduction) {
         throw new Error(`Insufficient balance. Available: ৳${currentBalance.toFixed(2)}${fee > 0 ? ` (Required: ৳${totalDeduction.toFixed(2)} incl ৳${fee} fee)` : ''}`);
       }
+
+      // ── Step 5.5: Check Daily & Monthly Limits ────────────────
+      await verifyUserLimits(client, fromUserId, senderWallet.wallet_id, 'send_money', amount);
+      await verifyUserLimits(client, receiverWallet.user_id, receiverWallet.wallet_id, 'receive_money', amount);
 
       // ── Step 6: Create transaction record (status = 'initiated') ──
       const reference = `TXN-${Date.now()}`;
@@ -1021,6 +1025,65 @@ class TransactionService {
       await client.query('ROLLBACK');
       if (reversalTxnId) await recordFailure(reversalTxnId, error.message);
       throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async getLimits(userId) {
+    const client = await getClient();
+    try {
+      const walletRes = await client.query('SELECT wallet_id FROM wallets WHERE user_id = $1 AND wallet_type = $2', [userId, 'user']);
+      if (walletRes.rows.length === 0) throw new Error('User wallet not found');
+      const walletId = walletRes.rows[0].wallet_id;
+
+      // Fetch dynamic limits from settings or defaults
+      const limitsRes = await client.query(`
+        SELECT 
+          COALESCE((SELECT setting_value FROM system_settings WHERE setting_key = 'daily_send_money_limit'), '25000') as ds,
+          COALESCE((SELECT setting_value FROM system_settings WHERE setting_key = 'monthly_send_money_limit'), '100000') as ms,
+          COALESCE((SELECT setting_value FROM system_settings WHERE setting_key = 'daily_receive_money_limit'), '50000') as dr,
+          COALESCE((SELECT setting_value FROM system_settings WHERE setting_key = 'monthly_receive_money_limit'), '200000') as mr,
+          COALESCE((SELECT setting_value FROM system_settings WHERE setting_key = 'daily_mobile_recharge_limit'), '10000') as dm,
+          COALESCE((SELECT setting_value FROM system_settings WHERE setting_key = 'monthly_mobile_recharge_limit'), '50000') as mm
+      `);
+      
+      const lim = limitsRes.rows[0];
+
+      // Fetch spent
+      const spentRes = await client.query(`
+        SELECT
+          -- Send Money
+          COALESCE(SUM(amount) FILTER (WHERE from_wallet_id = $1 AND transaction_type = 'transfer' AND created_at >= CURRENT_DATE), 0) as ds_spent,
+          COALESCE(SUM(amount) FILTER (WHERE from_wallet_id = $1 AND transaction_type = 'transfer' AND created_at >= date_trunc('month', CURRENT_DATE)), 0) as ms_spent,
+          -- Receive Money
+          COALESCE(SUM(amount) FILTER (WHERE to_wallet_id = $1 AND transaction_type = 'transfer' AND created_at >= CURRENT_DATE), 0) as dr_spent,
+          COALESCE(SUM(amount) FILTER (WHERE to_wallet_id = $1 AND transaction_type = 'transfer' AND created_at >= date_trunc('month', CURRENT_DATE)), 0) as mr_spent
+        FROM transactions WHERE status = 'completed'
+      `, [walletId]);
+
+      const billRes = await client.query(`
+        SELECT
+          COALESCE(SUM(amount) FILTER (WHERE created_at >= CURRENT_DATE), 0) as dm_spent,
+          COALESCE(SUM(amount) FILTER (WHERE created_at >= date_trunc('month', CURRENT_DATE)), 0) as mm_spent
+        FROM bill_payments WHERE wallet_id = $1 AND provider_reference LIKE 'MOBILE-%' AND status = 'completed'
+      `, [walletId]);
+
+      const t = spentRes.rows[0];
+      const b = billRes.rows[0];
+
+      return {
+        daily: {
+          sendMoney: { spent: parseFloat(t.ds_spent), limit: parseFloat(lim.ds) },
+          receiveMoney: { spent: parseFloat(t.dr_spent), limit: parseFloat(lim.dr) },
+          mobileRecharge: { spent: parseFloat(b.dm_spent), limit: parseFloat(lim.dm) }
+        },
+        monthly: {
+          sendMoney: { spent: parseFloat(t.ms_spent), limit: parseFloat(lim.ms) },
+          receiveMoney: { spent: parseFloat(t.mr_spent), limit: parseFloat(lim.mr) },
+          mobileRecharge: { spent: parseFloat(b.mm_spent), limit: parseFloat(lim.mm) }
+        }
+      };
     } finally {
       client.release();
     }

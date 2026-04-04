@@ -232,6 +232,18 @@ class TransactionController {
     }
   }
 
+  async getLimits(req, res, next) {
+    try {
+      const result = await transactionService.getLimits(req.user.userId);
+      return res.json({ success: true, data: result });
+    } catch (error) {
+      if (error.message.includes('not found')) {
+        return res.status(404).json({ success: false, message: error.message });
+      }
+      next(error);
+    }
+  }
+
   async getDetails(req, res, next) {
     try {
       const userId = req.user.userId;

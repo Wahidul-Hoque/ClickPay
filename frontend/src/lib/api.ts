@@ -70,6 +70,7 @@ export const transactionAPI = {
   cashOut: (data: { agentPhone: string; amount: number; epin: string }) => 
     apiClient.post('/transactions/cash-out', data),
   getHistory: (params?: any) => apiClient.get('/transactions/history', { params }),
+  getLimits: () => apiClient.get('/transactions/limits'),
   getDetails: (id: string) => apiClient.get(`/transactions/${id}`),
   reverse: (transactionId: string) => 
     apiClient.post(`/transactions/${transactionId}/reverse`),
