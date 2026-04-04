@@ -91,8 +91,8 @@ class AuthService {
     try {
       //Find user by phone with wallet
       const userQuery = `
-        SELECT 
-          u.user_id, u.name, u.phone, u.city, u.nid, u.epin_hash, u.role, u.status, u.created_at,
+          SELECT 
+            u.user_id, u.name, u.phone, u.city, u.nid, u.epin_hash, u.role, u.status, u.try AS failed_attempts, u.created_at,
           w.wallet_id, w.wallet_type, w.balance, w.status as wallet_status,
           mp.status as merchant_status, mp.subscription_expiry
         FROM users u
@@ -109,6 +109,12 @@ class AuthService {
 
       const user = result.rows[0];
 
+      const normalizeTryCount = (raw) => {
+        const parsed = typeof raw === 'number' ? raw : parseInt(raw, 10);
+        return Number.isNaN(parsed) ? 0 : parsed;
+      };
+      const previousFailedAttempts = normalizeTryCount(user.failed_attempts);
+
       if (user.status !== 'active') {
         throw new Error('Account is not active. Please contact support.');
       }
@@ -116,11 +122,26 @@ class AuthService {
       const isValidEpin = await comparePassword(epin, user.epin_hash);
 
       if (!isValidEpin) {
+        const incrementResult = await query(
+          'UPDATE users SET try = try + 1 WHERE user_id = $1 RETURNING try',
+          [user.user_id]
+        );
+        const currentTry = normalizeTryCount(incrementResult.rows[0].try);
+
+        if (currentTry >= 5) {
+          await query('CALL p_set_user_account_status($1, $2)', [user.user_id, 'frozen']);
+          throw new Error('Account locked due to multiple failed login attempts. Please contact support.');
+        }
+
         throw new Error('Invalid phone number or ePin');
       }
 
+      if (previousFailedAttempts > 0) {
+        await query('UPDATE users SET try = 0 WHERE user_id = $1', [user.user_id]);
+      }
+
       // Remove epin_hash from response
-      const { epin_hash, ...userData } = user;
+      const { epin_hash, failed_attempts, ...userData } = user;
 
       // STEP 5: Generate JWT token
       const token = generateToken(user.user_id, user.role);

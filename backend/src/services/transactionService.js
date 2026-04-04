@@ -13,7 +13,7 @@
 import { query, getClient } from '../config/database.js';
 import { comparePassword } from '../middleware/auth.js';
 import fraudDetectionService from './fraudDetectionService.js';
-import { logEvent, recordFailure, verifyUserLimits } from '../utils/dbHelpers.js';
+import { logEvent, recordFailure, verifyUserLimits } from './dbHelpers.js';
 
 // ──────────────────────────────────────────────────────────────────────────────
 

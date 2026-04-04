@@ -116,6 +116,18 @@ class AuthController {
 
     } catch (error) {
       // Handle specific errors
+      if (error.message.includes('Account locked')) {
+        return res.status(423).json({
+          success: false,
+          message: error.message
+        });
+      }
+      if (error.message.includes('not active')) {
+        return res.status(403).json({
+          success: false,
+          message: error.message
+        });
+      }
       if (error.message.includes('Invalid')) {
         return res.status(401).json({
           success: false,

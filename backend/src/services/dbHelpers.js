@@ -86,10 +86,10 @@ export async function verifyUserLimits(client, userId, walletId, category, amoun
     monthlySpent = parseFloat(monthlyRes.rows[0].total);
   } else if (category === 'receive_money') {
     const dailyRes = await client.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE to_wallet_id = $1 AND transaction_type IN ('transfer', 'cash_in', 'merchant_transfer') AND status = 'completed' AND created_at >= CURRENT_DATE`, [walletId]
+      `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE to_wallet_id = $1 AND transaction_type ='transfer' AND status = 'completed' AND created_at >= CURRENT_DATE`, [walletId]
     );
     const monthlyRes = await client.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE to_wallet_id = $1 AND transaction_type IN ('transfer', 'cash_in', 'merchant_transfer') AND status = 'completed' AND created_at >= date_trunc('month', CURRENT_DATE)`, [walletId]
+      `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE to_wallet_id = $1 AND transaction_type ='transfer' AND status = 'completed' AND created_at >= date_trunc('month', CURRENT_DATE)`, [walletId]
     );
     dailySpent = parseFloat(dailyRes.rows[0].total);
     monthlySpent = parseFloat(monthlyRes.rows[0].total);

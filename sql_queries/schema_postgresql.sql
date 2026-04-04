@@ -9,6 +9,7 @@ CREATE TABLE users (
   status      VARCHAR(30)  NOT NULL,
   city        VARCHAR(100),
   email       VARCHAR(255) UNIQUE,
+  try         INTEGER NOT NULL DEFAULT 0,
   reset_otp   VARCHAR(6),
   reset_otp_expiry TIMESTAMP,
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
