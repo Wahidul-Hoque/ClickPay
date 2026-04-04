@@ -171,8 +171,8 @@ export default function MerchantDashboard() {
           <div className="relative z-10">
             <h2 className="text-xl font-bold mb-6">Operations</h2>
             <div className="space-y-3">
-              <Link href="/merchant/analytics" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-blue-600 hover:text-white transition-all font-bold">
-                <TrendingUp className="w-5 h-5" /> Sales Analytics
+              <Link href="/merchant/payment_methods" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-blue-600 hover:text-white transition-all font-bold">
+                <TrendingUp className="w-5 h-5" /> Add Money
               </Link>
               <Link href="/merchant/transactions" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-indigo-600 hover:text-white transition-all font-bold">
                 <FileText className="w-5 h-5" /> Transactions
