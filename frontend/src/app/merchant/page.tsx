@@ -14,7 +14,8 @@ import {
   Store,
   CreditCard,
   FileText,
-  History
+  History,
+  Download
 } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/contexts/toastcontext';
@@ -66,7 +67,7 @@ export default function MerchantDashboard() {
 
   const statCards = [
     {
-      label: 'Store Liquidity',
+      label: 'Available Balance',
       value: `৳${parseFloat(stats?.profile?.balance || '0').toFixed(2)}`,
       sub: stats?.profile?.city ? `Main Terminal: ${stats.profile.city}` : 'Instant Settlements',
       icon: Wallet,
@@ -102,7 +103,7 @@ export default function MerchantDashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">
-            Storefront: <span className="text-blue-600">{stats?.profile?.merchant_name || user?.name}</span>
+            Welcome,  <span className="text-blue-600">{stats?.profile?.merchant_name || user?.name}</span>
           </h1>
           <p className="text-slate-500 text-sm mt-1">Manage your merchant terminal and monitor sales velocity.</p>
         </div>
@@ -134,7 +135,7 @@ export default function MerchantDashboard() {
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-2">
                 <History className="w-5 h-5 text-blue-600" />
-                <h2 className="text-xl font-bold text-slate-900">Recent Activity</h2>
+                <h2 className="text-xl font-bold text-slate-900">Transactions</h2>
             </div>
             <Link href="/merchant/transactions" className="text-blue-600 text-sm font-bold flex items-center gap-1 hover:underline">
               View All <ArrowUpRight className="w-4 h-4" />
@@ -169,7 +170,7 @@ export default function MerchantDashboard() {
         {/* Quick Actions */}
         <div className="bg-white border border-slate-200 shadow-xl rounded-3xl p-8 text-slate-900 relative overflow-hidden">
           <div className="relative z-10">
-            <h2 className="text-xl font-bold mb-6">Operations</h2>
+            <h2 className="text-xl font-bold mb-6">Quick Options</h2>
             <div className="space-y-3">
               <Link href="/merchant/payment_methods" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-blue-600 hover:text-white transition-all font-bold">
                 <TrendingUp className="w-5 h-5" /> Add Money
@@ -179,6 +180,9 @@ export default function MerchantDashboard() {
               </Link>
               <Link href="/merchant/send" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-emerald-600 hover:text-white transition-all font-bold">
                 <ArrowUpRight className="w-5 h-5" /> Send Money
+              </Link>
+              <Link href="/merchant/cashout" className="flex items-center gap-4 p-4 rounded-2xl bg-slate-100 hover:bg-amber-600 hover:text-white transition-all font-bold">
+                <Download className="w-5 h-5" /> Cash Out
               </Link>
             </div>
           </div>

@@ -39,7 +39,7 @@ class TransactionService {
       const senderRes = await client.query(
         `SELECT wallet_id, balance, status, wallet_type
          FROM wallets
-         WHERE user_id = $1 AND wallet_type IN ('user','agent')
+         WHERE user_id = $1 AND wallet_type IN ('user','agent','merchant')
          FOR UPDATE`,
         [fromUserId]
       );
@@ -52,7 +52,7 @@ class TransactionService {
         `SELECT w.wallet_id, w.status, w.user_id, u.name, w.wallet_type
          FROM wallets w
          JOIN users u ON w.user_id = u.user_id
-         WHERE u.phone = $1 AND w.wallet_type IN ('user','agent')
+         WHERE u.phone = $1 AND w.wallet_type IN ('user','agent','merchant')
          FOR UPDATE`,
         [toPhone]
       );
@@ -98,10 +98,10 @@ class TransactionService {
       }
 
       // ── Step 5.5: Check Daily & Monthly Limits ────────────────
-      if (senderWallet.wallet_type !== 'agent') {
+      if (senderWallet.wallet_type !== 'agent' && senderWallet.wallet_type !== 'merchant') {
         await verifyUserLimits(client, fromUserId, senderWallet.wallet_id, 'send_money', amount);
       }
-      if (receiverWallet.wallet_type !== 'agent') {
+      if (receiverWallet.wallet_type !== 'agent' && receiverWallet.wallet_type !== 'merchant') {
         await verifyUserLimits(client, receiverWallet.user_id, receiverWallet.wallet_id, 'receive_money', amount);
       }
 
