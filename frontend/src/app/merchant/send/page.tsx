@@ -29,24 +29,24 @@ export default function MerchantSendMoneyPage() {
     fetchSettings();
   }, []);
 
-  const calculateFee = (amount: number, target: string, isFavorite: boolean) => {
+  const calculateFee = (amount: number, recipient: string, isFavorite: boolean) => {
     return parseFloat((amount * commissionRate).toFixed(2));
   };
 
-  const handleExecute = async (data: { target: string; amount: number; epin: string; note: string }) => {
+  const handleExecute = async (data: { recipient: string; amount: number; epin: string; note: string }) => {
     setLoading(true);
     toast.info('Initiating transfer...');
 
     try {
       const response = await merchantAPI.sendMoney({
-        toPhone: data.target,
+        toPhone: data.recipient,
         amount: data.amount,
         epin: data.epin
       });
 
       if (response.data.success) {
         const txResult = response.data.data;
-        setResult({ ...txResult, target: data.target, numAmount: data.amount });
+        setResult({ ...txResult, recipient: data.recipient, numAmount: data.amount });
         setSuccess(true);
         toast.success(`৳${txResult.amount || data.amount} sent successfully!`);
       } else {
@@ -74,9 +74,9 @@ export default function MerchantSendMoneyPage() {
           onClose={() => setSuccess(false)}
           title="Merchant Transfer Complete"
           accountLabel="Recipient"
-          account={result.to_phone || result.target || 'Recipient'}
+          account={result.to_phone || result.recipient || 'Recipient'}
           amount={result.amount || result.numAmount}
-          charge={result.fee !== undefined ? result.fee : calculateFee(result.numAmount || result.amount || 0, result.target, false)}
+          charge={result.fee !== undefined ? result.fee : calculateFee(result.numAmount || result.amount || 0, result.recipient || '', false)}
           transactionId={result.transaction_id || result.transactionId || 'PENDING'}
           reference={result.reference || 'Merchant Send'}
           time={new Date().toLocaleString()}

@@ -40,23 +40,23 @@ export default function SendMoneyPage() {
     fetchContacts();
   }, []);
 
-  const calculateFee = (amount: number, target: string, isFavorite: boolean) => {
+  const calculateFee = (amount: number, recipient: string, isFavorite: boolean) => {
     return isFavorite ? 0.00 : sendMoneyFee;
   };
 
-  const handleExecute = async (data: { target: string; amount: number; epin: string; note: string }) => {
+  const handleExecute = async (data: { recipient: string; amount: number; epin: string; note: string }) => {
     setLoading(true);
     toast.info('Processing transaction...');
 
     try {
       const response = await transactionAPI.send({
-        toPhone: data.target,
+        toPhone: data.recipient,
         amount: data.amount,
         epin: data.epin
       });
 
       if (response.data.success) {
-        setResult({ ...response.data.data, toPhone: data.target, amount: data.amount, note: data.note });
+        setResult({ ...response.data.data, toPhone: data.recipient, amount: data.amount, note: data.note });
         setSuccess(true);
         toast.success(`৳${data.amount} sent successfully!`);
       }
@@ -96,8 +96,8 @@ export default function SendMoneyPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center py-8 px-4">
-        <div className="mb-4 self-start">
+    <div className="min-h-[calc(100vh-8rem)] flex flex-col items-center justify-center py-8 px-4">
+        <div className="w-full max-w-2xl mb-4 self-center">
           <Link
             href='/dashboard'
             className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors group"

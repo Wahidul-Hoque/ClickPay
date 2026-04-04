@@ -14,20 +14,20 @@ export default function CashInPage() {
   const [success, setSuccess] = useState(false);
   const [result, setResult] = useState<any>(null);
 
-  const calculateFee = (amount: number, target: string, isFavorite: boolean) => 0;
+  const calculateFee = (amount: number, recipient: string, isFavorite: boolean) => 0;
 
-  const handleExecute = async (data: { target: string; amount: number; epin: string; note: string }) => {
+  const handleExecute = async (data: { recipient: string; amount: number; epin: string; note: string }) => {
     setLoading(true);
 
     try {
       const response = await api.post('/agent/cash-in', {
-        userPhone: data.target,
+        userPhone: data.recipient,
         amount: data.amount,
         epin: data.epin,
       });
 
       if (response.data.success) {
-        setResult({ ...response.data.data, target: data.target, numAmount: data.amount });
+        setResult({ ...response.data.data, recipient: data.recipient, numAmount: data.amount });
         setSuccess(true);
         toast.success(`৳${data.amount} deposited successfully!`);
       }
@@ -51,7 +51,7 @@ export default function CashInPage() {
           onClose={() => setSuccess(false)}
           title="Cash In Successful"
           accountLabel="User Phone"
-          account={result.to_phone || result.phone || result.target}
+          account={result.to_phone || result.phone || result.recipient}
           amount={result.amount || result.amount_sent || result.numAmount}
           charge={result.charge || '0.00'}
           transactionId={result.transaction_id || ''}

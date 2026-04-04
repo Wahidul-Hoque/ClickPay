@@ -49,12 +49,12 @@ export default function CashoutPage() {
     }
   };
 
-  const calculateFee = (amount: number, target: string, isFavorite: boolean) => {
+  const calculateFee = (amount: number, recipient: string, isFavorite: boolean) => {
     return amount * feeRate;
   };
 
-  const handleExecute = async (data: { target: string; amount: number; epin: string; note: string }) => {
-    const totalDeduction = data.amount + calculateFee(data.amount, data.target, false);
+  const handleExecute = async (data: { recipient: string; amount: number; epin: string; note: string }) => {
+    const totalDeduction = data.amount + calculateFee(data.amount, data.recipient, false);
     
     if (totalDeduction > balance) {
       toast.error(`Insufficient balance including ${(feeRate * 100).toFixed(1)}% fee.`);
@@ -66,13 +66,13 @@ export default function CashoutPage() {
 
     try {
       const response = await transactionAPI.cashOut({
-        agentPhone: data.target,
+        agentPhone: data.recipient,
         amount: data.amount,
         epin: data.epin
       });
 
       if (response.data.success) {
-        setResult({ ...response.data.data, target: data.target, numAmount: data.amount });
+        setResult({ ...response.data.data, recipient: data.recipient, numAmount: data.amount });
         setSuccess(true);
         toast.success(`৳${data.amount} cashed out successfully!`);
       }
@@ -100,7 +100,7 @@ export default function CashoutPage() {
           }}
           title="Cashout Successful"
           accountLabel="Agent Number"
-          account={result.target}
+          account={result.recipient}
           amount={result.amount || result.numAmount}
           charge={result.fee || totalFee.toFixed(2)}
           transactionId={result.transaction_id || result.reference || ''}
@@ -112,8 +112,8 @@ export default function CashoutPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center py-8 px-4">
-        <div className="mb-4 self-start">
+    <div className="min-h-[calc(100vh-8rem)] flex flex-col items-center justify-center py-8 px-4">
+        <div className="w-full max-w-2xl mb-4 self-center">
           <Link
             href='/dashboard'
             className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors group"

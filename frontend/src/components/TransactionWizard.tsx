@@ -17,8 +17,8 @@ interface TransactionWizardProps {
   accountLabel: string;
   savedContacts?: Contact[];
   balance?: number;
-  calculateFee: (amount: number, target: string, isFavorite: boolean) => number;
-  onExecute: (data: { target: string; amount: number; epin: string; note: string }) => Promise<void>;
+  calculateFee: (amount: number, recipient: string, isFavorite: boolean) => number;
+  onExecute: (data: { recipient: string; amount: number; epin: string; note: string }) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -35,15 +35,15 @@ export function TransactionWizard({
   isLoading
 }: TransactionWizardProps) {
   const [step, setStep] = useState(1);
-  const [target, setTarget] = useState('');
-  const [isVerifyingTarget, setIsVerifyingTarget] = useState(false);
+  const [recipient, setRecipient] = useState('');
+  const [isVerifyingRecipient, setIsVerifyingRecipient] = useState(false);
   
   const [amount, setAmount] = useState('');
   const [epin, setEpin] = useState('');
   const [note, setNote] = useState('');
 
-  const isFavorite = savedContacts.some(c => c.phone === target);
-  const fee = calculateFee(parseFloat(amount || '0'), target, isFavorite);
+  const isFavorite = savedContacts.some(c => c.phone === recipient);
+  const fee = calculateFee(parseFloat(amount || '0'), recipient, isFavorite);
   const totalAmount = parseFloat(amount || '0') + fee;
 
   // Determine colors based on theme
@@ -68,14 +68,14 @@ export function TransactionWizard({
   };
   const theme = getThemeClasses();
 
-  const handleTargetSubmit = (e: React.FormEvent) => {
+  const handleRecipientSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!target) return;
-    setIsVerifyingTarget(true);
+    if (!recipient) return;
+    setIsVerifyingRecipient(true);
   };
 
-  const confirmTarget = () => {
-    setIsVerifyingTarget(false);
+  const confirmRecipient = () => {
+    setIsVerifyingRecipient(false);
     setStep(2);
   };
 
@@ -87,7 +87,7 @@ export function TransactionWizard({
   };
 
   const handleFinalExecute = () => {
-    onExecute({ target, amount: parseFloat(amount), epin, note });
+    onExecute({ recipient, amount: parseFloat(amount), epin, note });
   };
 
   return (
@@ -127,20 +127,23 @@ export function TransactionWizard({
         </div>
 
         <div className="p-6 md:p-8">
-          {/* STEP 1: TARGET */}
+          {/* STEP 1: RECIPIENT */}
           {step === 1 && (
             <div className="animate-slideInRight">
               <h2 className="text-xl font-bold text-gray-800 mb-6">{accountLabel}</h2>
               
-              {!isVerifyingTarget ? (
-                <form onSubmit={handleTargetSubmit} className="space-y-6">
+              {!isVerifyingRecipient ? (
+                <form onSubmit={handleRecipientSubmit} className="space-y-6">
                   <div>
                     <div className="relative">
                       <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="tel"
-                        value={target}
-                        onChange={(e) => setTarget(e.target.value)}
+                        value={recipient}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '');
+                          if (val.length <= 11) setRecipient(val);
+                        }}
                         placeholder="01XXXXXXXXX"
                         className={`w-full pl-12 pr-4 py-4 border border-gray-300 rounded-xl focus:ring-2 ${theme.focusRing} focus:border-transparent outline-none transition-all text-lg font-medium shadow-sm`}
                         required
@@ -159,9 +162,9 @@ export function TransactionWizard({
                             <button
                               key={`${contact.phone}-${contact.name}`}
                               type="button"
-                              onClick={() => setTarget(contact.phone)}
+                              onClick={() => setRecipient(contact.phone)}
                               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-semibold transition-all ${
-                                target === contact.phone 
+                                recipient === contact.phone 
                                   ? `${theme.lightBg} ${theme.border} ${theme.text} shadow-sm scale-105` 
                                   : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
                               }`}
@@ -177,7 +180,7 @@ export function TransactionWizard({
                   
                   <button
                     type="submit"
-                    disabled={!target || target.length < 11}
+                    disabled={!recipient || recipient.length < 11}
                     className={`w-full ${theme.bg} text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl ${theme.hover} ${theme.active} transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-2`}
                   >
                     <span>Next step</span>
@@ -191,21 +194,21 @@ export function TransactionWizard({
                       <AlertCircle className="w-6 h-6" />
                     </div>
                     <h3 className="text-amber-800 font-bold mb-2">Verify Phone Number</h3>
-                    <p className="text-3xl font-black text-gray-900 tracking-widest my-4">{target}</p>
+                    <p className="text-3xl font-black text-gray-900 tracking-widest my-4">{recipient}</p>
                     <p className="text-sm text-amber-700 font-medium">Please confirm this number is exactly correct. Transactions cannot be reversed.</p>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <button
                       type="button"
-                      onClick={() => setIsVerifyingTarget(false)}
+                      onClick={() => setIsVerifyingRecipient(false)}
                       className="py-4 border-2 border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 transition-colors"
                     >
                       Make Changes
                     </button>
                     <button
                       type="button"
-                      onClick={confirmTarget}
+                      onClick={confirmRecipient}
                       className={`py-4 ${theme.bg} text-white rounded-xl font-bold shadow-lg ${theme.hover} transition-colors flex items-center justify-center gap-2`}
                     >
                       <CheckCircle className="w-5 h-5" />
@@ -222,9 +225,7 @@ export function TransactionWizard({
             <div className="animate-slideInRight">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold text-gray-800">Transaction Details</h2>
-                <div className="bg-gray-100 px-3 py-1 rounded-lg text-sm font-semibold text-gray-600 border border-gray-200 line-clamp-1 max-w-[150px]">
-                  Target: {target}
-                </div>
+                
               </div>
               
               <form onSubmit={handleDetailsSubmit} className="space-y-6">
@@ -346,7 +347,7 @@ export function TransactionWizard({
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500 font-medium">To</span>
-                    <span className="font-bold text-gray-900 bg-gray-100 px-3 py-1 rounded-lg">{target}</span>
+                    <span className="font-bold text-gray-900 bg-gray-100 px-3 py-1 rounded-lg">{recipient}</span>
                   </div>
                   
                   <div className="flex justify-between items-center">
