@@ -76,7 +76,7 @@ class BillController {
       });
 
     } catch (error) {
-      const clientErrors = ['not found', 'Invalid', 'Insufficient', 'not active', 'inactive'];
+      const clientErrors = ['not found', 'Invalid', 'Insufficient', 'not active', 'inactive', 'exceeded'];
       if (clientErrors.some((msg) => error.message.includes(msg))) {
         return res.status(400).json({ success: false, message: error.message });
       }

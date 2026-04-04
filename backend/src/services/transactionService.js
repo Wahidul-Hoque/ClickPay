@@ -213,7 +213,7 @@ class TransactionService {
       console.log('[TX] Merchant wallet locked');
 
       const { rows: receiverWallet } = await client.query(
-        `SELECT w.wallet_id, w.status, u.name FROM wallets w 
+        `SELECT w.wallet_id, w.status, u.user_id, u.name FROM wallets w 
          JOIN users u ON w.user_id = u.user_id 
          WHERE u.phone = $1 AND w.wallet_type IN ('user','agent','merchant') FOR UPDATE`,
         [toPhone]
@@ -233,6 +233,8 @@ class TransactionService {
       if (parseFloat(merchantWallet[0].balance) < totalDeduction) {
         throw new Error(`Insufficient funds. Required: ৳${totalDeduction.toFixed(2)} (incl. ${(merchantRate * 100).toFixed(2)}% fee)`);
       }
+
+      await verifyUserLimits(client, receiverWallet[0].user_id, receiverWallet[0].wallet_id, 'receive_money', amount);
 
       // 4. System Wallet
       const { rows: systemWallet } = await client.query(
@@ -357,6 +359,8 @@ class TransactionService {
       if (agentBalance < parseFloat(amount)) {
         throw new Error(`Insufficient agent balance. Available: ৳${agentBalance.toFixed(2)}`);
       }
+
+      await verifyUserLimits(client, userWallet.user_id, userWallet.wallet_id, 'receive_money', amount);
 
       // ── Step 6: Create transaction record (initiated) ───────
       const reference = `CIN-${Date.now()}`;

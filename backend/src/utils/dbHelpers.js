@@ -67,8 +67,8 @@ export async function verifyUserLimits(client, userId, walletId, category, amoun
     return;
   }
 
-  const dailyLimitRes = await client.query("SELECT fn_get_system_setting($1, $2) as l", [dailySetting, baseDaily]);
-  const monthlyLimitRes = await client.query("SELECT fn_get_system_setting($1, $2) as l", [monthlySetting, baseMonthly]);
+  const dailyLimitRes = await client.query("SELECT fn_get_system_setting($1, $2) as l", [dailySetting, baseDaily.toString()]);
+  const monthlyLimitRes = await client.query("SELECT fn_get_system_setting($1, $2) as l", [monthlySetting, baseMonthly.toString()]);
   const dailyLimit = parseFloat(dailyLimitRes.rows[0].l);
   const monthlyLimit = parseFloat(monthlyLimitRes.rows[0].l);
 
@@ -86,10 +86,10 @@ export async function verifyUserLimits(client, userId, walletId, category, amoun
     monthlySpent = parseFloat(monthlyRes.rows[0].total);
   } else if (category === 'receive_money') {
     const dailyRes = await client.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE to_wallet_id = $1 AND transaction_type = 'transfer' AND status = 'completed' AND created_at >= CURRENT_DATE`, [walletId]
+      `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE to_wallet_id = $1 AND transaction_type IN ('transfer', 'cash_in', 'merchant_transfer') AND status = 'completed' AND created_at >= CURRENT_DATE`, [walletId]
     );
     const monthlyRes = await client.query(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE to_wallet_id = $1 AND transaction_type = 'transfer' AND status = 'completed' AND created_at >= date_trunc('month', CURRENT_DATE)`, [walletId]
+      `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE to_wallet_id = $1 AND transaction_type IN ('transfer', 'cash_in', 'merchant_transfer') AND status = 'completed' AND created_at >= date_trunc('month', CURRENT_DATE)`, [walletId]
     );
     dailySpent = parseFloat(dailyRes.rows[0].total);
     monthlySpent = parseFloat(monthlyRes.rows[0].total);
@@ -107,12 +107,20 @@ export async function verifyUserLimits(client, userId, walletId, category, amoun
   const categoryName = category.replace('_', ' ');
 
   if (dailySpent + payAmount > dailyLimit) {
-    await client.query(`CALL p_send_notification($1, $2)`, [userId, `You have exceeded your daily ${categoryName} limit of ৳${dailyLimit}. Please try again tomorrow.`]);
+    try {
+      const failClient = await getClient();
+      await failClient.query(`CALL p_send_notification($1, $2)`, [userId, `You have exceeded your daily ${categoryName} limit of ৳${dailyLimit}. Please try again tomorrow.`]);
+      failClient.release();
+    } catch(err) {}
     throw new Error(`Daily ${categoryName} limit (৳${dailyLimit}) exceeded.`);
   }
 
   if (monthlySpent + payAmount > monthlyLimit) {
-    await client.query(`CALL p_send_notification($1, $2)`, [userId, `You have exceeded your monthly ${categoryName} limit of ৳${monthlyLimit}.`]);
+    try {
+      const failClient = await getClient();
+      await failClient.query(`CALL p_send_notification($1, $2)`, [userId, `You have exceeded your monthly ${categoryName} limit of ৳${monthlyLimit}.`]);
+      failClient.release();
+    } catch(err) {}
     throw new Error(`Monthly ${categoryName} limit (৳${monthlyLimit}) exceeded.`);
   }
 }

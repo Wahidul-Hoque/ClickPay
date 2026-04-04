@@ -31,7 +31,7 @@ class TransactionController {
       return res.json({ success: true, message: 'Money sent successfully', data: result });
 
     } catch (error) {
-      const clientErrors = ['not found', 'Invalid', 'Insufficient', 'not active', 'yourself'];
+      const clientErrors = ['not found', 'Invalid', 'Insufficient', 'not active', 'yourself', 'exceeded'];
       if (clientErrors.some(msg => error.message.includes(msg))) {
         return res.status(400).json({ success: false, message: error.message });
       }
@@ -58,7 +58,7 @@ class TransactionController {
 
     } catch (error) {
       console.error('Merchant Send Controller Error:', error.message);
-      const bizErrors = ['not found', 'Invalid', 'Insufficient', 'active', 'yourself'];
+      const bizErrors = ['not found', 'Invalid', 'Insufficient', 'active', 'yourself', 'exceeded'];
       if (bizErrors.some(m => error.message.includes(m))) {
         return res.status(400).json({ success: false, message: error.message });
       }
@@ -169,7 +169,7 @@ class TransactionController {
       return res.json({ success: true, message: 'Cash in successful', data: result });
 
     } catch (error) {
-      const clientErrors = ['not found', 'Invalid', 'Insufficient', 'agent', 'yourself'];
+      const clientErrors = ['not found', 'Invalid', 'Insufficient', 'agent', 'yourself', 'exceeded'];
       if (clientErrors.some(msg => error.message.includes(msg))) {
         return res.status(400).json({ success: false, message: error.message });
       }
@@ -203,7 +203,7 @@ class TransactionController {
         data: result 
       });
     } catch (error) {
-      const clientErrors = ['not found', 'Invalid', 'Insufficient', 'inactive', 'yourself'];
+      const clientErrors = ['not found', 'Invalid', 'Insufficient', 'inactive', 'yourself', 'exceeded'];
       if (clientErrors.some(msg => error.message.toLowerCase().includes(msg))) {
         return res.status(400).json({ success: false, message: error.message });
       }
