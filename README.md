@@ -41,6 +41,51 @@ ClickPay manages multiple discrete financial routing instruments and user hierar
 
 ---
 
+## 🌟 Core Features & Modules
+
+### 👤 For Users (Consumer App)
+- 💸 **Send Money**: Send funds instantly to any user using just their phone number.
+- ⭐ **Favourite Contacts**: Save frequently used numbers as "Favourites" for fast and free transfer.
+- 📞 **Contact Integration**: Easily find and select recipients from your saved contact list.
+- 🏧 **Easy Cash Out**: Withdraw physical cash at any authorized ClickPay Agent point.
+- 🧾 **Bill Payments**: Pay your utility bills (Water, Electricity, Gas, Mobile Recharge) and Internet services directly.
+- 💰 **Savings & Quick Loans**: Earn interest on savings or apply for instant micro-loans with automated approval.
+- 🤝 **Request Money**: Send a polite digital request for funds from friends or family.
+- 📅 **Subscriptions**: Set up and manage automatic payments for recurring services.
+- 💳 **Linked Banking**: Connect your bank accounts or cards for quick wallet top-ups.
+- 🔑 **PIN Reset**: Securely reset your transaction PIN anytime.
+
+### 🏪 For Merchants (Business App)
+- 🛒 **Receive Payments**: Collect customer payments quickly via direct phone number entry without any limit.
+- 💳 **Wallet Top-up**: Merchants can add money instantly from their linked bank accounts or cards.
+- 🏧 **Cash-Out**: Easily withdraw your merchant balance and earnings whenever needed.
+- 🔄 **Business Routing**: Send and receive funds across your business network (B2B).
+- 💎 **Sales Analytics**: Track your business performance and see where you rank in your region.
+- 🗓️ **Subscription Billing**: Manage automated billing cycles for your recurring customers.
+
+### 🕵️ For Agents (Service Points)
+- 💵 **Cash-In Services**: Help users deposit money into their digital wallets instantly.
+- 🏦 **Cash-Out Fulfillment**: Safely provide physical cash to users and earn automated commissions.
+- 📱 **Mobile Recharge**: Provide instant talk-time and data top-ups for any mobile operator.
+- 📈 **Performance Leaderboard**: Track your performance against other agents for extra rewards.
+- 🛡️ **Assisted Support**: Help users with local verification and secure withdrawal processes.
+
+### 👑 Admin Control Center (System Management)
+- 📊 **Multi-Level Analytics**: High-level dashboard with filters for **City**, **Date Ranges**, and **Transaction Types** to monitor regional performance.
+- 🛡️ **Fraud Shield & Auto-Freeze**: Real-time fraud detection engine that alerts admins and can automatically freeze high-risk wallets.
+- ⚠️ **Loan Default Recovery**: Automated oversight for defaulted loans with options for manual intervention or balance recovery.
+- ⏪ **Transaction Reversals**: A powerful tool to safely undo incorrect or disputed transfers, returning money directly to the sender.
+- 👥 **User Management**: Full search and control over Users, Agents, and Merchants (KYC approval, account freezing, and status management).
+- 💰 **Financial Reconciliation**: Monitor total system liquidity, including incoming/outgoing flows, platform profits, and interest margins.
+- ⚙️ **Protocol Hot-Config**: Change service fees, interest rates, and transaction limits instantly across the entire platform.
+- 📢 **Broadcast Engine**: Send critical alerts or promotional notifications to the entire user base or specific segments.
+
+### 🔐 Security & Identity
+- **Multi-Role Login**: Secure, separate access gateways for Users, Agents, Merchants, and Admins.
+- **Brute-Force Protection**: The system automatically locks an account if a transaction PIN is entered incorrectly 5 times in a row.
+- **Role-Based Privacy**: Strict rules ensure that sensitive data is only visible to the right people.
+---
+
 ## 🛡️ Edge Cases & System-Level Resilience Handled
 
 Building a financial platform requires anticipating point-of-failures. ClickPay algorithms handle multiple notoriously complex edge-cases automatically:
@@ -56,7 +101,6 @@ Building a financial platform requires anticipating point-of-failures. ClickPay 
 5. **Deduplication Safeguards**
    - Designed to counteract accidental duplicated client requests due to UI stuttering or poor mobile network retries. Internal procedural routines algorithmically reject identically formulated transaction payloads arriving concurrently within a rigorous sliding cache window.
 
----
 
 ## 📂 Repository Architecture
 
