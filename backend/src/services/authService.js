@@ -342,7 +342,7 @@ async changePin(userId, oldPin, newPin) {
     });
 
     const info = await transporter.sendMail({
-      from: '"ClickPay Security" <security@clickpay.com>',
+      from: '"ClickPay Security" <project.agent.12345@gmail.com>',
       to: user.email,
       subject: 'ClickPay: Password Reset OTP',
       html: `

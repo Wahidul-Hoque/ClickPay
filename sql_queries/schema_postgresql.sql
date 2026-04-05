@@ -197,7 +197,8 @@ CREATE TABLE merchant_profiles (
   business_type     VARCHAR(60),
   category          VARCHAR(60),
   status            VARCHAR(20) NOT NULL CHECK (status IN ('active','suspended')),
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  subscription_expiry TIMESTAMPZ not null DEFAULT (NOW() + INTERVAL '90 days')
 );
 
 -- NOTIFICATIONS
