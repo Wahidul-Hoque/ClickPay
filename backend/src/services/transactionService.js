@@ -19,9 +19,9 @@ class TransactionService {
       if (!isValid) throw new Error('Invalid ePin');
 
       const senderRes = await client.query(
-        `SELECT w.wallet_id, w.balance, w.status, w.wallet_type, mp.subscription_expiry
+        `SELECT w.wallet_id, w.balance, w.status, w.wallet_type, 
+                (SELECT mp.subscription_expiry FROM merchant_profiles mp WHERE mp.merchant_user_id = w.user_id) AS subscription_expiry
          FROM wallets w
-         LEFT JOIN merchant_profiles mp ON w.user_id = mp.merchant_user_id
          WHERE w.user_id = $1 AND w.wallet_type IN ('user','agent','merchant')
          FOR UPDATE`,
         [fromUserId]
@@ -783,9 +783,9 @@ class TransactionService {
 
       // ── Step 3: Lock payer wallet & check balance ───────────
       const payerWalletRes = await client.query(
-        `SELECT w.wallet_id, w.balance, w.status, w.wallet_type, mp.subscription_expiry
+        `SELECT w.wallet_id, w.balance, w.status, w.wallet_type, 
+                (SELECT mp.subscription_expiry FROM merchant_profiles mp WHERE mp.merchant_user_id = w.user_id) AS subscription_expiry
          FROM wallets w
-         LEFT JOIN merchant_profiles mp ON w.user_id = mp.merchant_user_id
          WHERE w.wallet_id = $1 FOR UPDATE`,
         [moneyRequest.requestee_wallet_id]
       );
