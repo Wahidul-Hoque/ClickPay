@@ -141,6 +141,24 @@ export default function MerchantSubscriptionPage() {
         </div>
       </div>
 
+      {/* Current Status */}
+      {status?.expiry && (
+        <div className="mb-10 bg-white border border-slate-100 p-8 rounded-[2.5rem] shadow-sm flex items-center justify-between animate-slideIn">
+           <div className="flex items-center gap-4">
+              <Calendar className="w-8 h-8 text-blue-600" />
+              <div>
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current Subscription Ends On</p>
+                 <h2 className="text-xl font-black text-slate-900">{new Date(status.expiry).toLocaleDateString()}</h2>
+              </div>
+           </div>
+           <div className={`px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest ${
+              isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+           }`}>
+              {isActive ? 'Active' : 'Expired'}
+           </div>
+        </div>
+      )}
+
       {/* Status Alert if not active */}
       {!isActive && currentStep === 1 && (
         <div className="mb-10 bg-amber-50 border-2 border-amber-100 p-8 rounded-[2.5rem] shadow-sm animate-slideIn">

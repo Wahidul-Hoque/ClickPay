@@ -59,7 +59,7 @@ class MerchantController {
       const merchantId = req.user.userId;
       
       const result = await query(
-        `SELECT mp.merchant_name, u.city, w.balance, w.wallet_id
+        `SELECT mp.merchant_name, u.city, w.balance, w.wallet_id, mp.subscription_expiry
          FROM merchant_profiles mp
          JOIN users u ON mp.merchant_user_id = u.user_id
          JOIN wallets w ON u.user_id = w.user_id
