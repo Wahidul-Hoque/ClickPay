@@ -327,22 +327,18 @@ async changePin(userId, oldPin, newPin) {
       [otp, expiry, phone]
     );
 
-    // 4. Send Email via Ethereal (for dev)
-    console.log(`[AUTH] Generating Ethereal email account for OTP...`);
-    // NOTE: In production, configure real SMTP transport here
-    const testAccount = await nodemailer.createTestAccount();
+    // 4. Send Email via Gmail
+    console.log(`[AUTH] Sending OTP via Gmail...`);
     const transporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false, 
+      service: 'gmail',
       auth: {
-        user: testAccount.user,
-        pass: testAccount.pass,
+        user: 'whereisrobert1245@gmail.com',
+        pass: 'pjxsksjubhsgirys',
       },
     });
 
     const info = await transporter.sendMail({
-      from: '"ClickPay Security" <security@clickpay.com>',
+      from: '"ClickPay Security" <whereisrobert1245@gmail.com>',
       to: user.email,
       subject: 'ClickPay: Password Reset OTP',
       html: `
@@ -356,7 +352,7 @@ async changePin(userId, oldPin, newPin) {
       `,
     });
 
-    console.log('[AUTH] OTP Email sent! Preview URL: %s', nodemailer.getTestMessageUrl(info));
+    console.log('[AUTH] OTP Email sent!');
 
     // Create masked email (e.g. j***@gmail.com)
     const [name, domain] = user.email.split('@');
@@ -364,8 +360,7 @@ async changePin(userId, oldPin, newPin) {
 
     return { 
       message: 'OTP sent successfully to your email.',
-      maskedEmail,
-      previewUrl: nodemailer.getTestMessageUrl(info) // Expose preview URL for developer to easily grab OTP
+      maskedEmail
     };
   }
 
