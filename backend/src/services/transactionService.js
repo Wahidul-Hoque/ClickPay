@@ -466,22 +466,11 @@ class TransactionService {
 
       // 2. Lock Wallets (User, Agent, and System Profit)
       const userRes = await client.query(
-        `SELECT w.wallet_id, w.balance, w.wallet_type, mp.subscription_expiry 
-         FROM wallets w
-         LEFT JOIN merchant_profiles mp ON w.user_id = mp.merchant_user_id
-         WHERE w.user_id = $1 AND w.status = 'active' FOR UPDATE`,
+        "SELECT wallet_id, balance FROM wallets WHERE user_id = $1 AND status = 'active' FOR UPDATE",
         [userId]
       );
       if (userRes.rows.length === 0) throw new Error('User wallet not found or inactive');
       const userWallet = userRes.rows[0];
-
-      // Check Merchant Expiry if sender is a merchant
-      if (userWallet.wallet_type === 'merchant') {
-        const expiry = userWallet.subscription_expiry;
-        if (!expiry || new Date(expiry) < new Date()) {
-          throw new Error('Your merchant subscription has expired. Please renew to cash out.');
-        }
-      }
 
       const agentRes = await client.query(
         `SELECT w.wallet_id, u.name FROM wallets w 
