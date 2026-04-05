@@ -861,7 +861,7 @@ export default function AdminDashboard() {
                         </button>
                         <div className="hidden lg:block">
                             <h1 className="text-xl font-black text-slate-800 tracking-tight capitalize">{activeSection.replace('-',' ')}</h1>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">System Status: Operational</p>
+                            
                         </div>
                     </div>
                     
@@ -1024,10 +1024,10 @@ export default function AdminDashboard() {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
-                            <StatCard title="Revenue (Fees)" value={`৳${analytics?.revenue?.total_fees || '0'}`} up icon={<DollarSign className="text-indigo-600"/>} />
+                            <StatCard title="Revenue " value={`৳${analytics?.revenue?.total_fees || '0'}`} up icon={<DollarSign className="text-indigo-600"/>} />
                             <StatCard title="Total Volume" value={`৳${analytics?.stats?.total_volume || '0'}`} up icon={<RefreshCcw className="text-emerald-600"/>} bg="bg-emerald-50" />
                             <StatCard title="Trans. Count" value={analytics?.stats?.transaction_count || '0'}  up icon={<PieChart className="text-rose-600"/>} bg="bg-rose-50" />
-                            <StatCard title="Avg Trans" value={`৳${Number(analytics?.stats?.avg_transaction || 0).toFixed(0)}`} up icon={<ArrowRightLeft className="text-amber-600"/>} bg="bg-amber-50" />
+                            <StatCard title="Avg Trans Amount" value={`৳${Number(analytics?.stats?.avg_transaction || 0).toFixed(0)}`} up icon={<ArrowRightLeft className="text-amber-600"/>} bg="bg-amber-50" />
                         </div>
 
                         <div className="flex flex-col gap-8">
@@ -1222,16 +1222,14 @@ export default function AdminDashboard() {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mt-2 items-center">
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mt-2 items-center">
                                         <div>
                                             <SegmentRow label="Active Wallets" value={segData?.wallets?.active_wallets || '0'} percent={(segData?.wallets?.active_wallets / (segData?.wallets?.total_wallets || 1)) * 100 || 0} color="bg-emerald-500" />
                                         </div>
                                         <div>
                                             <SegmentRow label="Frozen Wallets" value={segData?.wallets?.frozen_wallets || '0'} percent={(segData?.wallets?.frozen_wallets / (segData?.wallets?.total_wallets || 1)) * 100 || 0} color="bg-sky-500" />
                                         </div>
-                                        <div>
-                                            <SegmentRow label="Disabled Wallets" value={segData?.wallets?.disabled_wallets || '0'} percent={(segData?.wallets?.disabled_wallets / (segData?.wallets?.total_wallets || 1)) * 100 || 0} color="bg-rose-500" />
-                                        </div>
+                                        
                                         <div>
                                             <SegmentRow label="Loan Defaults" value={segData?.wallets?.loan_defaults || '0'} percent={(segData?.wallets?.loan_defaults / (segData?.wallets?.total_wallets || 1)) * 100 || 0} color="bg-rose-600" />
                                         </div>
