@@ -270,7 +270,7 @@ EXECUTE FUNCTION fn_log_fraud_resolution();
 CREATE OR REPLACE FUNCTION fn_validate_loan_application()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Block if user has an active or overdue loan
+   
     IF EXISTS (
         SELECT 1 FROM loans
         WHERE user_id = NEW.user_id
@@ -279,7 +279,7 @@ BEGIN
         RAISE EXCEPTION 'User % already has an active or overdue loan', NEW.user_id;
     END IF;
 
-    -- Block if user has a pending (submitted) application
+    
     IF EXISTS (
         SELECT 1 FROM loan_applications
         WHERE user_id = NEW.user_id
