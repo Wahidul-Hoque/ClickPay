@@ -1,6 +1,7 @@
 import agentService from '../services/agentService.js';
 
 class AgentController {
+  // Pulls core metrics including earned commissions, wallet balance, and peer ranking for agents
   async getDashboard(req, res, next) {
     try {
       const dashboardData = await agentService.getDashboard(req.user.userId);
@@ -18,6 +19,7 @@ class AgentController {
     }
   }
 
+  // Processes a user's cash deposit request via an agent after verifying ePins
   async cashIn(req, res, next) {
     try {
       const { userPhone, amount, epin } = req.body;
@@ -31,6 +33,7 @@ class AgentController {
     }
   }
 
+  // Retrieves a detailed historical log of all cash-in and withdraw operations for an agent
   async getHistory(req, res, next) {
     try {
       const data = await agentService.getHistory(req.user.userId);
@@ -40,6 +43,7 @@ class AgentController {
     }
   }
 
+  // Provides performance rankings for agents based on volume, region, and custom filters
   async getRankings(req, res, next) {
     try {
       const filters = {
@@ -62,6 +66,7 @@ class AgentController {
     }
   }
 
+  // Lists unique cities where agents are currently providing financial services
   async getRegions(req, res, next) {
     try {
       const regions = await agentService.getRegions(req.query.q);

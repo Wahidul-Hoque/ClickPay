@@ -1,6 +1,7 @@
 import loanService from '../services/loanService.js';
 
 class LoanController {
+  // Retrieves current loan state, active applications, and eligibility for the user
   async getStatus(req, res, next) {
     try {
       const data = await loanService.getLoanData(req.user.userId);
@@ -8,6 +9,7 @@ class LoanController {
     } catch (error) { next(error); }
   }
 
+  // Processes a new loan application after validating requested amount against user limits
   async apply(req, res, next) {
     try {
       const result = await loanService.applyForLoan(req.user.userId, req.body.amount);
@@ -15,6 +17,7 @@ class LoanController {
     } catch (error) { next(error); }
   }
 
+  // Finalizes the full repayment of an active loan using current wallet balance
   async repay(req, res, next) {
     try {
       const result = await loanService.repayLoan(req.user.userId, req.params.loanId);
@@ -25,6 +28,7 @@ class LoanController {
     }
   }
 
+  // Lists all pending loan applications for administrative review and decision
   async adminGetAll(req, res, next) {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit) : null;
@@ -34,6 +38,7 @@ class LoanController {
     } catch (error) { next(error); }
   }
 
+  // Authorizes and disburses funds for an approved loan application
   async adminApprove(req, res, next) {
     try {
       await loanService.approveLoan(req.user.userId, req.params.id);
@@ -41,6 +46,7 @@ class LoanController {
     } catch (error) { next(error); }
   }
 
+  // Rejects a pending loan application and logs the administrative action
   async adminReject(req, res, next) {
     try {
       await loanService.rejectLoan(req.user.userId,req.params.id);
@@ -48,6 +54,7 @@ class LoanController {
     } catch (error) { next(error); }
   }
 
+  // Provides a comprehensive list of all historical and active loans across the platform
   async adminGetDetailedLoans(req, res, next) {
     try {
       const data = await loanService.getAllLoansDetailed();

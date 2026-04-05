@@ -6,6 +6,7 @@ const router = express.Router();
 
 router.use(protect); // Require authentication
 
+// Management routes for personalized contact and agent favorites
 router.post('/', addFavorite);
 router.get('/', getFavorites);
 router.patch('/:id/toggle', toggleFavorite);

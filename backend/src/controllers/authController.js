@@ -1,15 +1,11 @@
-// ==============================================
-// AUTH CONTROLLER (The Waiter)
-// ==============================================
+
 
 import authService from '../services/authService.js';
 
 class AuthController {
-  // POST /api/v1/auth/register
-  // Body: { name, phone,city , nid, epin, role }
+  // Validates user input and creates a new account across all supported roles
   async register(req, res, next) {
     try {
-      // Validate input
       const { name, phone, email, city, nid, epin, role } = req.body;
 
       if (!name || !phone || !email || !city || !nid || !epin || !role) {
@@ -19,7 +15,6 @@ class AuthController {
         });
       }
 
-      // Validate email
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
         return res.status(400).json({
@@ -28,7 +23,6 @@ class AuthController {
         });
       }
 
-      // Validate phone format
       const phoneRegex = /^(\+?88)?01[3-9]\d{8}$/;
       if (!phoneRegex.test(phone)) {
         return res.status(400).json({
@@ -37,7 +31,6 @@ class AuthController {
         });
       }
 
-      // Validate NID length
       if (nid.length < 10 || nid.length > 10) {
         return res.status(400).json({
           success: false,
@@ -45,7 +38,6 @@ class AuthController {
         });
       }
 
-      // Validate ePin
       if (epin.length !== 5 || !/^\d+$/.test(epin)) {
         return res.status(400).json({
           success: false,
@@ -53,7 +45,6 @@ class AuthController {
         });
       }
 
-      // Validate role
       const validRoles = ['user', 'agent', 'admin', 'merchant'];
       if (!validRoles.includes(role)) {
         return res.status(400).json({
@@ -62,10 +53,8 @@ class AuthController {
         });
       }
 
-      // Call service to register user
       const result = await authService.register(req.body);
 
-      //Send success response
       return res.status(201).json({
         success: true,
         message: 'User registered successfully',
@@ -83,11 +72,9 @@ class AuthController {
     }
   }
 
-  // POST /api/v1/auth/login
-  // Body: { phone, epin }
+  // Authenticates credentials and returns a secure JWT token for session management
   async login(req, res, next) {
     try {
-      // STEP 1: Validate input
       const { phone, epin } = req.body;
 
       if (!phone || !epin) {
@@ -104,10 +91,8 @@ class AuthController {
         });
       }
 
-      // Call service to login user
       const result = await authService.login(phone, epin);
 
-      // Send success response
       return res.json({
         success: true,
         message: 'Login successful',
@@ -115,7 +100,6 @@ class AuthController {
       });
 
     } catch (error) {
-      // Handle specific errors
       if (error.message.includes('Account locked')) {
         return res.status(423).json({
           success: false,
@@ -138,8 +122,7 @@ class AuthController {
     }
   }
 
-  // GET /api/v1/auth/profile
-  // Headers: Authorization: Bearer <token>
+  // Retrieves the complete authorized profile for the currently logged-in user
   async getProfile(req, res, next) {
     try {
       const userId = req.user.userId;
@@ -157,6 +140,7 @@ class AuthController {
     }
   }
 
+  // Updates mutable profile fields like name and city for the active user
   async updateProfile(req, res, next) {
     try {
       const userId = req.user.userId;
@@ -180,9 +164,7 @@ class AuthController {
       next(error);
     }
   }
-
-  // POST /api/v1/auth/logout
-  // Headers: Authorization: Bearer <token>
+  // Terminates the current session by acknowledging a logout request
   async logout(req, res) {
     return res.json({
       success: true,
@@ -190,38 +172,39 @@ class AuthController {
     });
   }
 
-async changePin(req, res, next) {
-  try {
-    const userId = req.user.userId;
-    const { oldPin, newPin } = req.body;
+  // Securely updates the user's ePin after verifying their current one
+  async changePin(req, res, next) {
+    try {
+      const userId = req.user.userId;
+      const { oldPin, newPin } = req.body;
 
-    if (!oldPin || !newPin) {
-      return res.status(400).json({
-        success: false,
-        message: 'Old and new PIN are required'
+      if (!oldPin || !newPin) {
+        return res.status(400).json({
+          success: false,
+          message: 'Old and new PIN are required'
+        });
+      }
+
+      if (newPin.length !== 5) {
+        return res.status(400).json({
+          success: false,
+          message: 'New PIN must be 5 digits'
+        });
+      }
+      if (oldPin === newPin) {
+        return res.status(400).json({
+          success: false,
+          message: 'New PIN must be different from old PIN'
+        });
+      }
+
+      const result = await authService.changePin(userId, oldPin, newPin);
+
+      return res.json({
+        success: true,
+        message: result.message
       });
-    }
-
-    if (newPin.length !== 5) {
-      return res.status(400).json({
-        success: false,
-        message: 'New PIN must be 5 digits'
-      });
-    }
-    if (oldPin === newPin) {
-      return res.status(400).json({
-        success: false,
-        message: 'New PIN must be different from old PIN'
-      });
-    }
-
-    const result = await authService.changePin(userId, oldPin, newPin);
-
-    return res.json({
-      success: true,
-      message: result.message
-    });
-  } catch (error) {
+    } catch (error) {
       if (error.message === 'Incorrect old PIN') {
         return res.status(400).json({
           success: false,
@@ -232,10 +215,7 @@ async changePin(req, res, next) {
     }
   }
 
-  // ==============================================
-  // FORGOT PASSWORD
-  // ==============================================
-
+  // Initiates the recovery flow by generating and emailing a reset OTP
   async forgotPassword(req, res, next) {
     try {
       const { phone } = req.body;
@@ -258,6 +238,7 @@ async changePin(req, res, next) {
     }
   }
 
+  // Validates a provided OTP against the stored recovery record
   async verifyResetOtp(req, res, next) {
     try {
       const { phone, otp } = req.body;
@@ -275,6 +256,7 @@ async changePin(req, res, next) {
     }
   }
 
+  // Finalizes the PIN reset using a verified OTP and a new ePin value
   async resetPassword(req, res, next) {
     try {
       const { phone, otp, newEpin } = req.body;

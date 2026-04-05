@@ -13,7 +13,6 @@ const checkLoanDueDates = async () => {
 // Run every day at 00:00 (Midnight)
 cron.schedule('0 0 * * *', checkLoanDueDates);
 
-// To test it faster, you could run it every minute during dev:
-// cron.schedule('* * * * *', checkLoanDueDates);
+
 
 export default checkLoanDueDates;

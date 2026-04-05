@@ -4,7 +4,7 @@ import { hashPassword, comparePassword, generateToken } from '../middleware/auth
 import nodemailer from 'nodemailer';
 
 class AuthService {
-  // REGISTERS NEW USER and Creates a new user and their wallet
+  // Registers a new user, creates their wallet, and initializes a merchant profile if applicable
   async register(userData) {
     const { name, phone, email, city, nid, epin, role } = userData;
     const client = await getClient();
@@ -13,7 +13,6 @@ class AuthService {
       await client.query('BEGIN');
 
       const epinHash = await hashPassword(epin);
-      //inserting user
       const userQuery = `
         INSERT INTO users (name, phone, email, city, nid, epin_hash, role, status)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -30,7 +29,6 @@ class AuthService {
       );
       const user = userResult.rows[0];
 
-      //Create wallet for the user
       const walletType = role === 'agent' ? 'agent' : (role === 'merchant' ? 'merchant' : 'user');
       const walletInsertQuery = `
         INSERT INTO wallets (user_id, wallet_type, balance, status)
@@ -39,7 +37,6 @@ class AuthService {
 
       await client.query(walletInsertQuery, [userId, walletType, 0.00, 'active']);
 
-      // If user is a merchant, create merchant_profile
       if (role === 'merchant') {
         const merchantProfileQuery = `
           INSERT INTO merchant_profiles (merchant_user_id, merchant_name, status)
@@ -48,7 +45,6 @@ class AuthService {
         await client.query(merchantProfileQuery, [userId, name]);
       }
 
-      // Manual Fetch Wallet ID using LASTVAL()
       const walletIdResult = await client.query('SELECT LASTVAL() as id');
       const walletId = walletIdResult.rows[0].id;
 
@@ -60,10 +56,8 @@ class AuthService {
 
       await client.query('COMMIT');
 
-      //Generate JWT token
       const token = generateToken(user.user_id, user.role);
 
-      // Return user data with wallet and token
       return {
         user: {
           ...user,
@@ -74,22 +68,17 @@ class AuthService {
         },
         token
       };
-
     } catch (error) {
-      // ROLLBACK if anything fails
       await client.query('ROLLBACK');
       throw error;
     } finally {
-      // Always release the client
       client.release();
     }
   }
 
-  // LOGIN USER
-  // Authenticates user and returns JWT token
+  // Authenticates a user via phone and ePin, handles failed attempts, and generates a JWT token
   async login(phone, epin) {
     try {
-      //Find user by phone with wallet
       const userQuery = `
           SELECT 
             u.user_id, u.name, u.phone, u.city, u.nid, u.epin_hash, u.role, u.status, u.try AS failed_attempts, u.created_at,
@@ -122,7 +111,6 @@ class AuthService {
       const isValidEpin = await comparePassword(epin, user.epin_hash);
 
       if (!isValidEpin) {
-        // Increment failed attempts count
         const incrementResult = await query(
           'UPDATE users SET try = COALESCE(try, 0) + 1 WHERE user_id = $1 RETURNING try',
           [user.user_id]
@@ -130,7 +118,6 @@ class AuthService {
         
         const currentTry = normalizeTryCount(incrementResult.rows[0]?.try);
 
-        // Freeze account if failed attempts exceed 5
         if (currentTry >= 5) {
           // Use direct updates instead of relying on potentially missing stored procedures
           await query('UPDATE users SET status = $1 WHERE user_id = $2', ['frozen', user.user_id]);
@@ -142,18 +129,14 @@ class AuthService {
         throw new Error('Invalid phone number or ePin');
       }
 
-      // Reset failed attempts on successful login
       if (previousFailedAttempts > 0) {
         await query('UPDATE users SET try = 0 WHERE user_id = $1', [user.user_id]);
       }
 
-      // Remove epin_hash from response
       const { epin_hash, failed_attempts, ...userData } = user;
 
-      // STEP 5: Generate JWT token
       const token = generateToken(user.user_id, user.role);
 
-      // Return formatted user data with token
       return {
         user: {
           user_id: userData.user_id,
@@ -181,10 +164,8 @@ class AuthService {
     }
   }
 
-  // ==============================================
-  // GET USER PROFILE
-  // ==============================================
-  // Retrieves user profile with wallet information
+  
+  // Retrieves a comprehensive user profile including wallet and merchant subscription details
   async getProfile(userId) {
     try {
       const profileQuery = `
@@ -230,9 +211,9 @@ class AuthService {
     }
   }
 
-async changePin(userId, oldPin, newPin) {
+  // Verifies the current ePin and updates it to a new hashed value for the user
+  async changePin(userId, oldPin, newPin) {
     try {
-      // 1. Get user's current PIN hash
       const userResult = await query(
         'SELECT epin_hash FROM users WHERE user_id = $1',
         [userId]
@@ -244,13 +225,11 @@ async changePin(userId, oldPin, newPin) {
 
       const user = userResult.rows[0];
 
-      // 2. Verify old PIN
       const isMatch = await comparePassword(oldPin, user.epin_hash);
       if (!isMatch) {
         throw new Error('Incorrect old PIN');
       }
 
-      // 3. Hash and save new PIN
       const newPinHash = await hashPassword(newPin);
       await query(
         'UPDATE users SET epin_hash = $1 WHERE user_id = $2',
@@ -263,6 +242,7 @@ async changePin(userId, oldPin, newPin) {
     }
   }
 
+  // Updates personal user details such as name and city while ensuring data validity
   async updateProfile(userId, updates) {
     try {
       const { name, city } = updates;
@@ -296,12 +276,9 @@ async changePin(userId, oldPin, newPin) {
     }
   }
 
-  // ==============================================
-  // FORGOT PASSWORD / PIN FLOW
-  // ==============================================
 
+  // Generates and emails a 6-digit OTP to the user for initiating the PIN reset process
   async forgotPassword(phone) {
-    // 1. Verify user exists and fetch email
     const userRes = await query(
       'SELECT user_id, name, email FROM users WHERE phone = $1',
       [phone]
@@ -317,17 +294,14 @@ async changePin(userId, oldPin, newPin) {
       throw new Error('No email address registered for this account. Please contact support.');
     }
 
-    // 2. Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
 
-    // 3. Save OTP to DB
     await query(
       'UPDATE users SET reset_otp = $1, reset_otp_expiry = $2 WHERE phone = $3',
       [otp, expiry, phone]
     );
 
-    // 4. Send Email via Gmail
     console.log(`[AUTH] Sending OTP via Gmail...`);
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -354,7 +328,6 @@ async changePin(userId, oldPin, newPin) {
 
     console.log('[AUTH] OTP Email sent!');
 
-    // Create masked email (e.g. j***@gmail.com)
     const [name, domain] = user.email.split('@');
     const maskedEmail = `${name.slice(0, 1)}***@${domain}`;
 
@@ -364,6 +337,7 @@ async changePin(userId, oldPin, newPin) {
     };
   }
 
+  // Validates the provided OTP against the stored record and checks for expiration
   async verifyResetOtp(phone, otp) {
     const res = await query(
       'SELECT reset_otp, reset_otp_expiry FROM users WHERE phone = $1',
@@ -384,14 +358,12 @@ async changePin(userId, oldPin, newPin) {
     return { success: true, message: 'OTP verified successfully' };
   }
 
+  // Resets the user's ePin to a new value after successful OTP verification
   async resetPassword(phone, otp, newEpin) {
-    // 1. Verify OTP one last time to be safe
     await this.verifyResetOtp(phone, otp);
 
-    // 2. Hash new PIN
     const newPinHash = await hashPassword(newEpin);
 
-    // 3. Update DB and clear OTP
     await query(
       'UPDATE users SET epin_hash = $1, reset_otp = NULL, reset_otp_expiry = NULL WHERE phone = $2',
       [newPinHash, phone]
@@ -401,5 +373,5 @@ async changePin(userId, oldPin, newPin) {
   }
 }
 
-// Export a single instance
+
 export default new AuthService();

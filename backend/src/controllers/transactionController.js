@@ -5,10 +5,7 @@ import transactionService from '../services/transactionService.js';
 
 class TransactionController {
 
-  // ──────────────────────────────────────────
-  // MONEY TRANSFER (User to User)
-  // POST /api/v1/transactions/send
-  // ──────────────────────────────────────────
+  // Validates and processes a standard peer-to-peer money transfer request
   async send(req, res, next) {
     try {
       const { toPhone, amount, epin } = req.body;
@@ -39,6 +36,7 @@ class TransactionController {
     }
   }
 
+  // Handles bulk or business-to-customer transfers initiated by merchant accounts
   async merchantSend(req, res, next) {
     try {
       const { toPhone, amount, epin } = req.body;
@@ -66,10 +64,7 @@ class TransactionController {
     }
   }
 
-  // ──────────────────────────────────────────
-  // CREATE MONEY REQUEST (Asking someone for money)
-  // POST /api/v1/transactions/request
-  // ──────────────────────────────────────────
+  // Registers a new outbound money request from the current user to a recipient's phone
   async request(req, res, next) {
     try {
       const requesterUserId = req.user.userId;
@@ -96,10 +91,7 @@ class TransactionController {
     }
   }
 
-  // ──────────────────────────────────────────
-  // APPROVE / PAY A REQUEST (The Payer pays the requester)
-  // POST /api/v1/transactions/requests/:requestId/pay
-  // ──────────────────────────────────────────
+  // Processes the payment for a specific money request using the payer's ePin
   async approveRequest(req, res, next) {
     try {
       const payerUserId = req.user.userId;
@@ -125,10 +117,7 @@ class TransactionController {
     }
   }
 
-  // ──────────────────────────────────────────
-  // UPDATE REQUEST STATUS (Decline or Cancel)
-  // PATCH /api/v1/transactions/requests/:requestId/status
-  // ──────────────────────────────────────────
+  // Updates a money request status to declined (by payer) or cancelled (by requester)
   async updateRequestStatus(req, res, next) {
     try {
       const userId = req.user.userId;
@@ -152,10 +141,7 @@ class TransactionController {
     }
   }
 
-  // ──────────────────────────────────────────
-  // CASH IN (Agent deposits into User account)
-  // POST /api/v1/transactions/cash-in
-  // ──────────────────────────────────────────
+  // Authorizes an agent to deposit physical cash into a user's digital wallet
   async cashIn(req, res, next) {
     try {
       const agentUserId = req.user.userId;
@@ -177,10 +163,7 @@ class TransactionController {
     }
   }
 
-  // ──────────────────────────────────────────
-  // CASH OUT (User withdraws via Agent)
-  // POST /api/v1/transactions/cash-out
-  // ──────────────────────────────────────────
+  // Facilitates digital fund withdrawal for users via authorized agent locations
   async cashOut(req, res, next) {
     try {
       const userId = req.user.userId;
@@ -212,8 +195,7 @@ class TransactionController {
   }
 
   // ──────────────────────────────────────────
-  // HISTORY & FETCHING (Select Only)
-  // ──────────────────────────────────────────
+  // Returns a paginated list of historical transactions for the authenticated user
 
   async getHistory(req, res, next) {
     try {
@@ -234,6 +216,7 @@ class TransactionController {
     }
   }
 
+  // Retrieves remaining daily and monthly transaction limits for the user
   async getLimits(req, res, next) {
     try {
       const result = await transactionService.getLimits(req.user.userId);
@@ -246,6 +229,7 @@ class TransactionController {
     }
   }
 
+  // Provides full details and status transitions for a specific transaction ID
   async getDetails(req, res, next) {
     try {
       const userId = req.user.userId;
@@ -260,7 +244,8 @@ class TransactionController {
     }
   }
 
-    async reverse(req, res, next) {
+  // Initiates an administrative reversal of a previously completed transaction
+  async reverse(req, res, next) {
     try {
       const { id } = req.params;
       
@@ -283,6 +268,7 @@ class TransactionController {
     }
   }
 
+  // Lists all pending money requests that the user needs to respond to
   async getIncomingRequests(req, res, next) {
     try {
       const result = await transactionService.getIncomingRequests(req.user.userId);
@@ -292,6 +278,7 @@ class TransactionController {
     }
   }
 
+  // Retrieves all money requests that the user has sent to others
   async getSentRequests(req, res, next) {
     try {
       const result = await transactionService.getSentRequests(req.user.userId);

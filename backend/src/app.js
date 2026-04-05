@@ -112,9 +112,9 @@ app.use(`${API_PREFIX}/notifications`, notificationRoutes);
 
 // System Settings routes 
 app.use(`${API_PREFIX}/system`, systemRoutes);
-// ==============================================
+
 // ERROR HANDLING
-// ==============================================
+
 
 // 404 Handler - Route not found
 app.use(notFound);
@@ -124,10 +124,7 @@ app.use(errorHandler);
 
 // ... existing middleware and routes ...
 
-/**
- * BACKGROUND WORKER: Runs every day at 00:00 (Midnight)
- * Format: 'minute hour day month day-of-week'
- */
+// SCHEDULED TASKS
 cron.schedule('0 0 * * *', () => {
   subscriptionService.processDailyBilling();
 });

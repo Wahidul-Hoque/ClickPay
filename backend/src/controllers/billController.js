@@ -1,9 +1,9 @@
-// Validates HTTP input, delegates to billService, returns responses.
 
 import billService from '../services/billService.js';
 
 class BillController {
 
+  // Lists all available billing organizations and service providers
   async getBillers(req, res, next) {
     try {
       const billers = await billService.getBillers();
@@ -17,8 +17,7 @@ class BillController {
     }
   }
 
-  // GET BILLERS BY CATEGORY
-  // GET /api/v1/bills/billers/category/:category
+  // Filters and returns billers associated with a specific utility or service category
   async getBillersByCategory(req, res, next) {
     try {
       const { category } = req.params;
@@ -33,11 +32,7 @@ class BillController {
     }
   }
 
-  // ==============================================
-  // PAY BILL
-  // POST /api/v1/bills/pay
-  // Body: { billerId, amount, epin, reference }
-  // ==============================================
+  // Validates payment parameters and processes a utility bill settlement
   async pay(req, res, next) {
     try {
       const userId = req.user.userId;
@@ -84,10 +79,7 @@ class BillController {
     }
   }
 
-  // ==============================================
-  // GET BILL PAYMENT HISTORY
-  // GET /api/v1/bills/history?page=1&limit=10
-  // ==============================================
+  // Retrieves a paginated history of all bill payments completed by the user
   async getHistory(req, res, next) {
     try {
       const userId = req.user.userId;

@@ -4,20 +4,16 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get ALL active billers
-// GET /api/v1/bills/billers
+// Exposes all active organizations registered for utility billing
 router.get('/billers', protect, billController.getBillers);
 
-// Get billers filtered by category
-// GET /api/v1/bills/billers/category/electricity
+// Filters billers by their respective utility categories
 router.get('/billers/category/:category', protect, billController.getBillersByCategory);
 
-// Pay a utility bill
-// POST /api/v1/bills/pay
+// Securely processes the settlement of an outstanding service bill
 router.post('/pay', protect, billController.pay);
 
-// Get bill payment history
-// GET /api/v1/bills/history?page=1&limit=10
+// Lists all successful bill payment transactions for the user
 router.get('/history', protect, billController.getHistory);
 
 export default router;

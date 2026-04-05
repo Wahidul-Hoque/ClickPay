@@ -8,21 +8,20 @@ const router = express.Router();
 
 router.use(protect);
 
-// Dashboard and public discovery (if needed)
+// Merchant dashboard metrics and competitive ranking access
 router.get('/dashboard', authorize('merchant'), merchantController.getDashboard);
 router.get('/rankings', merchantController.getMerchantRankings);
 router.get('/regions', merchantController.getMerchantRegions);
 
-// Subscription status (Accessible by merchants)
+// Billing and active subscription lifecycle management
 router.get('/subscription/status', authorize('merchant'), merchantSubscriptionController.getStatus);
 
-// Process subscription pay
 router.post('/subscription/subscribe', authorize('merchant'), merchantSubscriptionController.subscribe);
 
-// Send money (1.25% commission)
+// Specialized business-to-customer money transfers with commission logic
 router.post('/send', authorize('merchant'), transactionController.merchantSend);
 
-// Discovery
+// Public merchant profile retrieval and discovery
 router.get('/', merchantController.getAllMerchants);
 router.get('/:id', merchantController.getMerchantDetails);
 

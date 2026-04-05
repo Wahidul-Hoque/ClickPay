@@ -1,6 +1,7 @@
 import { query, getClient } from '../config/database.js';
 
 class AdminService {
+  // Aggregates financial statistics, platform revenue, and user trends for the admin dashboard
   async getFinancialAnalytics(city, startDate, endDate) {
     const buildDateFilter = (prefix = 't', dateCol = 'created_at') => {
       let filter = "";
@@ -20,7 +21,6 @@ class AdminService {
       return { filter, params };
     };
 
-    // 1. Financial Stats
     const statsDate = buildDateFilter('t', 'created_at');
     const statsParams = [...statsDate.params];
     let statsCityFilter = "";
@@ -39,7 +39,6 @@ class AdminService {
       WHERE t.status = 'completed' AND ${statsDate.filter} ${statsCityFilter}
     `, statsParams);
 
-    // 2. Platform Revenue (Fees)
     const revDate = buildDateFilter('t', 'created_at');
     const revenue = await query(`
       SELECT COALESCE(SUM(amount), 0) as total_fees
@@ -47,7 +46,6 @@ class AdminService {
       WHERE to_wallet_id= (SELECT wallet_id FROM wallets WHERE wallet_type = 'system' AND system_purpose = 'profit') and ${revDate.filter}
     `, revDate.params);
 
-    // 3. Trend Analysis
     const trendDate = buildDateFilter('t', 'created_at');
     const trendParams = [...trendDate.params];
     let trendFilterStr = `WHERE t.status = 'completed' AND ${trendDate.filter}`;
@@ -63,7 +61,6 @@ class AdminService {
       ORDER BY date ASC
     `, trendParams);
 
-    // 4. User Segmentation
     const segmentParams = city ? [city] : [];
     const segmentFilter = city ? "AND city = $1" : "";
     const segmentation = await query(`
@@ -75,7 +72,6 @@ class AdminService {
       WHERE role = 'user' ${segmentFilter}
     `, segmentParams);
 
-    // 5. Daily Reconciliation Dashboard => Now Date Range Reconciliation Dashboard
     const reconDate = buildDateFilter('t', 'created_at');
     const reconParams = [...reconDate.params];
     let reconFilterStr = `WHERE t.status = 'completed' AND ${reconDate.filter}`;
@@ -100,6 +96,7 @@ class AdminService {
     };
   }
 
+  // Provides structured time-series volume data for transaction types and trend visualization
   async getTrendAnalytics(city, startDate, endDate) {
     const buildDateFilter = (prefix = 't', dateCol = 'created_at') => {
       let filter = "";
@@ -152,6 +149,7 @@ class AdminService {
     return Object.values(groupedTrend).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }
 
+  // Segments users by activity levels and wallet statuses to monitor platform health
   async getSegmentationAnalytics(city, startDate, endDate) {
     let filterStr = "";
     let params = [];
@@ -210,6 +208,7 @@ class AdminService {
     };
   }
 
+  // Ranks agents based on their total generated commissions and transaction counts
   async getAgentPerformance(city) {
     const cityFilter = city ? "WHERE u.city = $1" : "";
     const params = city ? [city] : [];
@@ -230,7 +229,7 @@ class AdminService {
     return res.rows;
   }
 
-  // 6, 7, 8: Loans, Savings & Subscriptions
+  // Compiles overall status reports for loans, active savings, and subscription revenue
   async getPortfolioReports() {
     const loans = await query(`
       SELECT status, SUM(principal_amount) as total_amount, COUNT(*) as count 
@@ -246,6 +245,7 @@ class AdminService {
     return { loans: loans.rows, totalSavings: savings.rows[0], activeSavingsCount: parseInt(savings.rows[0]?.active_count || '0', 10), mrr: subs.rows[0] };
   }
 
+  // Retrieves the highest-value active savings plans for high-level monitoring
   async getActiveSavingsPlans(limit = 3) {
     const params = [limit];
     const plans = await query(
@@ -267,7 +267,7 @@ class AdminService {
     return plans.rows;
   }
 
-  // 9: User Management
+  // Searches and lists non-system users with their current balances and loan default status
   async getAllUsers(search) {
     const searchFilter = search ? "AND (u.name ILIKE $1 OR u.phone ILIKE $1 OR u.nid ILIKE $1)" : "";
     const params = search ? [`%${search}%`] : [];
@@ -284,6 +284,7 @@ class AdminService {
     return res.rows;
   }
 
+  // Fetches full transaction history for a specific user with detailed sender/receiver info
   async getUserTransactions(userId, startDate, endDate, types) {
     let filterStr = "";
     const params = [userId];
@@ -323,6 +324,7 @@ class AdminService {
     return res.rows;
   }
 
+  // Freezes or activates user accounts and logs the administrative action
   async toggleUserStatus(adminId, userId, action) {
     const status = action === 'freeze' ? 'frozen' : 'active';
     const logActionType = action === 'freeze' ? 'user_freeze' : 'user_activate';
@@ -357,8 +359,7 @@ class AdminService {
     }
   }
 
-  // 12: Audit Logs
-  // 12: Audit Logs
+  // Retrieves a paginated log of all administrative actions for auditing purposes
   async getAuditLogs(filters = {}) {
     const { startDate, endDate, page = 1, limit = 10 } = filters;
     const offset = (page - 1) * limit;
@@ -409,16 +410,19 @@ class AdminService {
   }
 
   // Get distinct cities
+  // Lists all unique cities where users are currently registered
   async getAllCities() {
     const res = await query(`SELECT DISTINCT city FROM users WHERE city IS NOT NULL ORDER BY city ASC`);
     return res.rows.map(row => row.city);
   }
 
+  // Returns all configurable system-wide settings from the database
   async getSystemSettings() {
     const res = await query('SELECT * FROM system_settings ORDER BY setting_key');
     return res.rows;
   }
 
+  // Updates a specific system setting and logs the change for security tracking
   async updateSystemSetting(key, value, adminId) {
     await query(
       'UPDATE system_settings SET setting_value = $1, updated_at = NOW() WHERE setting_key = $2',
@@ -433,6 +437,7 @@ class AdminService {
     return { success: true };
   }
 
+  // Performs a reconciliation of the admin profit wallet across current and previous periods
   async getAdminWalletReconciliation(period = 'day') {
     const sanitizedPeriod = period === 'month' ? 'month' : 'day';
     const client = await getClient();

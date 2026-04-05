@@ -2,10 +2,7 @@ import { query } from '../config/database.js';
 import merchantService from '../services/merchantService.js';
 
 class MerchantController {
-  /**
-   * Get all active merchants for discovery
-   * GET /api/v1/merchants
-   */
+  // Retrieves a list of all active merchants for discovery and public display
   async getAllMerchants(req, res, next) {
     try {
       const result = await query(
@@ -26,10 +23,7 @@ class MerchantController {
     }
   }
 
-  /**
-   * Get details for a specific merchant
-   * GET /api/v1/merchants/:id
-   */
+  // Fetches detailed profile and contact information for a specific merchant
   async getMerchantDetails(req, res, next) {
     try {
       const { id } = req.params;
@@ -54,6 +48,7 @@ class MerchantController {
     }
   }
 
+  // Pulls balance, transaction volume, and ranking data for the merchant dashboard
   async getDashboard(req, res, next) {
     try {
       const merchantId = req.user.userId;
@@ -89,6 +84,7 @@ class MerchantController {
     } catch (error) { next(error); }
   }
 
+  // Generates filtered merchant performance rankings across regions and timeframes
   async getMerchantRankings(req, res, next) {
     try {
       const filters = {
@@ -111,6 +107,7 @@ class MerchantController {
     }
   }
 
+  // Returns a list of unique geographical regions where merchants are active
   async getMerchantRegions(req, res, next) {
     try {
       const regions = await merchantService.getRegions(req.query.q);

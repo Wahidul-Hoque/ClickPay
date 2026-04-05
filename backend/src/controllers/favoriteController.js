@@ -1,5 +1,6 @@
 import db from '../config/database.js';
 
+// Saves a new contact number or agent to the user's personal favorites list
 export const addFavorite = async (req, res) => {
   const userId = req.user.userId;
   const { type, phone, name } = req.body;
@@ -49,6 +50,7 @@ export const addFavorite = async (req, res) => {
   }
 };
 
+// Retrieves the complete list of saved favorites for the authenticated user
 export const getFavorites = async (req, res) => {
   const userId = req.user.userId;
   const { type } = req.query;
@@ -75,6 +77,7 @@ export const getFavorites = async (req, res) => {
   }
 };
 
+// Toggles the pinned favorite status for a specific contact or agent
 export const toggleFavorite = async (req, res) => {
   const userId = req.user.userId;
   const { id } = req.params;
@@ -141,6 +144,7 @@ export const toggleFavorite = async (req, res) => {
   }
 };
 
+// Permanently removes a favorite entry from the user's account
 export const deleteFavorite = async (req, res) => {
   const userId = req.user.userId;
   const { id } = req.params;

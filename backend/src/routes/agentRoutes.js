@@ -7,7 +7,7 @@ const router = express.Router();
 // All routes here require authentication
 router.use(protect);
 
-// Basic middleware to check role
+// Verifies that the authenticated user possesses the 'agent' role
 const isAgent = (req, res, next) => {
   if (req.user.role !== 'agent') {
     return res.status(403).json({ success: false, message: 'Access denied. Agents only.' });
@@ -15,6 +15,7 @@ const isAgent = (req, res, next) => {
   next();
 };
 
+// Agent operational routes for dashboards, cash operations, and rankings
 router.get('/dashboard', isAgent, agentController.getDashboard);
 router.post('/cash-in', isAgent, agentController.cashIn);
 router.get('/history', isAgent, agentController.getHistory);

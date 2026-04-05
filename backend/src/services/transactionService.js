@@ -1,28 +1,12 @@
-// ==============================================
-// TRANSACTION SERVICE
-// ==============================================
-// Design principles applied here:
-//  1. Every transaction is first INSERTed as 'initiated', then updated
-//     to 'completed' or 'failed' — so every attempt is recorded.
-//  2. Every step of the payment lifecycle is logged in transaction_events.
-//  3. Wallet rows are locked with FOR UPDATE to prevent race conditions.
-//  4. A 30-second duplicate guard rejects identical reattempts.
-//  5. getHistory returns ONLY 'completed' transactions.
-//  6. cashIn is additionally recorded in external_topups.
-
 import { query, getClient } from '../config/database.js';
 import { comparePassword } from '../middleware/auth.js';
 import fraudDetectionService from './fraudDetectionService.js';
 import { logEvent, recordFailure, verifyUserLimits } from './dbHelpers.js';
 
-// ──────────────────────────────────────────────────────────────────────────────
 
 class TransactionService {
 
-  // ============================================================
-  // SEND MONEY  (User/Agent → User/Agent)
-  // POST /api/v1/transactions/send
-  // ============================================================
+  // Processes standard peer-to-peer and merchant transfers with fee logic and limit checks
   async sendMoney(fromUserId, toPhone, amount, epin) {
     const client = await getClient();
     let transactionId = null;
@@ -30,12 +14,10 @@ class TransactionService {
     try {
       await client.query('BEGIN');
 
-      // ── Step 1: Verify sender ePin ──────────────────────────
       const epinRow = await client.query('SELECT fn_get_epin_hash($1) as epin_hash', [fromUserId]);
       const isValid = await comparePassword(epin, epinRow.rows[0].epin_hash);
       if (!isValid) throw new Error('Invalid ePin');
 
-      // ── Step 2: Lock sender wallet ──────────────────────────
       const senderRes = await client.query(
         `SELECT w.wallet_id, w.balance, w.status, w.wallet_type, mp.subscription_expiry
          FROM wallets w
@@ -48,7 +30,6 @@ class TransactionService {
       const senderWallet = senderRes.rows[0];
       if (senderWallet.status !== 'active') throw new Error('Your wallet is not active');
 
-      // ── Merchant Expiry Check ──────────────────────────────
       if (senderWallet.wallet_type === 'merchant') {
         const expiry = senderWallet.subscription_expiry;
         if (!expiry || new Date(expiry) < new Date()) {
@@ -56,7 +37,6 @@ class TransactionService {
         }
       }
 
-      // ── Step 3: Lock receiver wallet ────────────────────────
       const receiverRes = await client.query(
         `SELECT w.wallet_id, w.status, w.user_id, u.name, w.wallet_type
          FROM wallets w
@@ -70,7 +50,6 @@ class TransactionService {
       if (receiverWallet.user_id === fromUserId) throw new Error('Cannot send money to yourself');
       if (receiverWallet.status !== 'active') throw new Error('Receiver wallet is not active');
 
-      // ── Step 4: Duplicate guard (same wallets + amount, last 30s) ──
       const dup = await client.query(
         `SELECT fn_is_duplicate_transaction($1, $2, $3) as is_dup`,
         [senderWallet.wallet_id, receiverWallet.wallet_id, amount]
@@ -79,7 +58,6 @@ class TransactionService {
         throw new Error('Duplicate transaction detected — please wait before retrying');
       }
 
-      // ── Step 4.5: Calculate fee ─────────────────────────────
       const favRes = await client.query(
         `SELECT 1 FROM favorites WHERE user_id = $1 AND phone = $2 LIMIT 1`,
         [fromUserId, toPhone]
@@ -100,13 +78,11 @@ class TransactionService {
         systemWallet = sysRes.rows[0];
       }
 
-      // ── Step 5: Balance check ───────────────────────────────
       const currentBalance = parseFloat(senderWallet.balance);
       if (currentBalance < totalDeduction) {
         throw new Error(`Insufficient balance. Available: ৳${currentBalance.toFixed(2)}${fee > 0 ? ` (Required: ৳${totalDeduction.toFixed(2)} incl ৳${fee} fee)` : ''}`);
       }
 
-      // ── Step 5.5: Check Daily & Monthly Limits ────────────────
       if (senderWallet.wallet_type !== 'agent' && senderWallet.wallet_type !== 'merchant') {
         await verifyUserLimits(client, fromUserId, senderWallet.wallet_id, 'send_money', amount);
       }
@@ -114,7 +90,6 @@ class TransactionService {
         await verifyUserLimits(client, receiverWallet.user_id, receiverWallet.wallet_id, 'receive_money', amount);
       }
 
-      // ── Step 6: Create transaction record (status = 'initiated') ──
       const reference = `TXN-${Date.now()}`;
       const txnRes = await client.query(
         `INSERT INTO transactions
@@ -129,7 +104,6 @@ class TransactionService {
       await logEvent(client, transactionId, 'initiated', 'info', `Transfer of ৳${amount} to ${receiverWallet.name} initiated`);
       await logEvent(client, transactionId, 'epin_verified', 'info', 'Sender ePin verified');
 
-      // ── Step 7: Deduct from sender ──────────────────────────
       await client.query(
         'UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2',
         [totalDeduction, senderWallet.wallet_id]
@@ -155,7 +129,6 @@ class TransactionService {
       await logEvent(client, transactionId, 'amount_deducted', 'info',
         `৳${totalDeduction} deducted from sender${fee > 0 ? ` (incl ৳${fee} fee)` : ''}. Remaining: ৳${newSenderBalance}`);
 
-      // ── Step 8: Credit receiver ─────────────────────────────
       await client.query(
         'UPDATE wallets SET balance = balance + $1 WHERE wallet_id = $2',
         [amount, receiverWallet.wallet_id]
@@ -198,11 +171,8 @@ class TransactionService {
     }
   }
 
-  /**
-   * MERCHANT SEND MONEY (Merchant → User/Agent)
-   * Fee: 1.25% (Debited from Merchant in addition to principal)
-   * Total required: amount * 1.0125
-   */
+  
+  // Handles merchant-specific transfers with a separate commission rate
   async merchantSendMoney(merchantUserId, toPhone, amount, epin) {
     const client = await getClient();
     let transactionId = null;
@@ -320,13 +290,7 @@ class TransactionService {
     }
   }
 
-  // ============================================================
-  // CASH IN  (Agent → User wallet)
-  // Also recorded in external_topups (payment_method_id = NULL for agent cash-ins)
-  // If your DB was already created, run:
-  //   ALTER TABLE external_topups ALTER COLUMN payment_method_id DROP NOT NULL;
-  // POST /api/v1/transactions/cash-in
-  // ============================================================
+  // Allows agents to deposit money into user wallets and record external top-ups
   async cashIn(agentUserId, userPhone, amount, agentEpin) {
     const client = await getClient();
     let transactionId = null;
@@ -334,12 +298,10 @@ class TransactionService {
     try {
       await client.query('BEGIN');
 
-      // ── Step 1: Verify agent ePin ───────────────────────────
       const epinRow = await client.query('SELECT fn_get_epin_hash($1) as epin_hash', [agentUserId]);
       const isValid = await comparePassword(agentEpin, epinRow.rows[0].epin_hash);
       if (!isValid) throw new Error('Invalid ePin');
 
-      // ── Step 2: Lock agent wallet (must be agent type) ──────
       const agentRes = await client.query(
         `SELECT wallet_id, balance, status
          FROM wallets
@@ -351,7 +313,6 @@ class TransactionService {
       const agentWallet = agentRes.rows[0];
       if (agentWallet.status !== 'active') throw new Error('Agent wallet is not active');
 
-      // ── Step 3: Lock user wallet ────────────────────────────
       const userRes = await client.query(
         `SELECT w.wallet_id, w.status, w.user_id, u.name
          FROM wallets w
@@ -365,7 +326,6 @@ class TransactionService {
       if (userWallet.status !== 'active') throw new Error('User wallet is not active');
       if (userWallet.user_id === agentUserId) throw new Error('Cannot cash in to yourself');
 
-      // ── Step 4: Duplicate guard ─────────────────────────────
       const dup = await client.query(
         `SELECT fn_is_duplicate_transaction($1, $2, $3) as is_dup`,
         [agentWallet.wallet_id, userWallet.wallet_id, amount]
@@ -374,13 +334,11 @@ class TransactionService {
         throw new Error('Duplicate cash-in detected — please wait before retrying');
       }
 
-      // ── Step 5: Agent balance check ─────────────────────────
       const agentBalance = parseFloat(agentWallet.balance);
       if (agentBalance < parseFloat(amount)) {
         throw new Error(`Insufficient agent balance. Available: ৳${agentBalance.toFixed(2)}`);
       }
 
-      // ── Step 6: Create transaction record (initiated) ───────
       const reference = `CIN-${Date.now()}`;
       const txnRes = await client.query(
         `INSERT INTO transactions
@@ -395,7 +353,6 @@ class TransactionService {
       await logEvent(client, transactionId, 'initiated', 'info', `Cash-in of ৳${amount} for ${userWallet.name} initiated by agent`);
       await logEvent(client, transactionId, 'epin_verified', 'info', 'Agent ePin verified');
 
-      // ── Step 7 & 8: Perform debit and credit transfers ─────
       await client.query('CALL p_debit_credit_wallets($1, $2, $3)', [agentWallet.wallet_id, userWallet.wallet_id, amount]);
       
       await logEvent(client, transactionId, 'amount_deducted', 'info', `৳${amount} deducted from agent wallet`);
@@ -407,7 +364,6 @@ class TransactionService {
         [transactionId]
       );
 
-      // ── Step 10: Record in external_topups ──────────────────
       // payment_method_id is NULL for agent cash-ins (no bank/card involved).
       // Requires: ALTER TABLE external_topups ALTER COLUMN payment_method_id DROP NOT NULL;
       await client.query(
@@ -447,11 +403,7 @@ class TransactionService {
     }
   }
 
-  // ============================================================
-  // CASH OUT  (User → Agent, agent earns 1.5% fee)
-  // Agent fee is stored in agent_fees table.
-  // POST /api/v1/transactions/cash-out
-  // ============================================================
+  // Facilitates user withdrawals via agents with system and agent commission splitting
   async cashOut(userId, agentPhone, amount, userEpin) {
     const client = await getClient();
     let transactionId = null;
@@ -585,10 +537,7 @@ class TransactionService {
   }
 
 
-  // ============================================================
-  // GET TRANSACTION HISTORY  (completed only, excludes internal fee rows)
-  // GET /api/v1/transactions/history?page=1&limit=10
-  // ============================================================
+  // Fetches a paginated and filtered history of completed transactions for a user
   async getHistory(userId, page = 1, limit = 10, filters = {}) {
     const offset = (page - 1) * limit;
     const { startDate, endDate, type, direction } = filters;
@@ -669,11 +618,7 @@ class TransactionService {
     };
   }
 
-  // ============================================================
-  // GET TRANSACTION DETAILS  (user must be a party to it)
-  // Also returns full event lifecycle log
-  // GET /api/v1/transactions/:id
-  // ============================================================
+  // Retrieves detailed information and a full event log for a specific transaction
   async getTransactionDetails(transactionId, userId) {
     const txnRes = await query(
       `SELECT
@@ -716,10 +661,7 @@ class TransactionService {
     };
   }
 
-  // ============================================================
-  // REQUEST MONEY  (Requester asks Requestee to pay)
-  // POST /api/v1/transactions/request
-  // ============================================================
+  // Creates a new payment request for another user to approve and pay
   async requestMoney(requesterUserId, recipientPhone, amount, message) {
     const client = await getClient();
     try {
@@ -775,10 +717,7 @@ class TransactionService {
     }
   }
 
-  // ============================================================
-  // GET INCOMING REQUESTS  (requests where I am the payer)
-  // GET /api/v1/transactions/requests/incoming
-  // ============================================================
+  // Lists all pending payment requests where the current user is the payer
   async getIncomingRequests(userId) {
     const result = await query(
       `SELECT
@@ -795,10 +734,7 @@ class TransactionService {
     return result.rows;
   }
 
-  // ============================================================
-  // GET SENT REQUESTS  (requests I created)
-  // GET /api/v1/transactions/requests/sent
-  // ============================================================
+  // Lists all payment requests created by the current user
   async getSentRequests(userId) {
     const result = await query(
       `SELECT
@@ -814,10 +750,7 @@ class TransactionService {
     return result.rows;
   }
 
-  // ============================================================
-  // APPROVE / PAY A MONEY REQUEST
-  // POST /api/v1/transactions/requests/:requestId/pay
-  // ============================================================
+  // Finalizes a money request by transferring funds from the payer to the requester
   async approveRequest(requestId, payerUserId, epin) {
     const client = await getClient();
     let transactionId = null;
@@ -874,7 +807,6 @@ class TransactionService {
         throw new Error(`Insufficient balance. Available: ৳${parseFloat(payerWallet.balance).toFixed(2)}`);
       }
 
-      // ── Step 4: Create transaction record (initiated) ───────
       const reference = `REQ-${Date.now()}`;
       const txnRes = await client.query(
         `INSERT INTO transactions
@@ -889,14 +821,12 @@ class TransactionService {
       await logEvent(client, transactionId, 'initiated', 'info', `Payment for request #${requestId} of ৳${requestAmount} initiated`);
       await logEvent(client, transactionId, 'epin_verified', 'info', 'Payer ePin verified');
 
-      // ── Step 5 & 6: Perform debit and credit transfers ─────
       await client.query('CALL p_debit_credit_wallets($1, $2, $3)', 
         [moneyRequest.requestee_wallet_id, moneyRequest.requester_wallet_id, requestAmount]);
         
       await logEvent(client, transactionId, 'amount_deducted', 'info', `৳${requestAmount} deducted from payer`);
       await logEvent(client, transactionId, 'amount_credited', 'info', `৳${requestAmount} credited to requester`);
 
-      // ── Step 7: Mark request as paid ───────────────────────
       await client.query(
         `UPDATE money_requests
          SET status = 'paid', paid_transaction_id = $1
@@ -904,7 +834,6 @@ class TransactionService {
         [transactionId, requestId]
       );
 
-      // ── Step 8: Mark transaction completed ──────────────────
       await client.query(
         `UPDATE transactions SET status = 'completed' WHERE transaction_id = $1`,
         [transactionId]
@@ -931,10 +860,7 @@ class TransactionService {
     }
   }
 
-  // ============================================================
-  // UPDATE REQUEST STATUS  (decline or cancel — with ownership check)
-  // PATCH /api/v1/transactions/requests/:requestId/status
-  // ============================================================
+  // Allows users to decline or cancel pending money requests depending on their role
   async updateRequestStatus(requestId, userId, status) {
     // 'declined' → only the requestee (payer) can do it
     // 'cancelled' → only the requester (creator) can do it
@@ -971,7 +897,7 @@ class TransactionService {
     }
   }
 
-  // REVERSE TRANSACTION (Admin Only)
+  // Admin-only tool to undo personal transfers or request payments by swapping funds back
   async reverseTransaction(transactionId , adminUserId) {
     const client = await getClient();
     let reversalTxnId = null;
@@ -979,7 +905,6 @@ class TransactionService {
     try {
       await client.query('BEGIN');
 
-      // 1. Fetch original transaction
       const txnRes = await client.query(
         `SELECT * FROM transactions WHERE transaction_id = $1 AND status = 'completed'`,
         [transactionId]
@@ -1000,7 +925,6 @@ class TransactionService {
         throw new Error('Only standard peer-to-peer transfers or paid money requests can be reversed');
       }
 
-      // 2. Lock wallets (Original Receiver becomes Sender, Original Sender becomes Receiver)
       const receiverWalletRes = await client.query(
         `SELECT wallet_id, user_id, balance, status FROM wallets WHERE wallet_id = $1 FOR UPDATE`,
         [originalTxn.to_wallet_id]
@@ -1017,7 +941,6 @@ class TransactionService {
         throw new Error('Receiver has insufficient balance to reverse this transaction');
       }
 
-      // 3. Create reversal transaction record
       const reference = `REV-${originalTxn.reference}`;
       const revRes = await client.query(
         `INSERT INTO transactions 
@@ -1028,7 +951,6 @@ class TransactionService {
       );
       reversalTxnId = revRes.rows[0].transaction_id;
 
-      // 4. Update Balances
       await client.query('CALL p_debit_credit_wallets($1, $2, $3)', 
         [receiverWallet.wallet_id, senderWallet.wallet_id, originalTxn.amount]);
 
@@ -1041,7 +963,6 @@ class TransactionService {
 
 
 
-      // 5. Finalize
       await client.query(
         `UPDATE transactions SET status = 'completed' WHERE transaction_id = $1`,
         [reversalTxnId]
@@ -1070,6 +991,7 @@ class TransactionService {
     }
   }
 
+  // Calculates current daily/monthly spending and determines remaining transaction limits
   async getLimits(userId) {
     const client = await getClient();
     try {

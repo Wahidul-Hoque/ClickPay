@@ -1,5 +1,4 @@
-// Defines all transaction-related API endpoints.
-// Order matters: specific paths must come before parameterised ones.
+
 
 import express from 'express';
 import transactionController from '../controllers/transactionController.js';
@@ -7,69 +6,43 @@ import { protect, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// All routes below require authentication
-// ──────────────────────────────────────────────────────────────
-// MONEY TRANSFER
-// ──────────────────────────────────────────────────────────────
-
-// Send money to another user
-// POST /api/v1/transactions/send
+// Initiates a secure money transfer between users
 router.post('/send', protect, transactionController.send);
 
-// ──────────────────────────────────────────────────────────────
-// MONEY REQUESTS
-// ──────────────────────────────────────────────────────────────
 
-// Create a money request (ask someone to pay you)
-// POST /api/v1/transactions/request
+// Creates a new request to receive money from another user
 router.post('/request', protect, transactionController.request);
 
-// Get all incoming requests (people asking YOU for money)
-// GET /api/v1/transactions/requests/incoming
+// Lists all inbound requests where the current user is being asked for funds
 router.get('/requests/incoming', protect, transactionController.getIncomingRequests);
 
-// Get all requests YOU sent (you are asking others for money)
-// GET /api/v1/transactions/requests/sent
+// Fetches all outbound requests created by the user for others to pay
 router.get('/requests/sent', protect, transactionController.getSentRequests);
 
-// Pay / approve a pending money request
-// POST /api/v1/transactions/requests/:requestId/pay
+// Validates and processes the payment for a specific money request
 router.post('/requests/:requestId/pay', protect, transactionController.approveRequest);
 
-// Decline or cancel a money request
-// PATCH /api/v1/transactions/requests/:requestId/status
+// Updates the status of a request to declined or cancelled
 router.patch('/requests/:requestId/status', protect, transactionController.updateRequestStatus);
 
-// ──────────────────────────────────────────────────────────────
-// CASH IN / OUT
-// ──────────────────────────────────────────────────────────────
 
-// Cash in: agent deposits money into a user's wallet (agents only)
-// POST /api/v1/transactions/cash-in
+// Endpoint for agents to credit cash into a user's wallet
 router.post('/cash-in', protect, authorize('agent'), transactionController.cashIn);
 
-// Cash out: user withdraws cash through an agent
-// POST /api/v1/transactions/cash-out
+// Endpoint for users to withdraw cash through an authorized agent
 router.post('/cash-out', protect, transactionController.cashOut);
 
-// ──────────────────────────────────────────────────────────────
-// HISTORY & DETAILS
-// ──────────────────────────────────────────────────────────────
 
-// Get paginated transaction history
-// GET /api/v1/transactions/history?page=1&limit=10
+// Provides paginated history of all user transactions
 router.get('/history', protect, transactionController.getHistory);
 
-// Get spend limits (Daily & Monthly)
-// GET /api/v1/transactions/limits
+// Retrieves remaining transaction limits for the current user session
 router.get('/limits', protect, transactionController.getLimits);
 
-// Get details of a single transaction (must be a party to it)
-// GET /api/v1/transactions/:id
-// NOTE: keep this LAST so it doesn't shadow named paths above
+// Fetches detailed state and events for a specific transaction ID
 router.get('/:id', protect, transactionController.getDetails);
 
-// POST /api/v1/transactions/:id/reverse
+// Admin-only tool to reverse a specific transaction and rebalance wallets
 router.post('/:id/reverse', protect, authorize('admin'), transactionController.reverse);
 
 export default router;

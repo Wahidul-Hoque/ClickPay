@@ -1,6 +1,7 @@
 import { query } from '../config/database.js';
 
 class MerchantService {
+  // Calculates comprehensive merchant performance rankings based on transaction volume and region filters
   async getMerchantRankings(filters = {}) {
     const { regions, startDate, endDate, transactionTypes, rankBy, merchantId } = filters;
     let queryParams = [];
@@ -87,11 +88,13 @@ class MerchantService {
     return result.rows;
   }
 
+  // Retrieves the specific ranking data for a single merchant within the provided period
   async getMerchantRank(merchantId, filters = {}) {
     const results = await this.getMerchantRankings({ ...filters, merchantId });
     return results[0] || null;
   }
 
+  // Searches and returns all unique regions (cities) where merchants have registered profiles
   async getRegions(searchQuery) {
     let queryParams = [];
     let condition = "WHERE mp.merchant_user_id IS NOT NULL";

@@ -5,6 +5,7 @@ import notificationService from '../services/notificationService.js';
 import fraudDetectionService from '../services/fraudDetectionService.js';
 
 class AdminController {
+  // Compiles overall dashboard data including financial analytics, agent performance, and audit logs
   async getDashboardData(req, res, next) {
     try {
       const { city, startDate, endDate } = req.query;
@@ -20,6 +21,7 @@ class AdminController {
     } catch (error) { next(error); }
   }
 
+  // Retrieves time-series volume data for various transaction types across specific regions
   async getTrendData(req, res, next) {
     try {
       const { city, startDate, endDate } = req.query;
@@ -28,6 +30,7 @@ class AdminController {
     } catch (error) { next(error); }
   }
 
+  // Provides user partitioning data based on activity and wallet state for strategic review
   async getSegmentationData(req, res, next) {
     try {
       const { city, startDate, endDate } = req.query;
@@ -36,6 +39,7 @@ class AdminController {
     } catch (error) { next(error); }
   }
 
+  // Searches for and returns a list of system users based on provided search criteria
   async getUsers(req, res, next) {
     try {
       const { search } = req.query;
@@ -44,6 +48,7 @@ class AdminController {
     } catch (error) { next(error); }
   }
 
+  // Fetches a detailed transaction history for a specific user ID with date and type filtering
   async getUserTransactions(req, res, next) {
     try {
       const { id } = req.params;
@@ -53,6 +58,7 @@ class AdminController {
     } catch (error) { next(error); }
   }
 
+  // Administrative tool to toggle user account status between active and frozen states
   async updateUserStatus(req, res, next) {
     try {
       const { action } = req.body;
@@ -63,6 +69,7 @@ class AdminController {
     } catch (error) { next(error); }
   }
 
+  // Lists all unique cities present in the user database for regional analytics
   async getCities(req, res, next) {
     try {
       const cities = await adminService.getAllCities();
@@ -70,6 +77,7 @@ class AdminController {
     } catch (error) { next(error); }
   }
 
+  // Generates performance rankings for agents based on volume and regional filters
   async getRankings(req, res, next) {
     try {
       const filters = {
@@ -87,6 +95,7 @@ class AdminController {
     }
   }
 
+  // Retrieves unique regions where agents are currently operating
   async getRegions(req, res, next) {
     try {
       const regions = await agentService.getRegions(req.query.q);
@@ -96,6 +105,7 @@ class AdminController {
     }
   }
 
+  // Generates performance rankings for merchants across the platform
   async getMerchantRankings(req, res, next) {
     try {
       const filters = {
@@ -113,6 +123,7 @@ class AdminController {
     }
   }
 
+  // Lists unique regions where merchant profiles have been established
   async getMerchantRegions(req, res, next) {
     try {
       const regions = await merchantService.getRegions(req.query.q);
@@ -122,6 +133,7 @@ class AdminController {
     }
   }
 
+  // Distributes administrative notifications to targeted audiences or specific users
   async sendNotification(req, res, next) {
     try {
       console.log('[ADMIN NOTIFY] Request received');
@@ -144,6 +156,7 @@ class AdminController {
     }
   }
 
+  // Fetches an audit of previously broadcasted administrative notifications
   async getSentNotifications(req, res, next) {
     try {
       const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
@@ -154,6 +167,7 @@ class AdminController {
     }
   }
 
+  // Lists active high-value savings plans currently managed by the platform
   async getActiveSavings(req, res, next) {
     try {
       const limit = parseInt(req.query.limit, 10) || 10;
@@ -164,6 +178,7 @@ class AdminController {
     }
   }
 
+  // Performs a reconciliation of the system profit wallet for the specified period
   async getAdminWalletReconciliation(req, res, next) {
     try {
       const period = req.query.period === 'month' ? 'month' : 'day';
@@ -174,8 +189,7 @@ class AdminController {
     }
   }
 
-  // ── FRAUD DETECTION ENDPOINTS ──────────────────────────────
-
+  // Retrieves system-generated flags for potentially fraudulent user activity
   async getFraudAlerts(req, res, next) {
     try {
       const { status } = req.query;
@@ -184,6 +198,7 @@ class AdminController {
     } catch (error) { next(error); }
   }
 
+  // Updates a fraud alert status and takes mandatory action on the flagged account
   async resolveFraudAlert(req, res, next) {
     try {
       const { id } = req.params;
@@ -204,6 +219,7 @@ class AdminController {
     }
   }
 
+  // Compiles overall statistics on fraud alerts and resolution rates
   async getFraudStats(req, res, next) {
     try {
       const stats = await fraudDetectionService.getAlertStats();
@@ -211,6 +227,7 @@ class AdminController {
     } catch (error) { next(error); }
   }
 
+  // Retrieves all configurable application and environment settings
   async getSettings(req, res, next) {
     try {
       const settings = await adminService.getSystemSettings();
@@ -218,6 +235,7 @@ class AdminController {
     } catch (error) { next(error); }
   }
 
+  // Updates a specific system setting and logs the administrative change
   async updateSetting(req, res, next) {
     try {
       const { key, value } = req.body;
@@ -227,6 +245,7 @@ class AdminController {
     } catch (error) { next(error); }
   }
 
+  // Provides a paginated history of administrative activity for auditing
   async getAuditLogs(req, res, next) {
     try {
       const { startDate, endDate, page, limit } = req.query;

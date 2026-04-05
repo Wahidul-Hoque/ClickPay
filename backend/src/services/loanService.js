@@ -3,6 +3,7 @@ import { comparePassword } from '../middleware/auth.js';
 import { logEvent, recordFailure } from './dbHelpers.js';
 
 class LoanService {
+  // Calculates user loan eligibility and maximum borrowing limit based on historical transaction inflows
   async getLoanEligibility(userId) {
     const inflowQuery = `
       SELECT COALESCE(SUM(amount), 0) as total_inflow
@@ -30,6 +31,7 @@ class LoanService {
     return { totalInflow, limit };
   }
 
+  // Submits a new loan application for a user after validating requested amount against their calculated limit
   async applyForLoan(userId, amount) {
     // Note: Duplicate checking is now handled automatically by the trg_validate_loan_application trigger
     const { limit } = await this.getLoanEligibility(userId);
@@ -46,13 +48,13 @@ class LoanService {
     return res.rows[0];
   }
 
+  // Processes a manual loan repayment by transferring principal and interest from user to system wallets
   async repayLoan(userId, loanId) {
     const client = await getClient();
     let transactionId = null;
     try {
       await client.query('BEGIN');
 
-      // 1. Get Loan and interest details
       const loanRes = await client.query(`SELECT * FROM loans WHERE loan_id = $1 AND user_id = $2 AND status != 'repaid' FOR UPDATE`, [loanId, userId]);
       if (loanRes.rows.length === 0) throw new Error("Loan not found or already repaid.");
 
@@ -61,11 +63,9 @@ class LoanService {
       const interest = principal * parseFloat(loan.interest_rate);
       const totalToPay = principal + interest;
 
-      // 2. Validate User Balance
       const userWalletRes = await client.query(`SELECT wallet_id, balance FROM wallets WHERE user_id = $1 AND wallet_type = 'user' FOR UPDATE`, [userId]);
       if (parseFloat(userWalletRes.rows[0].balance) < totalToPay) throw new Error("Insufficient balance.");
 
-      // 3. Transactions: User -> System wallets
       // Transaction for Principal
       const t1 = await client.query(
         `INSERT INTO transactions (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
@@ -84,12 +84,10 @@ class LoanService {
         [userWalletRes.rows[0].wallet_id, interest, `Interest for Loan #${loanId}`]
       );
 
-      // 4. Update All Balances
       await client.query(`UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2`, [totalToPay, userWalletRes.rows[0].wallet_id]);
       await client.query(`UPDATE wallets SET balance = balance + $1 WHERE wallet_type = 'system' AND system_purpose = 'loan'`, [principal]);
       await client.query(`UPDATE wallets SET balance = balance + $1 WHERE wallet_type = 'system' AND system_purpose = 'profit'`, [interest]);
 
-      // 5. Close Loan Record
       await client.query(`UPDATE loans SET status = 'repaid', repayment_transaction_id = $1 WHERE loan_id = $2`, [transactionId, loanId]);
       await client.query(`UPDATE transactions SET status = 'completed' WHERE transaction_id = $1`, [transactionId]);
 
@@ -106,6 +104,7 @@ class LoanService {
     }
   }
 
+  // Aggregates current active loan status, application history, and eligibility for a specific user
   async getLoanData(userId) {
     const active = await query(`SELECT * FROM loans WHERE user_id = $1 AND status IN ('active', 'overdue', 'defaulted') LIMIT 1`, [userId]);
     const latestApp = await query(`SELECT * FROM loan_applications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`, [userId]);
@@ -122,6 +121,7 @@ class LoanService {
     return { activeLoan: active.rows[0], latestApplication: latestApp.rows[0], history: history.rows, ...eligibility };
   }
 
+  // Retrieves a filtered list of all loan applications for administrative review
   async getAllApplications(status = 'submitted', limit = null) {
     let sql = `
       SELECT la.*, u.name, u.phone 
@@ -142,13 +142,13 @@ class LoanService {
     return res.rows;
   }
 
+  // Approves a loan application, disburses funds from the system to the user, and creates a formal loan record
   async approveLoan(adminId, applicationId) {
     const client = await getClient();
     let transactionId = null;
     try {
       await client.query('BEGIN');
 
-      // 1. Get Application
       const appRes = await client.query(
         `SELECT * FROM loan_applications WHERE application_id = $1 AND decision_status = 'submitted' FOR UPDATE`,
         [applicationId]
@@ -156,7 +156,6 @@ class LoanService {
       if (appRes.rows.length === 0) throw new Error("Application not found or already processed.");
       const app = appRes.rows[0];
 
-      // 2. Check System Loan Wallet Balance
       const sysWalletRes = await client.query(
         `SELECT wallet_id, balance FROM wallets WHERE wallet_type = 'system' AND system_purpose = 'loan' FOR UPDATE`
       );
@@ -167,13 +166,11 @@ class LoanService {
         throw new Error("Insufficient balance in system loan wallet.");
       }
 
-      // 3. Update Application Status
       await client.query(
         `UPDATE loan_applications SET decision_status = 'approved' WHERE application_id = $1`,
         [applicationId]
       );
 
-      // 4. Create Disbursement Transaction
       const transRes = await client.query(
         `INSERT INTO transactions (from_wallet_id, to_wallet_id, amount, transaction_type, status, reference)
          VALUES ($1, (SELECT wallet_id FROM wallets WHERE user_id = $2 AND wallet_type = 'user'), $3, 'loan_disbursement', 'initiated', $4)
@@ -184,14 +181,12 @@ class LoanService {
 
       await logEvent(client, transactionId, 'initiated', 'info', `Loan disbursement of ৳${app.requested_amount} initiated`);
 
-      // 5. Update Wallets (System - , User +)
       await client.query(`UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2`, [app.requested_amount, sysWallet.wallet_id]);
       await client.query(
         `UPDATE wallets SET balance = balance + $1 WHERE user_id = $2 AND wallet_type = 'user'`,
         [app.requested_amount, app.user_id]
       );
 
-      // 6. Create Loan Record
       const loanRes = await client.query(
         `INSERT INTO loans (application_id, user_id, principal_amount, interest_rate, disbursed_at, due_at, disbursement_transaction_id, status)
          VALUES ($1, $2, $3, $4, NOW(), NOW() + interval '30 days', $5, 'active') returning loan_id`,
@@ -202,7 +197,6 @@ class LoanService {
       await client.query(`UPDATE transactions SET status = 'completed' WHERE transaction_id = $1`, [transactionId]);
       await logEvent(client, transactionId, 'completed', 'success', `Loan disbursement completed. Loan ID: ${loanId}`);
 
-      // 7. Log Admin Activity
       await client.query(
         `CALL p_log_admin_activity($1, 'loan_approve', $2, $3)`,
         [adminId, loanId.toString(), `Admin #${adminId} approved Loan Application #${applicationId}. Created Loan ID: ${loanId}. Amount: ৳${app.requested_amount}`]
@@ -219,12 +213,12 @@ class LoanService {
     }
   }
 
+  // Rejects a pending loan application and logs the administrative decision
   async rejectLoan(adminId, applicationId) {
     const client = await getClient();
     try {
       await client.query('BEGIN');
 
-      // 1. Update Application Status (and verify it exists/is still 'submitted')
       const res = await client.query(
         `UPDATE loan_applications 
          SET decision_status = 'rejected' 
@@ -238,7 +232,6 @@ class LoanService {
       }
       const app = res.rows[0];
 
-      // 2. Log Admin Activity
       await client.query(
         `CALL p_log_admin_activity($1, 'loan_reject', $2, $3)`,
         [
@@ -258,6 +251,7 @@ class LoanService {
     }
   }
 
+  // Returns a detailed list of all existing loans with associated user information
   async getAllLoansDetailed() {
     const res = await query(`
       SELECT l.*, u.name as user_name, u.phone as user_phone
@@ -268,6 +262,7 @@ class LoanService {
     return res.rows;
   }
 
+  // Scans for overdue loans and automatically triggers default status or auto-deduction if funds are available
   async processLoanDefaults() {
     console.log('[LoanScheduler] Starting Loan Default Check...');
     const overdueLoans = await query(

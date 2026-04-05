@@ -1,10 +1,4 @@
-// ==============================================
-// ERROR HANDLING MIDDLEWARE
-// ==============================================
 
-// ==============================================
-// GLOBAL ERROR HANDLER
-// ==============================================
 export const errorHandler = (err, req, res, next) => {
   console.error('Error:', err.stack);
 
@@ -40,9 +34,7 @@ export const errorHandler = (err, req, res, next) => {
   });
 };
 
-// ==============================================
-// 404 HANDLER - Route Not Found
-// ==============================================
+
 export const notFound = (req, res) => {
   res.status(404).json({
     success: false,
