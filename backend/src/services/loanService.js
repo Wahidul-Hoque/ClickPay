@@ -292,7 +292,7 @@ class LoanService {
 
         // Update status to defaulted anyway
         await client.query(`UPDATE loans SET status = 'defaulted' WHERE loan_id = $1`, [loan.loan_id]);
-
+        await client.query(`call p_send_notification($1, $2)`, [loan.user_id, `Your loan #${loan.loan_id} has defaulted due to non-payment. Please contact support.`]);
         if (currentBalance >= totalToPay) {
           // Auto deduct
           // Transaction for Principal

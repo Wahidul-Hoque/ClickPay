@@ -1,23 +1,4 @@
--- ================================================================
--- REFACTORED DATABASE LOGIC
--- ================================================================
--- This file contains 15 new database objects extracted from
--- repetitive application-level code across the ClickPay backend.
---
--- Safe to run multiple times (uses CREATE OR REPLACE / DROP IF EXISTS).
--- Run AFTER schema_postgresql.sql and database_logic.sql.
--- ================================================================
-
-
--- ==========================================
--- 1. FUNCTIONS (5)
--- ==========================================
-
--- ──────────────────────────────────────────
--- Function 1: fn_get_epin_hash
--- Consolidates the ePin lookup + user existence check
--- repeated in 8+ methods across 4 service files.
--- ──────────────────────────────────────────
+--1
 CREATE OR REPLACE FUNCTION fn_get_epin_hash(p_user_id BIGINT)
 RETURNS VARCHAR AS $$
 DECLARE
@@ -36,12 +17,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- ──────────────────────────────────────────
--- Function 2: fn_get_system_setting
--- Consolidates the system_settings lookup + fallback default
--- repeated 7 times across transactionService, loanService,
--- savingsService, etc.
--- ──────────────────────────────────────────
+--2
 CREATE OR REPLACE FUNCTION fn_get_system_setting(
     p_key VARCHAR,
     p_default NUMERIC DEFAULT 0
@@ -59,12 +35,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- ──────────────────────────────────────────
--- Function 3: fn_get_active_wallet
--- Consolidates the wallet lookup + active status validation
--- repeated in 8+ transactional methods.
--- Returns wallet_id, balance, status for an active wallet.
--- ──────────────────────────────────────────
+--3
 CREATE OR REPLACE FUNCTION fn_get_active_wallet(
     p_user_id BIGINT,
     p_wallet_type VARCHAR
@@ -85,11 +56,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- ──────────────────────────────────────────
--- Function 4: fn_is_duplicate_transaction
--- Consolidates the 30-second duplicate transaction guard
--- used in sendMoney() and cashIn().
--- ──────────────────────────────────────────
+--4
 CREATE OR REPLACE FUNCTION fn_is_duplicate_transaction(
     p_from_wallet BIGINT,
     p_to_wallet BIGINT,
@@ -110,11 +77,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- ──────────────────────────────────────────
--- Function 5: fn_get_receiver_wallet_by_phone
--- Consolidates the phone-to-wallet lookup (JOIN users + wallets)
--- repeated in 5 peer-to-peer transaction methods.
--- ──────────────────────────────────────────
+--5
 CREATE OR REPLACE FUNCTION fn_get_receiver_wallet_by_phone(p_phone VARCHAR)
 RETURNS TABLE(wallet_id BIGINT, user_id BIGINT, status VARCHAR, user_name VARCHAR) AS $$
 BEGIN
@@ -133,15 +96,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- ==========================================
--- 2. PROCEDURES (5)
--- ==========================================
 
--- ──────────────────────────────────────────
--- Procedure 1: p_log_admin_activity
--- Consolidates the admin_activity_logs INSERT
--- repeated in 9 places across 4 service files.
--- ──────────────────────────────────────────
+--1
 CREATE OR REPLACE PROCEDURE p_log_admin_activity(
     p_admin_id BIGINT,
     p_action_type VARCHAR,
@@ -156,12 +112,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- ──────────────────────────────────────────
--- Procedure 2: p_record_transaction_failure
--- Consolidates the recordFailure() helper function that was
--- identically copy-pasted in transactionService, billService,
--- and loanService (3 copies of 20 lines each).
--- ──────────────────────────────────────────
+--2 
 CREATE OR REPLACE PROCEDURE p_record_transaction_failure(
     p_transaction_id BIGINT,
     p_error_message TEXT
@@ -182,12 +133,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- ──────────────────────────────────────────
--- Procedure 3: p_debit_credit_wallets
--- Consolidates the debit-from-sender / credit-to-receiver
--- wallet update pair repeated in 9+ methods across
--- transactionService, loanService, savingsService, agentService.
--- ──────────────────────────────────────────
+--3
 CREATE OR REPLACE PROCEDURE p_debit_credit_wallets(
     p_from_wallet_id BIGINT,
     p_to_wallet_id BIGINT,
@@ -205,12 +151,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- ──────────────────────────────────────────
--- Procedure 4: p_send_notification
--- Consolidates the INSERT INTO notifications pattern
--- scattered across 6 places in transactionService,
--- fraudDetectionService, and notificationService.
--- ──────────────────────────────────────────
+--4
 CREATE OR REPLACE PROCEDURE p_send_notification(
     p_user_id BIGINT,
     p_message VARCHAR(500)
@@ -222,14 +163,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
--- ──────────────────────────────────────────
--- Procedure 5: p_set_user_account_status
--- Consolidates the freeze/unfreeze user + all wallets pattern
--- repeated in adminService, fraudDetectionService, loanService.
--- (Enhances the existing p_freeze_user_account to support both
--- freeze and activate operations via a status parameter.)
--- ──────────────────────────────────────────
+--5
 CREATE OR REPLACE PROCEDURE p_set_user_account_status(
     p_user_id BIGINT,
     p_status VARCHAR  -- 'active' or 'frozen'
@@ -246,16 +180,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- ==========================================
--- 3. TRIGGERS (5)
--- ==========================================
-
--- ──────────────────────────────────────────
--- Trigger 1: Notify Users on Transaction Reversal
--- Automatically sends notifications to both parties
--- when a transaction status changes to 'reversed'.
--- Replaces manual notification inserts in reverseTransaction().
--- ──────────────────────────────────────────
+--1
 CREATE OR REPLACE FUNCTION fn_notify_on_reversal()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -290,12 +215,7 @@ WHEN (NEW.status = 'reversed')
 EXECUTE FUNCTION fn_notify_on_reversal();
 
 
--- ──────────────────────────────────────────
--- Trigger 2: Auto-Freeze Wallet on Loan Default
--- When a loan status changes to 'defaulted', automatically
--- freezes the user's wallet. Replaces manual freeze in
--- processLoanDefaults().
--- ──────────────────────────────────────────
+
 CREATE OR REPLACE FUNCTION fn_freeze_wallet_on_loan_default()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -315,12 +235,9 @@ WHEN (NEW.status = 'defaulted')
 EXECUTE FUNCTION fn_freeze_wallet_on_loan_default();
 
 
--- ──────────────────────────────────────────
--- Trigger 3: Auto-Log Admin Activity on Fraud Alert Resolution
--- When a fraud alert is resolved (frozen/dismissed), automatically
--- inserts an admin activity log. Replaces the identical logging
--- done manually in both freeze and dismiss branches of resolveAlert().
--- ──────────────────────────────────────────
+
+--3
+
 CREATE OR REPLACE FUNCTION fn_log_fraud_resolution()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -349,12 +266,7 @@ FOR EACH ROW
 EXECUTE FUNCTION fn_log_fraud_resolution();
 
 
--- ──────────────────────────────────────────
--- Trigger 4: Prevent Duplicate Loan Applications
--- Rejects INSERT into loan_applications if the user already
--- has an active/overdue loan or a pending application.
--- Replaces manual check in applyForLoan().
--- ──────────────────────────────────────────
+
 CREATE OR REPLACE FUNCTION fn_validate_loan_application()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -387,12 +299,7 @@ FOR EACH ROW
 EXECUTE FUNCTION fn_validate_loan_application();
 
 
--- ──────────────────────────────────────────
--- Trigger 5: Prevent Duplicate Active Savings Accounts
--- Rejects INSERT into fixed_savings_accounts if the user
--- already has an active savings account.
--- Replaces manual check in createSavingsAccount().
--- ──────────────────────────────────────────
+--5
 CREATE OR REPLACE FUNCTION fn_prevent_duplicate_savings()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -414,9 +321,3 @@ FOR EACH ROW
 EXECUTE FUNCTION fn_prevent_duplicate_savings();
 
 
--- ================================================================
--- END OF REFACTORED LOGIC
--- ================================================================
--- To execute: psql -U your_user -d your_db -f refactored_logic.sql
--- Or paste the contents into your Supabase SQL Editor.
--- ================================================================
