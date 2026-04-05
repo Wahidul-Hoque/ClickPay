@@ -82,7 +82,7 @@ export const authorize = (...roles) => {
   return (req, res, next) => {
     console.log(`[AUTH] Checking roles for user ${req.user.userId}: ${req.user.role} vs required: ${roles}`);
     if (!roles.includes(req.user.role)) {
-      console.warn(`[AUTH] DENIED: User ${req.user.userId} has role ${req.user.role}`);
+      console.warn(`[AUTH] DENIED: User ${req.user.userId} has role ${req.user.role}`);     
       return res.status(403).json({
         success: false,
         message: `Access denied. Only ${roles.join(', ')} can access this route.`

@@ -166,7 +166,7 @@ $$ LANGUAGE plpgsql;
 --5
 CREATE OR REPLACE PROCEDURE p_set_user_account_status(
     p_user_id BIGINT,
-    p_status VARCHAR  -- 'active' or 'frozen'
+    p_status VARCHAR  
 )
 AS $$
 BEGIN

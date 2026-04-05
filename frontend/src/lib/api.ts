@@ -11,7 +11,7 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor to add token
+
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -25,12 +25,12 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor for error handling
+
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid
+    if (error.response?.status === 401 || error.response?.status === 403) {
+
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/auth/login';
@@ -41,7 +41,7 @@ apiClient.interceptors.response.use(
 
 export default apiClient;
 
-// API methods
+
 export const authAPI = {
   register: (data: any) => apiClient.post('/auth/register', data),
   login: (data: any) => apiClient.post('/auth/login', data),
