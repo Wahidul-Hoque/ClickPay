@@ -66,7 +66,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'Cash Out', href: '/dashboard/cashout', icon: Download },
     { name: 'Transactions', href: '/dashboard/transactions', icon: FileText },
     { name: 'Notifications', href: '/dashboard/notifications', icon: Bell },
-    //{ name: 'QR Code', href: '/dashboard/qr', icon: QrCode },
     { name: 'Bills', href: '/dashboard/bills', icon: CreditCard },
     { name: 'Loans', href: '/dashboard/loans', icon: Download },
     { name: 'Savings', href: '/dashboard/savings', icon: TrendingUp },

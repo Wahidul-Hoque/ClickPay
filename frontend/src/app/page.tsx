@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Wallet, Send, QrCode, CreditCard, TrendingUp, Shield } from 'lucide-react';
+import { Wallet, Send, HandCoins, CreditCard, TrendingUp, Shield } from 'lucide-react';
 
 export default function Home() {
   return (
@@ -64,11 +64,6 @@ export default function Home() {
             description="Send and receive money instantly to anyone with a ClickPay account"
           />
           <FeatureCard
-            icon={<QrCode className="w-12 h-12 text-primary-600" />}
-            title="QR Payments"
-            description="Pay merchants and friends by simply scanning a QR code"
-          />
-          <FeatureCard
             icon={<CreditCard className="w-12 h-12 text-primary-600" />}
             title="Bill Payments"
             description="Pay your utility bills, mobile recharge, and more in seconds"
@@ -88,6 +83,11 @@ export default function Home() {
             title="Multi-Role Support"
             description="User, Agent, and Merchant accounts all in one platform"
           />
+          <FeatureCard
+            icon={<HandCoins className="w-12 h-12 text-primary-600" />}
+            title="Add & Request Money"
+            description="Add money from bank account or cards and request money from friends"
+          />
         </div>
       </section>
 
@@ -106,7 +106,7 @@ export default function Home() {
       <footer className="bg-gray-900 text-white py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-gray-400">
-            © 2024 ClickPay. A DBMS Project by Wahidul Haque & Abu Bakar Siddique
+            © 2026 ClickPay. A DBMS Project by Wahidul Hoque & Abu Bakar Siddique
           </p>
         </div>
       </footer>
