@@ -47,6 +47,7 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { adminApi } from '@/lib/api';
 
 
+
 function useOnClickOutside(ref: any, handler: any) {
   useEffect(() => {
     const listener = (event: any) => {
@@ -76,7 +77,7 @@ const RECON_PERIODS = [
     { key: 'day', label: 'This Day' },
     { key: 'month', label: 'This Month' },
 ] as const;
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL 
 const LoanSummaryWidget = () => {
     const [apps, setApps] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -483,7 +484,7 @@ export default function AdminDashboard() {
                 }
                 const headers = { Authorization: `Bearer ${token}` };
 
-                let dashUrl = `http://localhost:5000/api/v1/admin/dashboard?city=${selectedCity}`;
+                let dashUrl = `${API_BASE}/admin/dashboard?city=${selectedCity}`;
                 if (startDate) dashUrl += `&startDate=${startDate}`;
                 if (endDate) dashUrl += `&endDate=${endDate}`;
 
@@ -496,7 +497,7 @@ export default function AdminDashboard() {
                     setAudit(dashboardData.data.audit);
                 }
 
-                const citiesRes = await fetch('http://localhost:5000/api/v1/admin/cities', { headers });
+                const citiesRes = await fetch(`${API_BASE}/admin/cities`, { headers });
                 const citiesJson = await citiesRes.json();
                 if (citiesJson.success) {
                     setCities(citiesJson.data);
@@ -521,7 +522,7 @@ export default function AdminDashboard() {
                 if (!token) return;
                 const headers = { Authorization: `Bearer ${token}` };
 
-                let trendUrl = `http://localhost:5000/api/v1/admin/dashboard/trend?city=${trendCity}`;
+                let trendUrl = `${API_BASE}/admin/dashboard/trend?city=${trendCity}`;
                 if (trendStartDate) trendUrl += `&startDate=${trendStartDate}`;
                 if (trendEndDate) trendUrl += `&endDate=${trendEndDate}`;
 
@@ -550,7 +551,7 @@ export default function AdminDashboard() {
                 if (!token) return;
                 const headers = { Authorization: `Bearer ${token}` };
 
-                let segUrl = `http://localhost:5000/api/v1/admin/dashboard/segmentation?city=${segCity}`;
+                let segUrl = `${API_BASE}/admin/dashboard/segmentation?city=${segCity}`;
                 if (segStartDate) segUrl += `&startDate=${segStartDate}`;
                 if (segEndDate) segUrl += `&endDate=${segEndDate}`;
 
@@ -574,7 +575,7 @@ export default function AdminDashboard() {
                 if (!token) return;
                 const headers = { Authorization: `Bearer ${token}` };
                 
-                const url = `http://localhost:5000/api/v1/admin/users${userSearch ? `?search=${userSearch}` : ''}`;
+                const url = `${API_BASE}/admin/users${userSearch ? `?search=${userSearch}` : ''}`;
                 const usersRes = await fetch(url, { headers });
                 const usersJson = await usersRes.json();
                 if (usersJson.success) {
@@ -598,10 +599,10 @@ export default function AdminDashboard() {
                 if (!token) return;
                 const headers = { Authorization: `Bearer ${token}` };
 
-                const alertsUrl = `http://localhost:5000/api/v1/admin/fraud/alerts${fraudFilter ? `?status=${fraudFilter}` : ''}`;
+                const alertsUrl = `${API_BASE}/admin/fraud/alerts${fraudFilter ? `?status=${fraudFilter}` : ''}`;
                 const [alertsRes, statsRes] = await Promise.all([
                     fetch(alertsUrl, { headers }),
-                    fetch('http://localhost:5000/api/v1/admin/fraud/stats', { headers })
+                    fetch(`${API_BASE}/admin/fraud/stats`, { headers })
                 ]);
                 const alertsData = await alertsRes.json();
                 const statsData = await statsRes.json();
@@ -629,7 +630,7 @@ export default function AdminDashboard() {
         try {
             setNotifySending(true);
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:5000/api/v1/admin/notifications/send`, {
+            const res = await fetch(`${API_BASE}/admin/notifications/send`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -694,7 +695,7 @@ export default function AdminDashboard() {
         try {
             setFraudResolving(alertId);
             const token = localStorage.getItem('token');
-            const res = await fetch(`http://localhost:5000/api/v1/admin/fraud/alerts/${alertId}/resolve`, {
+            const res = await fetch(`${API_BASE}/admin/fraud/alerts/${alertId}/resolve`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -706,7 +707,7 @@ export default function AdminDashboard() {
             if (data.success) {
                 toast.success(data.message);
                 setFraudAlerts(prev => prev.map(a => a.alert_id === alertId ? { ...a, alert_status: action === 'freeze' ? 'frozen' : 'dismissed' } : a));
-                const statsRes = await fetch('http://localhost:5000/api/v1/admin/fraud/stats', {
+                const statsRes = await fetch(`${API_BASE}/admin/fraud/stats`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const statsData = await statsRes.json();
@@ -745,7 +746,7 @@ export default function AdminDashboard() {
 
     const executeToggleStatus = async (id: number, action: 'freeze' | 'unfreeze') => {
         try {
-            const res = await fetch(`http://localhost:5000/api/v1/admin/users/${id}/status`, {
+            const res = await fetch(`${API_BASE}/admin/users/${id}/status`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
