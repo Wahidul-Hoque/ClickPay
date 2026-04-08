@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+
 import loanService from '../services/loanService.js';
 
 const checkLoanDueDates = async () => {
@@ -10,8 +10,7 @@ const checkLoanDueDates = async () => {
     }
 };
 
-// Run every day at 00:00 (Midnight)
-cron.schedule('0 0 * * *', checkLoanDueDates);
+
 
 
 

@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+
 import savingsService from '../services/savingsService.js';
 import { query } from '../config/database.js';
 
@@ -30,7 +30,6 @@ const checkMaturedSavings = async () => {
   }
 };
 
-// Run every day at 00:00 (Midnight)
-cron.schedule('0 0 * * *', checkMaturedSavings);
+
 
 export default checkMaturedSavings;

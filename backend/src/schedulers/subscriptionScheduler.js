@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+
 import { query, getClient } from '../config/database.js';
 
 // Internal helper to match your Service pattern
@@ -96,5 +96,4 @@ const processSubscriptions = async () => {
   }
 };
 
-cron.schedule('0 0 * * *', processSubscriptions);
 export { processSubscriptions };

@@ -4,10 +4,10 @@
 import './config/env.js';
 import express from 'express';
 import cors from 'cors';
-import cron from 'node-cron';
 import subscriptionService from './services/subscriptionService.js';
-import './schedulers/subscriptionScheduler.js'; // Import the scheduler to start it
-import './schedulers/loanScheduler.js'; // Import the loan scheduler
+import { processSubscriptions } from './schedulers/subscriptionScheduler.js';
+import checkLoanDueDates from './schedulers/loanScheduler.js';
+import checkMaturedSavings from './schedulers/savingsScheduler.js';
 
 // Import middleware
 import { errorHandler, notFound } from './middleware/errorHandler.js';
@@ -61,6 +61,26 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
   });
+});
+
+app.get('/api/v1/run-nightly', async (req, res) => {
+  try {
+    await processSubscriptions();
+    await checkLoanDueDates();
+    await checkMaturedSavings();
+
+    return res.json({
+      success: true,
+      message: 'All nightly schedulers executed'
+    });
+  } catch (error) {
+    console.error('Nightly schedulers failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Nightly schedulers failed',
+      error: error.message
+    });
+  }
 });
 
 // ==============================================
@@ -124,10 +144,6 @@ app.use(errorHandler);
 
 // ... existing middleware and routes ...
 
-// SCHEDULED TASKS
-cron.schedule('0 0 * * *', () => {
-  subscriptionService.processDailyBilling();
-});
 
 // ==============================================
 // START SERVER
