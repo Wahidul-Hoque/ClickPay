@@ -150,9 +150,3 @@ cp .env.example .env.local
 # Map primary API socket to the backend origin
 npm run dev
 ```
-
----
-
-## 📜 Legal & Licensing
-Provided exclusively for academic and educational evaluation. 
-*Designed as a highly-available representation of standard enterprise DBMS configurations and fault-tolerant financial routing.*
